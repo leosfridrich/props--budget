@@ -12,29 +12,33 @@ module.exports = async function handler(req, res) {
   if (!apiKey) return res.status(400).json({ error: { message: 'Missing API key' } });
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 55000);
+    // Race: celá operace (fetch + čtení těla) musí skončit do 52s
+    const result = await Promise.race([
+      (async () => {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': req.headers['anthropic-version'] || '2023-06-01',
+            ...(req.headers['anthropic-beta'] ? { 'anthropic-beta': req.headers['anthropic-beta'] } : {}),
+          },
+          body: JSON.stringify(req.body),
+        });
+        const data = await response.json();
+        return { status: response.status, data };
+      })(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT')), 52000)
+      )
+    ]);
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': req.headers['anthropic-version'] || '2023-06-01',
-        ...(req.headers['anthropic-beta'] ? { 'anthropic-beta': req.headers['anthropic-beta'] } : {}),
-      },
-      body: JSON.stringify(req.body),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-    const data = await response.json();
-    return res.status(response.status).json(data);
+    return res.status(result.status).json(result.data);
 
   } catch (err) {
-    const isTimeout = err.name === 'AbortError';
+    const isTimeout = err.message === 'TIMEOUT';
     return res.status(504).json({
-      error: { message: isTimeout ? 'Timeout 55s — zkus znovu.' : err.message }
+      error: { message: isTimeout ? 'Timeout 52s — zkus znovu.' : err.message }
     });
   }
 };

@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.4</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -845,7 +845,7 @@
 
     <div class="form-group">
       <label>Název projektu / Klient</label>
-      <input type="text" id="projectName" placeholder="napr. Samsung Q7, Miu Miu SS25…" />
+      <input type="text" id="projectName" placeholder="" />
     </div>
 
     <div class="grid-2">
@@ -1692,59 +1692,37 @@
     textEl.textContent = 'Analyzuji script…';
     textEl.style.color = 'var(--muted)';
 
-    // ── Upload files via Files API, get file_ids ──
-    const contentParts = [];
-    console.log('[analysis] uploadedFiles:', uploadedFiles.length);
-    for (let i = 0; i < uploadedFiles.length; i++) {
-      const file = uploadedFiles[i];
-      console.log(`[analysis] uploading file ${i+1}: ${file.name} (${file.type}, ${(file.size/1024).toFixed(0)} KB)`);
-      if (progressEta) progressEta.textContent = `Nahrávám soubor ${i + 1}/${uploadedFiles.length}…`;
-      const formData = new FormData();
-      formData.append('file', file, file.name);
-      const uploadResp = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: formData,
-        signal: _analysisAbort.signal,
-      });
-      const uploadData = await uploadResp.json();
-      console.log(`[analysis] upload response ${uploadResp.status}:`, JSON.stringify(uploadData).substring(0, 200));
-      if (!uploadResp.ok) throw new Error(uploadData.error?.message || `Upload selhal (${uploadResp.status})`);
-      const typ = file.type === 'application/pdf' ? 'document' : 'image';
-      contentParts.push({ type: typ, source: { type: 'file', file_id: uploadData.id } });
-    }
-    console.log('[analysis] contentParts built:', contentParts.length, '— sending to /api/chat');
+    const shootDays = parseInt(document.getElementById('shootDays').value) || 0;
 
-    const shootDays = parseInt(document.getElementById('shootDays').value) || 2;
-
-    // Build prompt as plain string (no nested template literals)
-    const projectLine   = 'Projekt: ' + (projectName || '(nezadáno)');
-    const shootLine     = 'Shoot dny: ' + shootDays;
-    const descLine      = desc ? 'Popis / script / treatment:\n' + desc : '';
-    const jsonExample   = '{"sets":[{"name":"Obývací pokoj","type":"reálná lokace","note":"moderní interiér, velká okna"},{"name":"Kuchyně","type":"reálná lokace","note":"vaření na plynu"}],"hero_props":["čisticí sprej","varná deska"],"notes":"žádné speciální požadavky"}';
-
+    const projectLine = 'Projekt: ' + (projectName || '(nezadáno)');
+    const shootLine   = 'Shoot dny: ' + shootDays;
+    const descLine    = desc ? 'Popis / script / treatment:\n' + desc : '';
+    const jsonExample = '{"sets":[{"name":"Obývací pokoj","type":"reálná lokace","note":"moderní interiér, velká okna"},{"name":"Kuchyně","type":"reálná lokace","note":"vaření na plynu"}],"hero_props":["čisticí sprej","varná deska"],"notes":"žádné speciální požadavky"}';
     const promptText = [
       'Jsi expert na filmovou rekvizitní výpravu.',
       'Přečti podklady a identifikuj všechny SETY / PROSTŘEDÍ kde se bude točit.',
       '',
-      projectLine,
-      shootLine,
-      descLine,
+      projectLine, shootLine, descLine,
       '',
       'Pro každý set urči:',
-      '- name: konkrétní název (Obývací pokoj, Kuchyně moderní, Metro Anděl, Space station lab...)',
+      '- name: konkrétní název (Obývací pokoj, Kuchyně moderní, Metro Anděl...)',
       '- type: PŘESNĚ jedna z hodnot: atelier NEBO realna_lokace NEBO exteriér NEBO zahranicí',
       '- note: 1 věta co je vidět / co je potřeba zařídit',
       '',
       'Také vypiš:',
       '- hero_props: max 8 klíčových rekvizit nebo speciálních výrob ze scriptu',
-      '- notes: důležité poznámky pro rozpočet (zahraničí, velká výroba, kompars...) nebo null',
+      '- notes: důležité poznámky pro rozpočet nebo null',
       '',
       'Odpověz POUZE validním JSON objektem, bez jakéhokoliv dalšího textu. Příklad:',
       jsonExample
-    ].filter(l => l !== null).join('\n');
+    ].filter(Boolean).join('\n');
 
-    contentParts.push({ type: 'text', text: promptText });
+    // Build FormData — soubory + prompt jdou na /api/analyze (base64 na serveru)
+    const formData = new FormData();
+    formData.append('prompt', promptText);
+    for (const file of uploadedFiles) {
+      formData.append('file', file, file.name);
+    }
 
     _analysisAbort = new AbortController();
     const analysisAbort = _analysisAbort;
@@ -1752,44 +1730,15 @@
     try {
       if (progressEta) progressEta.textContent = 'odesílám…';
 
-      const _analysisBody = JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: contentParts }]
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey },
+        body: formData,
+        signal: analysisAbort.signal,
       });
 
-      const data = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/chat');
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('x-api-key', apiKey);
-        xhr.setRequestHeader('anthropic-version', '2023-06-01');
-        xhr.setRequestHeader('anthropic-beta', 'files-api-2025-04-14,pdfs-2024-09-25');
-        xhr.timeout = 45000;
-
-        analysisAbort.signal.addEventListener('abort', () => { xhr.abort(); });
-
-        xhr.onload = () => {
-          console.log('[analysis] xhr status:', xhr.status, 'response preview:', xhr.responseText.substring(0, 200));
-          try {
-            const json = JSON.parse(xhr.responseText);
-            if (xhr.status === 529 || xhr.status === 503) {
-              reject(new Error('API přetíženo. Zkus znovu.'));
-            } else if (xhr.status !== 200) {
-              reject(new Error(json.error?.message || `API chyba ${xhr.status}`));
-            } else {
-              resolve(json);
-            }
-          } catch(e) {
-            const preview = xhr.responseText ? xhr.responseText.substring(0, 120).replace(/<[^>]+>/g, '').trim() : '(prázdná odpověď)';
-            reject(new Error(`HTTP ${xhr.status} — nečekaná odpověď: ${preview}`));
-          }
-        };
-        xhr.ontimeout = () => reject(new Error('Timeout 45s — zkus znovu.'));
-        xhr.onerror  = () => reject(new Error('Síťová chyba.'));
-        xhr.onabort  = () => reject(new DOMException('Aborted', 'AbortError'));
-        xhr.send(_analysisBody);
-      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || `API chyba ${response.status}`);
 
       clearInterval(_analysisStepInterval); _analysisStepInterval = null;
 

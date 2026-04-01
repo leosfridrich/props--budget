@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.9</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.0</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -838,7 +838,11 @@
     <div class="api-section">
       <label>Anthropic API Klíč</label>
       <input type="password" id="apiKey" placeholder="sk-ant-..." />
-      <p>Klíč se nikde neukládá — pouze v paměti stránky. Proxy: localhost:3131</p>
+      <p>Klíč se nikde neukládá — pouze v paměti stránky.</p>
+      <label style="margin-top:10px;display:block;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">Proxy URL (pro analýzu velkých souborů)</label>
+      <input type="text" id="proxyUrl" placeholder="https://xxx.workers.dev"
+             style="margin-top:4px;font-size:11px;" />
+      <p style="margin-top:4px;font-size:10px;color:var(--muted);line-height:1.5;">Cloudflare Worker — povinný pro soubory &gt; 3 MB. <a href="https://workers.cloudflare.com" target="_blank" style="color:var(--accent);text-decoration:none;">Jak nastavit →</a></p>
     </div>
 
     <div class="section-label">Projekt</div>
@@ -1760,11 +1764,12 @@
         messages: [{ role: 'user', content: contentParts }]
       });
 
-      // XHR na /api/chat — Safari-safe, limit 20MB nastaven na serveru
+      // XHR — použij Cloudflare Worker (pokud nastaven), jinak /api/chat
+      var proxyUrl = (document.getElementById('proxyUrl').value.trim() || '').replace(/\/$/, '') || '/api/chat';
       var data = await new Promise(function(resolve, reject) {
         var xhr = new XMLHttpRequest();
         _analysisAbort = { abort: function() { xhr.abort(); } };
-        xhr.open('POST', '/api/chat', true);
+        xhr.open('POST', proxyUrl, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('x-api-key', apiKey);
         xhr.setRequestHeader('anthropic-version', '2023-06-01');
@@ -2203,6 +2208,17 @@
   }
 
   // Init on load
+  // Načti uloženou proxy URL
+  (function() {
+    var saved = '';
+    try { saved = localStorage.getItem('propsBudget_proxyUrl') || ''; } catch(e) {}
+    var el = document.getElementById('proxyUrl');
+    if (el && saved) el.value = saved;
+    if (el) el.addEventListener('input', function() {
+      try { localStorage.setItem('propsBudget_proxyUrl', el.value.trim()); } catch(e) {}
+    });
+  })();
+
   document.addEventListener('DOMContentLoaded', () => {
     loadInstructions();
     renderLearnedList();

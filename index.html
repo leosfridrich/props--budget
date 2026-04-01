@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.0</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.1</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1638,7 +1638,7 @@
     const stepsEl = document.getElementById('thinkingSteps');
     thinkingBar.classList.add('visible');
     document.getElementById('thinkingLabel').innerHTML =
-      'Haiku 4.5 analyzuje script<span style="flex:1;height:1px;background:var(--border);display:inline-block;margin-left:10px;vertical-align:middle;"></span>';
+      'Haiku 3.5 analyzuje script<span style="flex:1;height:1px;background:var(--border);display:inline-block;margin-left:10px;vertical-align:middle;"></span>';
     const stopBtn = document.getElementById('stopAnalysisBtn');
     if (stopBtn) stopBtn.style.display = 'block';
 
@@ -1740,7 +1740,7 @@
       if (progressEta) progressEta.textContent = 'odesílám…';
 
       const _analysisBody = JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-haiku-3-5-20241022',
         max_tokens: 1000,
         messages: [{ role: 'user', content: contentParts }]
       });
@@ -2003,7 +2003,7 @@
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('budgetOutput').classList.remove('visible');
     document.getElementById('thinkingLabel').innerHTML =
-      'Haiku 4.5 generuje rozpočet<span style="flex:1;height:1px;background:var(--border);display:inline-block;margin-left:10px;vertical-align:middle;"></span>';
+      'Haiku 3.5 generuje rozpočet<span style="flex:1;height:1px;background:var(--border);display:inline-block;margin-left:10px;vertical-align:middle;"></span>';
 
     // Build steps
     steps.forEach((s, i) => {
@@ -2340,7 +2340,7 @@ Vrať POUZE JSON bez textu:
     messages.push({ role: 'user', content: contentParts });
 
     try {
-      const _body = JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 800, messages });
+      const _body = JSON.stringify({ model: 'claude-haiku-3-5-20241022', max_tokens: 800, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
       console.log('[Budget] Sending', _kb, 'KB');
@@ -2770,7 +2770,7 @@ Vrať POUZE JSON bez textu:
 
     try {
       const _revBody = JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-haiku-3-5-20241022',
         max_tokens: 800,
         messages: [{ role: 'user', content: prompt }]
       });

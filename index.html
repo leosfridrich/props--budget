@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v1.8</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v1.9</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -874,15 +874,15 @@
     <div class="grid-3">
       <div class="form-group">
         <label>Shoot dny</label>
-        <input type="number" id="shootDays" value="2" min="1" max="60" />
+        <input type="number" id="shootDays" value="0" min="0" max="60" />
       </div>
       <div class="form-group">
         <label>Prep dny</label>
-        <input type="number" id="prepDays" value="15" min="1" max="90" />
+        <input type="number" id="prepDays" value="0" min="0" max="90" />
       </div>
       <div class="form-group">
         <label>Wrap dny</label>
-        <input type="number" id="wrapDays" value="4" min="0" max="30" />
+        <input type="number" id="wrapDays" value="0" min="0" max="30" />
       </div>
     </div>
 
@@ -1141,6 +1141,12 @@
       </div>
 
       <div class="thinking-steps" id="thinkingSteps"></div>
+      <button id="stopAnalysisBtn" onclick="stopAnalysis()"
+        style="margin-top:14px; background:none; border:1px solid var(--danger); color:var(--danger);
+               font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+               padding:7px 16px; cursor:pointer; display:none;">
+        ✕ Zastavit analýzu
+      </button>
     </div>
 
     <!-- ANALYSIS PANEL — shown after script is parsed, before budget generation -->
@@ -1573,6 +1579,28 @@
   // ─── PARSE SETS FROM SCRIPT ───
   // ─── AUTO PARSE SETS ───
   let _parseDebounce = null;
+  let _analysisAbort = null;
+
+  function stopAnalysis() {
+    if (_analysisAbort) _analysisAbort.abort();
+    const thinkingBar = document.getElementById('thinkingBar');
+    if (thinkingBar) thinkingBar.classList.remove('visible');
+    const stopBtn = document.getElementById('stopAnalysisBtn');
+    if (stopBtn) stopBtn.style.display = 'none';
+    const statusEl = document.getElementById('setsStatus');
+    if (statusEl) statusEl.style.display = 'none';
+    const progressBar = document.getElementById('progressBar');
+    const progressPct = document.getElementById('progressPct');
+    const progressEta = document.getElementById('progressEta');
+    const shimmer = document.getElementById('progressShimmer');
+    if (progressBar) { progressBar.style.width = '0%'; }
+    if (progressPct) progressPct.textContent = '0%';
+    if (progressEta) progressEta.textContent = '';
+    if (shimmer) shimmer.style.display = 'none';
+    document.getElementById('emptyState').style.display = 'flex';
+    const genBtn = document.getElementById('generateBtn');
+    if (genBtn) { genBtn.disabled = false; genBtn.style.opacity = '1'; }
+  }
 
   function triggerParseSets(delay = 800) {
     clearTimeout(_parseDebounce);
@@ -1611,6 +1639,8 @@
     thinkingBar.classList.add('visible');
     document.getElementById('thinkingLabel').innerHTML =
       'Haiku 4.5 analyzuje script<span style="flex:1;height:1px;background:var(--border);display:inline-block;margin-left:10px;vertical-align:middle;"></span>';
+    const stopBtn = document.getElementById('stopAnalysisBtn');
+    if (stopBtn) stopBtn.style.display = 'block';
 
     const analysisSteps = [
       'Načítám soubory…',
@@ -1703,7 +1733,8 @@
 
     contentParts.push({ type: 'text', text: promptText });
 
-    const analysisAbort = new AbortController();
+    _analysisAbort = new AbortController();
+    const analysisAbort = _analysisAbort;
 
     try {
       if (progressEta) progressEta.textContent = 'odesílám…';
@@ -1823,6 +1854,7 @@
         ${setsRows}${heroRows}${notesRow}`;
 
       thinkingBar.classList.remove('visible');
+      if (stopBtn) stopBtn.style.display = 'none';
       document.getElementById('analysisPanel').style.display = 'block';
 
       // Enable generate button
@@ -1841,6 +1873,8 @@
       clearInterval(stepInterval);
       console.error('parseSets error:', e);
       thinkingBar.classList.remove('visible');
+      const stopBtn2 = document.getElementById('stopAnalysisBtn');
+      if (stopBtn2) stopBtn2.style.display = 'none';
 
       const isTimeout = e.name === 'AbortError';
       const msg = isTimeout

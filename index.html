@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v1.6</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v1.7</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1917,9 +1917,14 @@
     setTimeout(() => triggerParseSets(600), 50);
   });
 
+  const MAX_FILE_MB = 2;
   function handleFiles(files) {
     Array.from(files).slice(0, 3 - uploadedFiles.length).forEach(f => {
       if (uploadedFiles.length >= 3) return;
+      if (f.size > MAX_FILE_MB * 1024 * 1024) {
+        alert(`Soubor "${f.name}" je příliš velký (${(f.size/1024/1024).toFixed(1)} MB). Maximum je ${MAX_FILE_MB} MB.`);
+        return;
+      }
       uploadedFiles.push(f);
       const item = document.createElement('div');
       item.className = 'file-item';

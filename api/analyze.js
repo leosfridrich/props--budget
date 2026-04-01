@@ -1,6 +1,4 @@
-export const config = { api: { bodyParser: false } };
-
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, anthropic-version');
@@ -20,7 +18,7 @@ export default async function handler(req, res) {
     // Parse multipart manually
     const contentType = req.headers['content-type'] || '';
     const boundaryMatch = contentType.match(/boundary=([^\s;]+)/);
-    if (!boundaryMatch) return res.status(400).json({ error: { message: 'Missing boundary' } });
+    if (!boundaryMatch) return res.status(400).json({ error: { message: 'Missing multipart boundary' } });
     const boundary = boundaryMatch[1];
 
     const parts = parseMultipart(buffer, boundary);
@@ -41,29 +39,30 @@ export default async function handler(req, res) {
     }
 
     if (contentParts.length === 0) {
-      return res.status(400).json({ error: { message: 'Žádný obsah' } });
+      return res.status(400).json({ error: { message: 'Žádný obsah — přidej soubor nebo popis projektu' } });
     }
+
+    // Text must be last for Anthropic
+    const textParts = contentParts.filter(p => p.type === 'text');
+    const fileParts = contentParts.filter(p => p.type !== 'text');
+    const ordered = [...fileParts, ...textParts];
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 55000);
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'pdfs-2024-09-25',
-    };
-
-    const body = JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: contentParts }]
-    });
-
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers,
-      body,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'pdfs-2024-09-25',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: ordered }]
+      }),
       signal: controller.signal,
     });
 
@@ -77,12 +76,13 @@ export default async function handler(req, res) {
       error: { message: isTimeout ? 'Timeout 55s — zkus znovu.' : err.message }
     });
   }
-}
+};
+
+module.exports.config = { api: { bodyParser: false } };
 
 function parseMultipart(buffer, boundary) {
   const parts = [];
   const sep = Buffer.from('--' + boundary);
-  const end = Buffer.from('--' + boundary + '--');
 
   let pos = 0;
   while (pos < buffer.length) {
@@ -90,29 +90,21 @@ function parseMultipart(buffer, boundary) {
     if (sepIdx === -1) break;
     pos = sepIdx + sep.length;
 
-    // Check if end boundary
     if (buffer.slice(pos, pos + 2).toString() === '--') break;
+    if (buffer[pos] === 13 && buffer[pos + 1] === 10) pos += 2;
 
-    // Skip \r\n after boundary
-    if (buffer[pos] === 13 && buffer[pos+1] === 10) pos += 2;
-
-    // Find end of headers
     const headerEnd = indexOf(buffer, Buffer.from('\r\n\r\n'), pos);
     if (headerEnd === -1) break;
 
     const headerStr = buffer.slice(pos, headerEnd).toString('utf8');
     pos = headerEnd + 4;
 
-    // Find next boundary
     const nextSep = indexOf(buffer, sep, pos);
     if (nextSep === -1) break;
 
-    // Data is between pos and nextSep - 2 (strip trailing \r\n)
-    const dataEnd = nextSep - 2;
-    const data = buffer.slice(pos, dataEnd);
+    const data = buffer.slice(pos, nextSep - 2);
     pos = nextSep;
 
-    // Parse headers
     const nameMatch = headerStr.match(/name="([^"]+)"/);
     const mimeMatch = headerStr.match(/Content-Type:\s*([^\r\n]+)/i);
     if (nameMatch) {

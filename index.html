@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.5</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.6</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1839,10 +1839,12 @@
       const stopBtn2 = document.getElementById('stopAnalysisBtn');
       if (stopBtn2) stopBtn2.style.display = 'none';
 
-      const isTimeout = e.name === 'AbortError';
-      const msg = isTimeout
-        ? 'Analýza trvala příliš dlouho (>45s). Zkontroluj API klíč nebo zkus znovu.'
+      const isTimeout = e.name === 'AbortError' || e.name === 'AbortError';
+      const isAborted = e.name === 'AbortError';
+      const msg = isAborted
+        ? null
         : (e instanceof Error ? e.message : String(e?.message || e?.type || JSON.stringify(e) || 'neznámá chyba'));
+      if (isAborted) return; // uživatel zastavil — neukázuj chybu
 
       document.getElementById('analysisPanel').style.display = 'block';
       document.getElementById('analysisContent').innerHTML = `

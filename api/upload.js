@@ -1,6 +1,4 @@
-export const config = { api: { bodyParser: false } };
-
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, anthropic-version, anthropic-beta');
@@ -12,7 +10,6 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(400).json({ error: { message: 'Missing API key' } });
 
   try {
-    // Buffer body explicitly — Vercel stream may not pipe reliably
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const buffer = Buffer.concat(chunks);
@@ -41,4 +38,6 @@ export default async function handler(req, res) {
       error: { message: isTimeout ? 'Timeout — zkus znovu.' : err.message }
     });
   }
-}
+};
+
+module.exports.config = { api: { bodyParser: false } };

@@ -797,6 +797,12 @@
   .lang-btn:not(.active):hover { color: var(--accent); }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
 </head>
 <body>
 
@@ -806,7 +812,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.0</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.1</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1724,7 +1730,21 @@
     _analysisAbort = null;
 
     try {
-      // Base64 kódování — Safari-safe (ArrayBuffer + chunked)
+      // Extrahuj text z PDF pomocí PDF.js (client-side, žádný limit)
+      async function extractPdfText(file) {
+        if (typeof pdfjsLib === 'undefined') return null;
+        var ab = await file.arrayBuffer();
+        var pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+        var pages = [];
+        for (var p = 1; p <= pdf.numPages; p++) {
+          var page = await pdf.getPage(p);
+          var tc = await page.getTextContent();
+          pages.push(tc.items.map(function(i) { return i.str; }).join(' '));
+        }
+        return pages.join('\n');
+      }
+
+      // Base64 pro malé obrázky (Safari-safe, chunked)
       function fileToBase64Safe(file) {
         return new Promise(function(resolve, reject) {
           var reader = new FileReader();
@@ -1743,18 +1763,35 @@
       }
 
       var contentParts = [];
+      var pdfTexts = [];
+
       for (var fi = 0; fi < uploadedFiles.length; fi++) {
         var file = uploadedFiles[fi];
-        if (progressEta) progressEta.textContent = 'kóduji soubor ' + (fi + 1) + '/' + uploadedFiles.length + '…';
-        var b64 = await fileToBase64Safe(file);
-        var mime = file.type || 'application/octet-stream';
-        var isPdf = mime === 'application/pdf';
-        contentParts.push({
-          type: isPdf ? 'document' : 'image',
-          source: { type: 'base64', media_type: mime, data: b64 }
-        });
+        var mime = file.type || '';
+        if (progressEta) progressEta.textContent = 'čtu soubor ' + (fi + 1) + '/' + uploadedFiles.length + '…';
+
+        if (mime === 'application/pdf') {
+          // PDF → text extraction (žádný size limit)
+          var txt = await extractPdfText(file);
+          if (txt && txt.trim().length > 20) {
+            pdfTexts.push('--- ' + file.name + ' ---\n' + txt.trim());
+          } else {
+            pdfTexts.push('--- ' + file.name + ' --- (PDF bez extrahovatelného textu)');
+          }
+        } else if (mime.startsWith('image/') && file.size < 3 * 1024 * 1024) {
+          // Obrázky do 3 MB → base64
+          var b64 = await fileToBase64Safe(file);
+          contentParts.push({ type: 'image', source: { type: 'base64', media_type: mime, data: b64 } });
+        }
+        // větší obrázky ignorujeme (uživatel je upozorněn níže)
       }
-      contentParts.push({ type: 'text', text: promptText });
+
+      // Sestav finální prompt (PDF text + prompt)
+      var finalPrompt = promptText;
+      if (pdfTexts.length > 0) {
+        finalPrompt = pdfTexts.join('\n\n') + '\n\n' + promptText;
+      }
+      contentParts.push({ type: 'text', text: finalPrompt });
 
       if (progressEta) progressEta.textContent = 'odesílám…';
 
@@ -1764,16 +1801,14 @@
         messages: [{ role: 'user', content: contentParts }]
       });
 
-      // XHR — použij Cloudflare Worker (pokud nastaven), jinak /api/chat
-      var proxyUrl = (document.getElementById('proxyUrl').value.trim() || '').replace(/\/$/, '') || '/api/chat';
+      // XHR na /api/chat — text je malý, Vercel limit není problém
       var data = await new Promise(function(resolve, reject) {
         var xhr = new XMLHttpRequest();
         _analysisAbort = { abort: function() { xhr.abort(); } };
-        xhr.open('POST', proxyUrl, true);
+        xhr.open('POST', '/api/chat', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('x-api-key', apiKey);
         xhr.setRequestHeader('anthropic-version', '2023-06-01');
-        xhr.setRequestHeader('anthropic-beta', 'pdfs-2024-09-25');
         xhr.onload = function() {
           try { resolve(JSON.parse(xhr.responseText)); }
           catch(e) { reject(new Error('HTTP ' + xhr.status + ': ' + xhr.responseText.substring(0, 300))); }

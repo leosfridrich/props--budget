@@ -812,7 +812,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.9</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.0</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2433,17 +2433,25 @@ Vrať POUZE JSON bez textu:
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
       console.log('[Budget] Sending', _kb, 'KB');
 
-      // XHR se záchranným setTimeout timeoutem (xhr.timeout nefunguje spolehlivě v Safari)
+      // XHR s 1s-chain timeoutem — Safari throttluje setTimeout>30s, ale 1s vždy funguje
       const data = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         let done = false;
-        const finish = (fn) => { if (!done) { done = true; clearTimeout(safariTimeout); fn(); } };
+        let ticks = 0;
+        const finish = (fn) => { if (!done) { done = true; fn(); } };
 
-        // Safari-safe timeout — vždy funguje
-        const safariTimeout = setTimeout(() => {
-          xhr.abort();
-          finish(() => reject(new Error('Timeout 55s — API neodpovědělo. Zkus znovu.')));
-        }, 55000);
+        // 1-sekundové tikání místo jednoho velkého setTimeout (Safari-safe)
+        const tick = () => {
+          if (done) return;
+          ticks++;
+          if (ticks >= 55) {
+            xhr.abort();
+            finish(() => reject(new Error('Timeout 55s — API neodpovědělo. Zkus znovu.')));
+          } else {
+            setTimeout(tick, 1000);
+          }
+        };
+        setTimeout(tick, 1000);
 
         xhr.open('POST', '/api/chat');
         xhr.setRequestHeader('Content-Type', 'application/json');

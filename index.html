@@ -1727,7 +1727,10 @@
             } else {
               resolve(json);
             }
-          } catch(e) { reject(new Error('Chyba parsování odpovědi.')); }
+          } catch(e) {
+            const preview = xhr.responseText ? xhr.responseText.substring(0, 120).replace(/<[^>]+>/g, '').trim() : '(prázdná odpověď)';
+            reject(new Error(`HTTP ${xhr.status} — nečekaná odpověď: ${preview}`));
+          }
         };
         xhr.ontimeout = () => reject(new Error('Timeout 45s — zkus znovu.'));
         xhr.onerror  = () => reject(new Error('Síťová chyba.'));

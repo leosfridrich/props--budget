@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v1.5</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v1.6</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1837,7 +1837,7 @@
       const isTimeout = e.name === 'AbortError';
       const msg = isTimeout
         ? 'Analýza trvala příliš dlouho (>45s). Zkontroluj API klíč nebo zkus znovu.'
-        : e.message;
+        : (e instanceof Error ? e.message : String(e?.message || e?.type || JSON.stringify(e) || 'neznámá chyba'));
 
       document.getElementById('analysisPanel').style.display = 'block';
       document.getElementById('analysisContent').innerHTML = `
@@ -1945,8 +1945,14 @@
   function fileToBase64(file) {
     return new Promise((res, rej) => {
       const r = new FileReader();
-      r.onload = () => res(r.result.split(',')[1]);
-      r.onerror = rej;
+      r.onload = () => {
+        try {
+          const parts = (r.result || '').split(',');
+          if (parts.length < 2) throw new Error('Neplatný formát souboru');
+          res(parts[1]);
+        } catch(e) { rej(new Error('Chyba čtení souboru: ' + e.message)); }
+      };
+      r.onerror = () => rej(new Error('FileReader chyba: ' + (r.error?.message || 'neznámá chyba')));
       r.readAsDataURL(file);
     });
   }

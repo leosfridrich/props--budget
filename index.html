@@ -1708,6 +1708,8 @@
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('x-api-key', apiKey);
         xhr.setRequestHeader('anthropic-version', '2023-06-01');
+        const hasPdf = uploadedFiles.some(f => f.type === 'application/pdf');
+        if (hasPdf) xhr.setRequestHeader('anthropic-beta', 'pdfs-2024-09-25');
         xhr.timeout = 45000;
 
         analysisAbort.signal.addEventListener('abort', () => { xhr.abort(); });
@@ -1732,8 +1734,8 @@
 
       clearInterval(stepInterval);
 
-      const raw = data.content?.map(c => c.text || '').join('').trim() || '';
-      if (!raw) throw new Error('API vrátilo prázdnou odpověď.');
+      const raw = (data.content?.map(c => c.text || '') ?? []).join('').trim() || '';
+      if (!raw) throw new Error(data.error?.message || 'API vrátilo prázdnou odpověď.');
 
       renderStep(analysisSteps.length);
       if (progressBar) { progressBar.style.width = '100%'; progressBar.style.background = 'var(--success)'; }
@@ -2341,8 +2343,8 @@ Vrať POUZE JSON bez textu:
         document.getElementById('progressEta').textContent = 'čekám na API…';
       });
 
-      const rawText = data.content?.map(c => c.text || '').join('') || '';
-      if (!rawText) throw new Error('API vrátilo prázdnou odpověď.');
+      const rawText = (data.content?.map(c => c.text || '') ?? []).join('') || '';
+      if (!rawText) throw new Error(data.error?.message || 'API vrátilo prázdnou odpověď.');
 
       document.getElementById('progressEta').textContent = 'parsuju JSON…';
       let budget;
@@ -2752,7 +2754,7 @@ Vrať POUZE JSON bez textu:
         xhr.send(_revBody);
       });
 
-      const raw = data.content?.map(c => c.text || '').join('').trim() || '';
+      const raw = (data.content?.map(c => c.text || '') ?? []).join('').trim() || '';
       const cleaned = raw.replace(/```json|```/gi, '').trim();
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('Neplatná odpověď');

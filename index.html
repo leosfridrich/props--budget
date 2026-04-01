@@ -812,7 +812,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.7</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2433,26 +2433,32 @@ Vrať POUZE JSON bez textu:
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
       console.log('[Budget] Sending', _kb, 'KB');
 
-      // XHR s tvrdým timeoutem — spolehlivější než fetch+AbortController přes browser CORS
+      // XHR se záchranným setTimeout timeoutem (xhr.timeout nefunguje spolehlivě v Safari)
       const data = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        let done = false;
+        const finish = (fn) => { if (!done) { done = true; clearTimeout(safariTimeout); fn(); } };
+
+        // Safari-safe timeout — vždy funguje
+        const safariTimeout = setTimeout(() => {
+          xhr.abort();
+          finish(() => reject(new Error('Timeout 55s — API neodpovědělo. Zkus znovu.')));
+        }, 55000);
+
         xhr.open('POST', '/api/chat');
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('x-api-key', apiKey);
         xhr.setRequestHeader('anthropic-version', '2023-06-01');
-        xhr.timeout = 55000; // 55s hard timeout
 
-        // Wire Stop button to abort XHR
         _abortController.signal.addEventListener('abort', () => {
-          xhr.abort();
-          reject(new DOMException('Aborted', 'AbortError'));
+          finish(() => { xhr.abort(); reject(new DOMException('Aborted', 'AbortError')); });
         });
 
-        xhr.onload = () => {
+        xhr.onload = () => finish(() => {
           try {
             const json = JSON.parse(xhr.responseText);
             if (xhr.status === 529 || xhr.status === 503) {
-              reject(new Error('API přetíženo (529). Počkej chvíli a zkus znovu.'));
+              reject(new Error('API přetíženo. Počkej chvíli a zkus znovu.'));
             } else if (xhr.status !== 200) {
               reject(new Error(json.error?.message || `API chyba ${xhr.status}`));
             } else {
@@ -2461,10 +2467,9 @@ Vrať POUZE JSON bez textu:
           } catch(e) {
             reject(new Error('Chyba parsování odpovědi: ' + xhr.responseText.substring(0, 100)));
           }
-        };
-        xhr.ontimeout = () => reject(new Error('Timeout 55s — API neodpovědělo. Zkus znovu.'));
-        xhr.onerror  = () => reject(new Error('Síťová chyba. Zkontroluj připojení.'));
-        xhr.onabort  = () => reject(new DOMException('Aborted', 'AbortError'));
+        });
+        xhr.onerror = () => finish(() => reject(new Error('Síťová chyba.')));
+        xhr.onabort = () => finish(() => reject(new DOMException('Aborted', 'AbortError')));
 
         xhr.send(_body);
         document.getElementById('progressEta').textContent = 'čekám na API…';

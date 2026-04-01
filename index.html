@@ -1,0 +1,3435 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROPS BUDGET — Rekvizitní Výprava</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap');
+
+
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1f1f1f;
+    --border: #2a2a2a;
+    --accent: #c8a96e;
+    --accent2: #7eb8c8;
+    --text: #e8e4dc;
+    --muted: #6b6560;
+    --danger: #c86e6e;
+    --success: #6ec891;
+    --btn-text: #0e0e0e;
+  }
+
+  body.light {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #eeece8;
+    --border: #d4d0c8;
+    --accent: #8a6b3a;
+    --accent2: #2e7d99;
+    --text: #1a1714;
+    --muted: #8a857e;
+    --danger: #b84040;
+    --success: #2e8a52;
+    --btn-text: #ffffff;
+  }
+
+  body.light::before { opacity: 0; }
+  body.light header { background: rgba(245,244,240,0.95); }
+  body.light .btn-generate { color: var(--btn-text); }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: rgba(14,14,14,0.95);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+
+  .logo span {
+    font-style: italic;
+    color: var(--text);
+    font-size: 14px;
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-style: normal;
+    letter-spacing: 0.1em;
+    opacity: 0.5;
+    margin-top: 2px;
+  }
+
+  .header-badge {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+  }
+
+  .main {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    min-height: calc(100vh - 73px);
+  }
+
+  /* LEFT PANEL */
+  .panel-left {
+    border-right: 1px solid var(--border);
+    padding: 32px;
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+  }
+
+  select {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b6560' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.6;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* Checkboxes */
+  .check-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+
+  .check-item:hover { border-color: var(--accent); }
+  .check-item.active {
+    border-color: var(--accent);
+    background: rgba(200, 169, 110, 0.05);
+  }
+
+  .check-item input[type="checkbox"] {
+    width: 14px; height: 14px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .check-item span {
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0.8;
+  }
+
+  /* Dropzone */
+  .dropzone {
+    border: 1px dashed var(--border);
+    padding: 28px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(200,169,110,0.03);
+  }
+
+  .dropzone input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+
+  .dropzone-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+    opacity: 0;
+  }
+
+  .dropzone p {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  .dropzone p strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .file-list {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 11px;
+  }
+
+  .file-item .name { color: var(--accent2); }
+  .file-item .remove {
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: color 0.15s;
+  }
+  .file-item .remove:hover { color: var(--danger); }
+
+  /* Rates table */
+  .rates-table {
+    border: 1px solid var(--border);
+  }
+
+  .rates-row {
+    display: grid;
+    grid-template-columns: 1fr 100px 100px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+
+  .rates-row:last-child { border-bottom: none; }
+
+  .rates-row > * {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .rates-row input {
+    border: none;
+    border-left: 1px solid var(--border);
+    text-align: right;
+    background: var(--surface);
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .rates-header {
+    background: var(--surface2);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Generate button */
+  .btn-generate {
+    width: 100%;
+    background: var(--accent);
+    color: #0e0e0e;
+    border: none;
+    padding: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 24px;
+    font-weight: 500;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-generate:hover { background: #d4b87a; }
+  .btn-generate:active { transform: scale(0.99); }
+  .btn-generate:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-generate .spinner {
+    display: none;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto;
+  }
+
+  .btn-generate.loading .spinner { display: block; }
+  .btn-generate.loading .btn-text { display: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* RIGHT PANEL */
+  .panel-right {
+    padding: 32px 40px;
+    overflow-y: auto;
+  }
+
+  /* Empty state */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 400px;
+    color: var(--muted);
+    text-align: center;
+    gap: 16px;
+  }
+
+  .empty-state .big-num {
+    font-family: 'DM Serif Display', serif;
+    font-size: 80px;
+    opacity: 0.06;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .empty-state p {
+    font-size: 12px;
+    line-height: 1.8;
+    max-width: 320px;
+  }
+
+  /* Budget output */
+  .budget-output {
+    display: none;
+    animation: fadeIn 0.4s ease;
+  }
+
+  .budget-output.visible { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .budget-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .budget-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .budget-meta {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  .budget-total-big {
+    text-align: right;
+  }
+
+  .budget-total-big .label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .budget-total-big .amount {
+    font-family: 'DM Serif Display', serif;
+    font-size: 36px;
+    color: var(--accent);
+    letter-spacing: -1px;
+  }
+
+  .budget-total-big .currency {
+    font-size: 14px;
+    color: var(--muted);
+    margin-left: 4px;
+  }
+
+  /* Summary bars */
+  .summary-bars {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .summary-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .summary-bar::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    height: 2px;
+    background: var(--accent);
+    width: var(--pct, 0%);
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .summary-bar.transport::after { background: var(--accent2); }
+  .summary-bar.props::after { background: var(--success); }
+
+  .summary-bar .bar-label {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .summary-bar .bar-amount {
+    font-size: 18px;
+    font-family: 'DM Serif Display', serif;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .summary-bar .bar-pct {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* Section blocks */
+  .budget-section {
+    margin-bottom: 28px;
+  }
+
+  .budget-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .budget-section-header:hover { background: #252525; }
+
+  .section-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .section-dot.transport { background: var(--accent2); }
+  .section-dot.props { background: var(--success); }
+  .section-dot.fees { background: var(--danger); }
+
+  .section-name {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .section-total {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    color: var(--accent);
+  }
+
+  .section-body {
+    border: 1px solid var(--border);
+    border-top: none;
+    overflow: hidden;
+  }
+
+  .budget-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 16px;
+    padding: 9px 16px;
+    border-bottom: 1px solid rgba(42,42,42,0.5);
+    align-items: center;
+    transition: background 0.1s;
+  }
+
+  .budget-row:hover { background: rgba(255,255,255,0.02); }
+  .budget-row:last-child { border-bottom: none; }
+
+  .row-name {
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0.85;
+  }
+
+  .row-detail {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .row-amount {
+    font-size: 12px;
+    color: var(--text);
+    text-align: right;
+    font-weight: 500;
+    min-width: 90px;
+  }
+
+  .row-note {
+    font-size: 10px;
+    color: var(--accent);
+    text-align: right;
+    min-width: 60px;
+    opacity: 0.7;
+  }
+
+  /* Totals block */
+  .totals-block {
+    border: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .totals-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+
+  .totals-row:last-child { border-bottom: none; }
+
+  .totals-row.highlight {
+    background: var(--surface2);
+  }
+
+  .totals-row.grand {
+    background: rgba(200,169,110,0.08);
+    border-top: 1px solid var(--accent);
+  }
+
+  .totals-row.grand .label {
+    font-family: 'DM Serif Display', serif;
+    font-size: 16px;
+    color: var(--text);
+  }
+
+  .totals-row.grand .value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--accent);
+  }
+
+  .totals-row .label { color: var(--muted); }
+  .totals-row .value { font-weight: 500; }
+
+  /* AI thinking indicator */
+  .thinking-bar {
+    display: none;
+    margin-bottom: 32px;
+  }
+
+  .thinking-bar.visible { display: block; }
+
+  .thinking-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .thinking-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    opacity: 0;
+    animation: stepIn 0.3s ease forwards;
+  }
+
+  .thinking-step .step-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .thinking-step.done .step-dot { background: var(--success); }
+  .thinking-step.done { color: var(--text); opacity: 1; }
+  .thinking-step.active .step-dot {
+    background: var(--accent);
+    animation: pulse 1s ease infinite;
+  }
+
+  .thinking-step.active { opacity: 1; color: var(--accent); }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+  }
+
+  @keyframes stepIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Export button */
+  .export-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+
+  .btn-secondary {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Notes area */
+  .ai-notes {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 16px 20px;
+    margin-bottom: 28px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text);
+    opacity: 0.85;
+  }
+
+  .ai-notes strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* API key input styling */
+  .api-section {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+
+  .api-section p {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+
+  /* Error state */
+  .error-msg {
+    background: rgba(200,110,110,0.08);
+    border: 1px solid var(--danger);
+    padding: 14px 16px;
+    color: var(--danger);
+    font-size: 12px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  .error-msg.visible { display: block; }
+
+  /* Language toggle */
+  .lang-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .lang-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .lang-btn:first-child { border-right: 1px solid var(--border); }
+  .lang-btn.active { background: var(--accent); color: #0e0e0e; }
+  .lang-btn:not(.active):hover { color: var(--accent); }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    Props Budget
+    <span>Rekvizitní Výprava — AI Odhad</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted);">Jazyk výstupu</span>
+      <div class="lang-toggle">
+        <button id="langCZ" class="lang-btn active" onclick="setOutputLang('cz')">CZ</button>
+        <button id="langEN" class="lang-btn" onclick="setOutputLang('en')">EN</button>
+      </div>
+    </div>
+    <button id="themeBtn" onclick="toggleTheme()" title="Přepnout světlé/tmavé téma" style="
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.1em;
+      padding: 6px 10px; cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; gap: 6px;
+    " onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+      <span id="themeIcon">☀</span>
+    </button>
+    <div class="header-badge">v1.3 — Beta</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- LEFT: INPUT PANEL -->
+  <div class="panel-left">
+
+    <!-- API KEY -->
+    <div class="api-section">
+      <label>Anthropic API Klíč</label>
+      <input type="password" id="apiKey" placeholder="sk-ant-..." />
+      <p>Klíč se nikde neukládá — pouze v paměti stránky. Proxy: localhost:3131</p>
+    </div>
+
+    <div class="section-label">Projekt</div>
+
+    <div class="form-group">
+      <label>Název projektu / Klient</label>
+      <input type="text" id="projectName" placeholder="napr. Samsung Q7, Miu Miu SS25…" />
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Typ projektu</label>
+        <select id="projectType">
+          <option value="commercial">Reklama / Commercial</option>
+          <option value="fashion">Fashion film</option>
+          <option value="music_video">Music video</option>
+          <option value="short_film">Krátký film</option>
+          <option value="feature">Celovečerní film</option>
+          <option value="tvc">TVC spot</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Budget úroveň</label>
+        <select id="budgetLevel">
+          <option value="standard">Standard</option>
+          <option value="premium" selected>Premium</option>
+          <option value="luxury">Luxury</option>
+          <option value="low">Low budget</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Shoot dny</label>
+        <input type="number" id="shootDays" value="2" min="1" max="60" />
+      </div>
+      <div class="form-group">
+        <label>Prep dny</label>
+        <input type="number" id="prepDays" value="15" min="1" max="90" />
+      </div>
+      <div class="form-group">
+        <label>Wrap dny</label>
+        <input type="number" id="wrapDays" value="4" min="0" max="30" />
+      </div>
+    </div>
+
+    <div class="section-label">Script / Storyboard</div>
+
+    <div class="form-group">
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" multiple />
+        <div class="dropzone-icon">⬆</div>
+        <p><strong>Nahrát PDF nebo obrázky</strong><br>Storyboard, script, location notes<br>Max. 3 soubory — PDF nebo JPG/PNG</p>
+      </div>
+      <div class="file-list" id="fileList"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Popis projektu / poznámky k scriptu</label>
+      <textarea id="projectDesc" placeholder="Popište projekt — prostředí, náladu, speciální rekvizity, hero produkty, náročné elementy (moving chairs, 3D print, hero products, water scenes, atd.)…"></textarea>
+    </div>
+
+    <div class="section-label">SET — Dekorace</div>
+
+    <div class="form-group">
+      <!-- Sets auto-parse status indicator -->
+      <div id="setsStatus" style="
+        display:none; font-size:10px; letter-spacing:0.08em;
+        color:var(--muted); margin-bottom:8px;
+        display:flex; align-items:center; gap:6px;
+      ">
+        <span id="setsStatusIcon" style="font-size:12px;">⏳</span>
+        <span id="setsStatusText">Načítám sety ze scriptu…</span>
+      </div>
+
+      <div id="setsContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
+      <button type="button" onclick="addSet()" style="
+        margin-top:10px; width:100%; background:transparent;
+        border:1px dashed var(--border); color:var(--muted);
+        font-family:'DM Mono',monospace; font-size:11px;
+        letter-spacing:0.15em; text-transform:uppercase;
+        padding:9px; cursor:pointer; transition:all 0.2s;
+      " onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+         onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+        + Přidat set / dekoraci
+      </button>
+    </div>
+
+    <div class="form-group">
+      <label>Lidé na celý job (prep + wrap) / shoot</label>
+      <div style="border:1px solid var(--border); background:var(--surface);">
+
+        <!-- Auto estimate strip -->
+        <div id="crewEstimateBar" style="
+          background:var(--surface2); border-bottom:1px solid var(--border);
+          padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="font-size:10px; color:var(--muted); letter-spacing:0.05em; line-height:1.5;" id="crewEstimateLabel">
+            Odhadováno automaticky
+          </div>
+          <div style="font-family:'DM Serif Display',serif; font-size:22px; color:var(--accent); white-space:nowrap;" id="crewEstimateValue">
+            2 lidi
+          </div>
+        </div>
+
+        <!-- Breakdown chips -->
+        <div id="crewBreakdown" style="
+          padding:10px 14px; font-size:10px; color:var(--muted);
+          line-height:2; border-bottom:1px solid var(--border);">
+        </div>
+
+        <!-- Manual override -->
+        <div style="padding:10px 14px; display:flex; align-items:center; gap:10px;">
+          <span style="font-size:10px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; white-space:nowrap;">Přepsat ručně:</span>
+          <input type="number" id="fullJobCrew" value="" min="1" max="15"
+            placeholder="auto"
+            style="width:70px; background:var(--bg); border:1px solid var(--border);
+                   color:var(--accent); font-family:'DM Mono',monospace; font-size:13px;
+                   padding:6px 10px; outline:none; text-align:center;"
+            onfocus="this.style.borderColor='var(--accent)'"
+            onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
+            oninput="updateCrewEstimate()" />
+          <span style="font-size:10px; color:var(--muted);">— nebo nechte prázdné</span>
+        </div>
+
+      </div>
+      <p style="font-size:10px; color:var(--muted); margin-top:6px;"><strong style="color:var(--text);">Core</strong> = Prop master + propmanové na celý prep+wrap. <strong style="color:var(--accent2);">Shoot</strong> = všichni na natáčení vč. souběžné likvidace. Přepiš core ručně pokud potřebuješ.</p>
+    </div>
+
+    <div class="form-group">
+      <label>Rekvizity — zdroj</label>
+      <select id="propsSource">
+        <option value="mostly_rental">Převážně půjčovna / obchody</option>
+        <option value="mix">Mix půjčovna + nákup</option>
+        <option value="mostly_purchase">Převážně nákup</option>
+        <option value="mostly_custom">Převážně výroba na míru</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Hero produkty / výroba modeláři</label>
+      <input type="text" id="heroProducts" placeholder="např. 3x sněžítko (3D print), 1x model auta, custom logo…" />
+    </div>
+
+    <div class="form-group">
+      <label>Budget ceiling — max. rozpočet klienta (volitelné)</label>
+      <input type="number" id="budgetCeiling" placeholder="napr. 2000000 — pokud víte" min="0" />
+    </div>
+
+    <div class="section-label">Sazby (dle vašich dat)</div>
+
+    <div class="rates-table">
+      <div class="rates-row rates-header">
+        <div>Pozice</div>
+        <div>Kč / den</div>
+        <div>shoot</div>
+      </div>
+      <div class="rates-row">
+        <div>Prop Master</div>
+        <input type="number" id="rate_pm" value="4900" />
+        <input type="number" id="rate_pm_s" value="4900" />
+      </div>
+      <div class="rates-row">
+        <div>Leading Propman</div>
+        <input type="number" id="rate_lp" value="4800" />
+        <input type="number" id="rate_lp_s" value="4800" />
+      </div>
+      <div class="rates-row">
+        <div>Propman</div>
+        <input type="number" id="rate_p" value="4500" />
+        <input type="number" id="rate_p_s" value="4500" />
+      </div>
+      <div class="rates-row">
+        <div>Setdresser</div>
+        <input type="number" id="rate_sd" value="7000" />
+        <input type="number" id="rate_sd_s" value="7000" />
+      </div>
+      <div class="rates-row">
+        <div>Prop Construction</div>
+        <input type="number" id="rate_pc" value="5000" />
+        <input type="number" id="rate_pc_s" value="5000" />
+      </div>
+      <div class="rates-row">
+        <div>Auto (prep)</div>
+        <input type="number" id="rate_car" value="1700" />
+        <input type="number" id="rate_car_s" style="opacity:0.3" value="1700" disabled/>
+      </div>
+      <div class="rates-row">
+        <div>Truck</div>
+        <input type="number" id="rate_truck" value="3800" />
+        <input type="number" id="rate_truck_s" style="opacity:0.3" value="3800" disabled/>
+      </div>
+      <div class="rates-row">
+        <div>Big truck 7,5t</div>
+        <input type="number" id="rate_bigtruck" value="4500" />
+        <input type="number" id="rate_bigtruck_s" style="opacity:0.3" value="4500" disabled/>
+      </div>
+      <div class="rates-row">
+        <div>Fee</div>
+        <input type="number" id="rate_fee" value="7" />
+        <input type="number" style="opacity:0.3" value="%" disabled/>
+      </div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="section-label" style="margin-top:24px;">Moje instrukce & naučené korekce</div>
+    <div style="border:1px solid var(--border); background:var(--surface); margin-bottom:16px;">
+
+      <!-- Manual instructions -->
+      <div style="padding:10px 14px; border-bottom:1px solid var(--border);">
+        <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:6px;">Trvalé instrukce</label>
+        <textarea id="userInstructions" placeholder="Napiš trvalá pravidla pro agenta — např. &#10;• Na 3 shoot dny vždy min 4 lidi na shoot&#10;• Props vždy převážně půjčovna&#10;• Prop master sazba 4 900/den"
+          style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+                 font-family:'DM Mono',monospace; font-size:11px; padding:8px 10px; outline:none;
+                 resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'; saveInstructions()"></textarea>
+        <div style="font-size:9px; color:var(--muted); margin-top:4px;">Ukládá se automaticky v prohlížeči.</div>
+      </div>
+
+      <!-- Learned corrections -->
+      <div style="padding:10px 14px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted);">Naučené z oprav</label>
+          <button onclick="clearLearned()" style="font-size:9px; color:var(--muted); background:none; border:none; cursor:pointer; letter-spacing:0.1em; text-transform:uppercase;"
+            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">Smazat vše</button>
+        </div>
+        <div id="learnedList" style="font-size:10px; color:var(--muted); line-height:1.8; min-height:20px;">
+          <span style="opacity:0.5;">Zatím žádné naučené korekce.</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="section-label" style="margin-top:0;">Detail výstupu</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); margin-bottom:12px;">
+      <button id="modeDetailed" onclick="setOutputMode('detailed')" style="
+        background:var(--accent); color:#0e0e0e; border:none; border-right:1px solid rgba(0,0,0,0.15);
+        font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+        padding:11px 8px; cursor:pointer; transition:all 0.15s; line-height:1.4;">
+        ≡ Detailní<br><span style="font-size:9px;opacity:0.7;">položky + tým + doprava</span>
+      </button>
+      <button id="modeApprox" onclick="setOutputMode('approx')" style="
+        background:transparent; color:var(--muted); border:none;
+        font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+        padding:11px 8px; cursor:pointer; transition:all 0.15s; line-height:1.4;">
+        ≈ Aproximativní<br><span style="font-size:9px;opacity:0.7;">sety + odhadní cena</span>
+      </button>
+    </div>
+
+    <button class="btn-generate" id="generateBtn" onclick="generateBudget()" style="opacity:0.35;" disabled title="Nejdříve nahraj script nebo vypiš popis projektu">
+      <div class="btn-text">↗ Generovat odhad</div>
+      <div class="spinner"></div>
+    </button>
+    <div id="generateHint" style="font-size:10px; color:var(--muted); text-align:center; margin-top:6px; letter-spacing:0.05em;">
+      Nahraj script nebo storyboard — agent nejdříve navrhne sety.<br>
+      <span style="opacity:0.6;">Nebo <a href="#" onclick="enableGenerateManually(); return false;" style="color:var(--accent); text-decoration:none;">přeskočit analýzu</a> a generovat přímo.</span>
+    </div>
+    <button id="stopBtn" onclick="stopGeneration()" style="
+      display:none; width:100%; margin-top:8px;
+      background:transparent; border:1px solid var(--danger);
+      color:var(--danger); font-family:'DM Mono',monospace;
+      font-size:12px; letter-spacing:0.15em; text-transform:uppercase;
+      padding:11px; cursor:pointer; transition:all 0.2s;
+    " onmouseover="this.style.background='rgba(200,110,110,0.08)'"
+       onmouseout="this.style.background='transparent'">
+      ✕ Zastavit generování
+    </button>
+
+  </div>
+
+  <!-- RIGHT: OUTPUT PANEL -->
+  <div class="panel-right">
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState">
+      <div class="big-num">₿</div>
+      <p style="font-family:'DM Serif Display',serif; font-size:18px; color: rgba(232,228,220,0.3);">Vyplňte parametry<br>a vygenerujte odhad</p>
+      <p>Agent analyzuje scény, prostředí a typ projektu.<br>Kalibrovaný na 14 reálných rozpočtů:<br>LEGO · Amazon · Etsy · Q7 · Miu Miu · Uber Eats · Telekom · G-Star · ČS · Xiaomi · Shutterfly · AB Zero · Hanácká · Dyson</p>
+    </div>
+
+    <!-- Thinking state -->
+    <div class="thinking-bar" id="thinkingBar">
+      <div class="section-label" id="thinkingLabel">Agent pracuje</div>
+
+      <!-- Progress bar -->
+      <div style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+          <div id="progressPct" style="font-family:'DM Serif Display',serif; font-size:28px; color:var(--accent); line-height:1;">0%</div>
+          <div id="progressEta" style="font-size:10px; color:var(--muted); letter-spacing:0.1em;"></div>
+        </div>
+        <div style="height:3px; background:var(--border); position:relative; overflow:hidden;">
+          <div id="progressBar" style="height:100%; background:var(--accent); width:0%; transition:width 0.4s ease; position:absolute; top:0; left:0;"></div>
+          <!-- shimmer effect when active -->
+          <div id="progressShimmer" style="display:none; position:absolute; top:0; left:-100%; width:60%; height:100%;
+            background:linear-gradient(90deg,transparent,rgba(200,169,110,0.4),transparent);
+            animation:shimmer 1.5s infinite;"></div>
+        </div>
+        <style>@keyframes shimmer{to{left:160%}}</style>
+      </div>
+
+      <div class="thinking-steps" id="thinkingSteps"></div>
+    </div>
+
+    <!-- ANALYSIS PANEL — shown after script is parsed, before budget generation -->
+    <div id="analysisPanel" style="display:none; animation: fadeIn 0.4s ease;">
+      <div class="section-label" style="margin-bottom:16px;">Analýza scriptu — zkontroluj a uprav</div>
+
+      <div id="analysisContent" style="margin-bottom:24px;"></div>
+
+      <div style="border:1px solid var(--accent); background:rgba(200,169,110,0.05); padding:16px 20px; margin-bottom:8px;">
+        <div style="font-size:10px; letter-spacing:0.15em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">Vše v pořádku?</div>
+        <div style="font-size:12px; color:var(--muted); line-height:1.7; margin-bottom:14px;">
+          Zkontroluj sety a tým vlevo. Uprav co potřebuješ — pak klikni na tlačítko níže.
+        </div>
+        <button onclick="confirmAndGenerate()" style="
+          width:100%; background:var(--accent); color:#0e0e0e;
+          border:none; font-family:'DM Mono',monospace; font-size:12px;
+          letter-spacing:0.2em; text-transform:uppercase;
+          padding:14px; cursor:pointer; font-weight:500; transition:all 0.2s;
+        " onmouseover="this.style.background='#7a5a2a'"
+           onmouseout="this.style.background='var(--accent)'">
+          ↗ Generovat rozpočet
+        </button>
+      </div>
+    </div>
+
+    <!-- Budget output -->
+    <div class="budget-output" id="budgetOutput"></div>
+
+  </div>
+</div>
+
+<script>
+
+  // ─── LANGUAGE SYSTEM ───
+  const LANG = {
+    cz: {
+      logoSub: 'Rekvizitní Výprava — AI Odhad',
+      apiLabel: 'Anthropic API Klíč',
+      apiNote: 'Klíč se nikde neukládá — pouze v paměti stránky. Proxy: localhost:3131',
+      secProject: 'Projekt',
+      labelProjectName: 'Název projektu / Klient',
+      placeholderProjectName: 'napr. Samsung Q7, Miu Miu SS25…',
+      labelProjectType: 'Typ projektu',
+      optCommercial: 'Reklama / Commercial',
+      optFashion: 'Fashion film',
+      optMusicVideo: 'Music video',
+      optShortFilm: 'Krátký film',
+      optFeature: 'Celovečerní film',
+      optTVC: 'TVC spot',
+      labelBudgetLevel: 'Budget úroveň',
+      optStandard: 'Standard', optPremium: 'Premium', optLuxury: 'Luxury', optLow: 'Low budget',
+      labelShoot: 'Shoot dny', labelPrep: 'Prep dny', labelWrap: 'Wrap dny',
+      secSets: 'SET — Dekorace',
+      addSetBtn: '+ Přidat set / dekoraci',
+      setPlaceholder: 'název setu / dekorace…',
+      optAtelier: 'Ateliér', optRealLoc: 'Reálná lokace', optExterior: 'Exteriér', optAbroad: 'Zahraničí',
+      labelCrewFull: 'Lidé na celý job (prep + wrap)',
+      crewAutoLabel: 'Odhadováno automaticky',
+      crewOverride: 'Přepsat ručně:',
+      crewOrLeave: '— nebo nechte prázdné',
+      crewNote: 'Prop master vždy. Ostatní přijdou jen na natáčení + likvidaci.',
+      labelScenesPerDay: 'Scén za shoot den',
+      labelPropsSource: 'Rekvizity — zdroj',
+      optMostlyRental: 'Převážně půjčovna / obchody',
+      optMix: 'Mix půjčovna + nákup',
+      optMostlyPurchase: 'Převážně nákup',
+      optMostlyCustom: 'Převážně výroba na míru',
+      labelHero: 'Hero produkty / výroba modeláři',
+      placeholderHero: 'např. 3x sněžítko (3D print), 1x model auta, custom logo…',
+      labelCeiling: 'Budget ceiling — max. rozpočet klienta (volitelné)',
+      placeholderCeiling: 'napr. 2000000 — pokud víte',
+      secScript: 'Script / Storyboard',
+      dropzoneText: '<strong>Nahrát PDF nebo obrázky</strong><br>Storyboard, script, location notes<br>Max. 3 soubory — PDF nebo JPG/PNG',
+      labelDesc: 'Popis projektu / poznámky k scriptu',
+      placeholderDesc: 'Popište projekt — prostředí, náladu, speciální rekvizity, hero produkty, náročné elementy…',
+      secRates: 'Sazby (dle vašich dat)',
+      colPosition: 'Pozice', colRate: 'Kč / den', colShoot: 'shoot',
+      btnGenerate: '↗ Generovat odhad',
+      emptyTitle: 'Vyplňte parametry\na vygenerujte odhad',
+      emptyNote: 'Agent analyzuje scény, prostředí a typ projektu.\nKalibrovaný na 9 reálných rozpočtů:\nLEGO · Amazon · Etsy · Q7 · Miu Miu · Uber Eats · Telekom · G-Star · Česká Spořitelna',
+      secAgentWorking: 'Agent pracuje',
+      thinkingSteps: [
+        'Analyzuji parametry projektu…',
+        'Čtu script a storyboard…',
+        'Identifikuji sety a prostředí…',
+        'Kalkuluji labour (pracovníci)…',
+        'Odhaduji transport…',
+        'Sestavuji props po sekcích…',
+        'Aplikuji fee a finalizuji…'
+      ],
+      btnJSON: '↗ JSON', btnExcel: '⬇ Excel / Numbers', btnPDF: '⎙ PDF',
+      budgetMeta: (feePct) => `Labour + Transport + Props + ${feePct}% fee`,
+      budgetGenerated: 'Vygenerováno',
+      totalEstimate: 'Celkový odhad',
+      agentLabel: 'Agent',
+      labourSection: 'Labour — Pracovníci',
+      transportSection: 'Transport',
+      propsSection: 'Props — Rekvizity',
+      subtotalLabel: 'Mezisoučet (bez fee)',
+      noFeeTotalLabel: 'Celkem bez přesčasů',
+      overtimeLabel: 'Odhad přesčasů (overtime)',
+      overcostsLabel: 'Odhad overcosts',
+      grandLabel: 'KONEČNÝ ODHAD K FAKTURACI',
+      currency: 'Kč',
+      ofBase: '% základu',
+      days: 'dní',
+      crewPersons: (n) => n === 1 ? '1 člověk' : n <= 4 ? `${n} lidi` : `${n} lidí`,
+      crewBasis: 'Na základě',
+      crewAuto: 'Odhadováno automaticky',
+      crewPropmaster: 'Prop master',
+      crewAlways: 'vždy',
+      crewExtra: (n) => `+ ${n} propman${n > 1 ? 'i' : ''} na celý prep`,
+      shootDaysReason: (n) => `${n} shoot dní`,
+      setsReason: (n) => `${n} setů`,
+      studioReason: (n) => `${n}× ateliér`,
+      abroadReason: 'zahraničí',
+      manualReason: 'ručně přepsáno',
+      pdfSave: '⎙ Uložit jako PDF',
+      pdfClose: 'Zavřít',
+      pdfSubtitle: 'Rekvizitní výprava — Odhad rozpočtu',
+      pdfAgentName: 'Props Budget Agent',
+      pdfFooterLeft: 'Props Budget Agent — kalibrováno na 9 reálných rozpočtů',
+      pdfFooterRight: 'Odhad, nikoliv závazná nabídka',
+      pdfLabourHeader: ['Pozice / Jméno', 'Fáze', 'Dny', 'Sazba', 'Celkem'],
+      pdfTransportHeader: ['Vozidlo', '', 'Dny', 'Sazba', 'Celkem'],
+      pdfPropsHeader: ['Rekvizita', '', '', 'Poznámka', 'Cena'],
+      pdfTotalLabour: 'total labour',
+      pdfTotalTransport: 'total transport',
+      pdfTotalProps: 'props total',
+      xlsxTotalLabel: 'FINAL BUDGET',
+      xlsxLabour: 'Labour', xlsxTransport: 'Transport', xlsxProps: 'Props',
+      xlsxTotalLabour: 'total labour', xlsxTotalTransport: 'total transport', xlsxPropsTotal: 'props total',
+      xlsxTotalBudget: 'total budget', xlsxOvercosts: 'OVERCOSTS …no fee added',
+      xlsxOvercostsTotal: 'OVERCOSTS TOTAL', xlsxOvertime: 'OVERTIME 800,1000,1200,1500,2000',
+      xlsxOvertimeEst: 'odhad overtime', xlsxOvercostsEst: 'odhad overcosts',
+      xlsxOvertimeTotal: 'OVERTIME TOTAL', xlsxFinal: 'FINAL BUDGET',
+      xlsxWorker: 'worker', xlsxDays: '     days', xlsxAmountDay: 'amount / day', xlsxTotalAmount: 'total amount',
+      xlsxCar: 'car', xlsxCarDays: '          days', xlsxAmountPerDay: 'amount/day',
+      promptLang: 'cs',
+    },
+    en: {
+      logoSub: 'Props Department — AI Estimate',
+      apiLabel: 'Anthropic API Key',
+      apiNote: 'Key is never stored — only in page memory',
+      secProject: 'Project',
+      labelProjectName: 'Project name / Client',
+      placeholderProjectName: 'e.g. Samsung Q7, Miu Miu SS25…',
+      labelProjectType: 'Project type',
+      optCommercial: 'Commercial / Ad',
+      optFashion: 'Fashion film',
+      optMusicVideo: 'Music video',
+      optShortFilm: 'Short film',
+      optFeature: 'Feature film',
+      optTVC: 'TVC spot',
+      labelBudgetLevel: 'Budget level',
+      optStandard: 'Standard', optPremium: 'Premium', optLuxury: 'Luxury', optLow: 'Low budget',
+      labelShoot: 'Shoot days', labelPrep: 'Prep days', labelWrap: 'Wrap days',
+      secSets: 'SETS — Decoration',
+      addSetBtn: '+ Add set / decoration',
+      setPlaceholder: 'set name / decoration…',
+      optAtelier: 'Studio build', optRealLoc: 'Real location', optExterior: 'Exterior', optAbroad: 'Abroad',
+      labelCrewFull: 'Full-job crew (prep + wrap)',
+      crewAutoLabel: 'Auto-estimated',
+      crewOverride: 'Override manually:',
+      crewOrLeave: '— or leave empty',
+      crewNote: 'Prop master always. Others come only for shoot + strike.',
+      labelScenesPerDay: 'Scenes per shoot day',
+      labelPropsSource: 'Props — source',
+      optMostlyRental: 'Mostly rental / shops',
+      optMix: 'Mix rental + purchase',
+      optMostlyPurchase: 'Mostly purchase',
+      optMostlyCustom: 'Mostly custom-built',
+      labelHero: 'Hero products / model makers',
+      placeholderHero: 'e.g. 3x snow globe (3D print), 1x car model, custom logo…',
+      labelCeiling: 'Budget ceiling — max client budget (optional)',
+      placeholderCeiling: 'e.g. 2000000 — if known',
+      secScript: 'Script / Storyboard',
+      dropzoneText: '<strong>Upload PDF or images</strong><br>Storyboard, script, location notes<br>Max 3 files — PDF or JPG/PNG',
+      labelDesc: 'Project description / script notes',
+      placeholderDesc: 'Describe the project — environment, mood, special props, hero products, complex elements…',
+      secRates: 'Day rates (your data)',
+      colPosition: 'Position', colRate: 'CZK / day', colShoot: 'shoot',
+      btnGenerate: '↗ Generate estimate',
+      emptyTitle: 'Fill in parameters\nand generate estimate',
+      emptyNote: 'Agent analyses scenes, environments and project type.\nCalibrated on 9 real budgets:\nLEGO · Amazon · Etsy · Q7 · Miu Miu · Uber Eats · Telekom · G-Star · Česká Spořitelna',
+      secAgentWorking: 'Agent working',
+      thinkingSteps: [
+        'Analysing project parameters…',
+        'Reading script and storyboard…',
+        'Identifying sets and environments…',
+        'Calculating labour…',
+        'Estimating transport…',
+        'Building props by section…',
+        'Applying fee and finalising…'
+      ],
+      btnJSON: '↗ JSON', btnExcel: '⬇ Excel / Numbers', btnPDF: '⎙ PDF',
+      budgetMeta: (feePct) => `Labour + Transport + Props + ${feePct}% fee`,
+      budgetGenerated: 'Generated',
+      totalEstimate: 'Total estimate',
+      agentLabel: 'Agent',
+      labourSection: 'Labour',
+      transportSection: 'Transport',
+      propsSection: 'Props — Set Dressing',
+      subtotalLabel: 'Subtotal (excl. fee)',
+      noFeeTotalLabel: 'Total excl. overtime',
+      overtimeLabel: 'Estimated overtime',
+      overcostsLabel: 'Estimated overcosts',
+      grandLabel: 'FINAL ESTIMATE TO INVOICE',
+      currency: 'CZK',
+      ofBase: '% of base',
+      days: 'days',
+      crewPersons: (n) => `${n} ${n === 1 ? 'person' : 'people'}`,
+      crewBasis: 'Based on',
+      crewAuto: 'Auto-estimated',
+      crewPropmaster: 'Prop master',
+      crewAlways: 'always',
+      crewExtra: (n) => `+ ${n} propman${n > 1 ? 'men' : ''} for full prep`,
+      shootDaysReason: (n) => `${n} shoot days`,
+      setsReason: (n) => `${n} sets`,
+      studioReason: (n) => `${n}× studio build`,
+      abroadReason: 'abroad',
+      manualReason: 'manually overridden',
+      pdfSave: '⎙ Save as PDF',
+      pdfClose: 'Close',
+      pdfSubtitle: 'Props Department — Budget Estimate',
+      pdfAgentName: 'Props Budget Agent',
+      pdfFooterLeft: 'Props Budget Agent — calibrated on 9 real budgets',
+      pdfFooterRight: 'Estimate only, not a binding offer',
+      pdfLabourHeader: ['Position / Name', 'Phase', 'Days', 'Rate', 'Total'],
+      pdfTransportHeader: ['Vehicle', '', 'Days', 'Rate', 'Total'],
+      pdfPropsHeader: ['Prop', '', '', 'Note', 'Price'],
+      pdfTotalLabour: 'total labour',
+      pdfTotalTransport: 'total transport',
+      pdfTotalProps: 'props total',
+      xlsxTotalLabel: 'FINAL BUDGET',
+      xlsxLabour: 'Labour', xlsxTransport: 'Transport', xlsxProps: 'Props',
+      xlsxTotalLabour: 'total labour', xlsxTotalTransport: 'total transport', xlsxPropsTotal: 'props total',
+      xlsxTotalBudget: 'total budget', xlsxOvercosts: 'OVERCOSTS …no fee added',
+      xlsxOvercostsTotal: 'OVERCOSTS TOTAL', xlsxOvertime: 'OVERTIME 800,1000,1200,1500,2000',
+      xlsxOvertimeEst: 'overtime estimate', xlsxOvercostsEst: 'overcosts estimate',
+      xlsxOvertimeTotal: 'OVERTIME TOTAL', xlsxFinal: 'FINAL BUDGET',
+      xlsxWorker: 'worker', xlsxDays: '     days', xlsxAmountDay: 'amount / day', xlsxTotalAmount: 'total amount',
+      xlsxCar: 'car', xlsxCarDays: '          days', xlsxAmountPerDay: 'amount/day',
+      promptLang: 'en',
+    }
+  };
+
+  // ─── OUTPUT MODE (Detailed vs Approx) ───
+  let outputMode = 'detailed';
+
+  function setOutputMode(mode) {
+    outputMode = mode;
+    const btnD = document.getElementById('modeDetailed');
+    const btnA = document.getElementById('modeApprox');
+    if (mode === 'detailed') {
+      btnD.style.background = 'var(--accent)'; btnD.style.color = '#0e0e0e';
+      btnA.style.background = 'transparent'; btnA.style.color = 'var(--muted)';
+    } else {
+      btnA.style.background = 'var(--accent)'; btnA.style.color = '#0e0e0e';
+      btnD.style.background = 'transparent'; btnD.style.color = 'var(--muted)';
+    }
+    if (window._lastBudget && window._lastBudgetName) {
+      renderBudget(window._lastBudget, window._lastBudgetName);
+    }
+  }
+
+  let currentLang = 'cz';
+
+  function setOutputLang(lang) {
+    currentLang = lang;
+    document.getElementById('langCZ').classList.toggle('active', lang === 'cz');
+    document.getElementById('langEN').classList.toggle('active', lang === 'en');
+    // If a budget is already rendered, re-render it in the new language
+    if (window._lastBudget) {
+      const projectName = document.getElementById('projectName').value || 'Nový projekt';
+      renderBudget(window._lastBudget, projectName);
+    }
+  }
+
+  function getLang() { return LANG[currentLang]; }
+
+
+  // ─── CREW ESTIMATOR ───
+  // Based on real calibration data:
+  // shoot days × sets → core crew needed
+  // G-STAR: 2 shoot, 1 set → 2 lidi
+  // ČS:     3 shoot, 5 set → 3 lidi
+  // LEGO:   3 shoot, 3 set → 4 lidi
+  // TELECOM:3 shoot, 4 set → 3 lidi
+  // ETSY:   4 shoot, 5 set → 3 lidi
+  // Q7:     6 shoot, 6 set → 4 lidi
+  // MIU MIU:2 shoot, 5 set → 3 lidi (5 lokací!)
+  // UBER:   9 shoot, 9 set → 5 lidi
+
+  function updateCrewEstimate() {
+    const shootDays  = parseInt(document.getElementById('shootDays').value) || 2;
+    const allSets    = Array.from(document.querySelectorAll('.set-row'));
+    const activeSets = allSets.filter(r => r.querySelector('.set-name').value.trim() !== '').length;
+    const totalSets  = Math.max(activeSets, 1);
+
+    const studioSets   = allSets.filter(r => r.querySelector('.set-type')?.value === 'ateliér').length;
+    const abroadSets   = allSets.filter(r => r.querySelector('.set-type')?.value === 'zahraničí').length;
+    const exteriorSets = allSets.filter(r => r.querySelector('.set-type')?.value === 'exteriér').length;
+    const realSets     = Math.max(totalSets - studioSets - abroadSets - exteriorSets, 0);
+    const propsSource  = document.getElementById('propsSource')?.value || 'mostly_rental';
+    const isHeavy = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';
+    const isMix   = propsSource === 'mix';
+
+    // ── CORE CREW (celý job: prep + shoot + wrap) ──
+    // From data: G-STAR=2, ČS=3, Xiaomi=4, Shutterfly=5, AB Zero=5
+    let core = 2;
+    if (totalSets >= 2) core = 3;
+    if (totalSets >= 4) core = 4;
+    if (totalSets >= 6) core = 5;
+    if (abroadSets >= 1) core = Math.max(core + 1, 4);
+    if (studioSets >= 3) core = Math.max(core, 4);
+    core = Math.min(core, 6);
+
+    // ── PREP DAYS estimate (top core person) ──
+    // Formula from data: sets * 2.5 + shoot_days
+    // G-STAR: 1*2.5+2=4 ✓ | Xiaomi: 4*2.5+3=13 ✓ | AB Zero: 6*2.5+4=19 ✓
+    const corePrepEst = Math.round(totalSets * 2.5 + shootDays);
+
+    // ── SHOOT CREW ──
+    // Complexity factor per set type (derived from real budgets):
+    // ČS: 5 light sets → +1.0/set extras
+    // Xiaomi: 4 mixed sets → +2.8/set extras
+    // Shutterfly: 3 full houses → +4.7/set extras
+    // AB Zero: 6 complex → +2.7/set extras
+    let extras = 0;
+    extras += exteriorSets * 1.0;
+    extras += realSets     * (isHeavy ? 4.5 : isMix ? 3.0 : 2.0);
+    extras += studioSets   * (isHeavy ? 5.0 : 3.5);
+    extras += abroadSets   * 4.0;
+
+    let shootCrew = Math.round(core + extras);
+
+    // Minimums anchored to real data
+    if (totalSets >= 3 && shootCrew < 12) shootCrew = 12;
+    if (totalSets >= 5 && shootCrew < 15) shootCrew = 15;
+    if (totalSets <= 1) shootCrew = Math.max(shootCrew, 3);
+    shootCrew = Math.min(shootCrew, 25);
+
+    // Manual override for core
+    const manual = parseInt(document.getElementById('fullJobCrew').value);
+    const displayCore = manual > 0 ? manual : core;
+
+    // ── Display ──
+    document.getElementById('crewEstimateValue').innerHTML =
+      `<span style="font-size:20px;color:var(--accent);">${displayCore}</span>` +
+      `<span style="font-size:10px;color:var(--muted);margin-left:3px;">core</span>` +
+      `<span style="font-size:13px;color:var(--border);margin:0 8px;">/</span>` +
+      `<span style="font-size:20px;color:var(--accent2);">${shootCrew}</span>` +
+      `<span style="font-size:10px;color:var(--muted);margin-left:3px;">shoot</span>` +
+      `<span style="font-size:10px;color:var(--muted);margin-left:10px;opacity:0.6;">prep ~${corePrepEst}d</span>`;
+
+    const chips = [
+      `<span style="color:var(--accent)">Core ${displayCore}:</span> Prop master + ${displayCore-1} propman${displayCore>2?'i':''} na celý prep (~${corePrepEst}d)`,
+      `<span style="color:var(--accent2)">Shoot ${shootCrew}:</span> všichni na natáčení + souběžná likvidace`,
+    ];
+
+    const reasons = [];
+    if (totalSets >= 1) reasons.push(`${totalSets} ${totalSets===1?'set':'setů'}`);
+    if (studioSets)   reasons.push(`${studioSets}× ateliér`);
+    if (exteriorSets) reasons.push(`${exteriorSets}× exteriér`);
+    if (abroadSets)   reasons.push('zahraničí');
+    if (isHeavy)      reasons.push('full dressing');
+    if (isMix)        reasons.push('mix');
+    if (manual > 0)   reasons.push('core ručně');
+
+    document.getElementById('crewEstimateLabel').innerHTML = `Na základě: ${reasons.join(' · ')}`;
+    document.getElementById('crewBreakdown').innerHTML = chips.join('<br>');
+  }
+
+  // Wire crew estimator to relevant inputs
+  ['shootDays', 'prepDays', 'propsSource'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', updateCrewEstimate);
+    if (el) el.addEventListener('input', updateCrewEstimate);
+  });
+
+  // Also wire to set changes (delegated — runs after any set-type change)
+  document.getElementById('setsContainer').addEventListener('change', updateCrewEstimate);
+  document.getElementById('setsContainer').addEventListener('input', updateCrewEstimate);
+
+  // Initial crew estimate with no sets
+  updateCrewEstimate();
+
+
+  let setCounter = 0;
+
+  function addSet(name = '', type = 'ateliér') {
+    setCounter++;
+    const id = setCounter;
+    const container = document.getElementById('setsContainer');
+    const div = document.createElement('div');
+    div.className = 'set-row';
+    div.dataset.id = id;
+    div.style.cssText = 'display:grid; grid-template-columns:1fr 130px 28px; gap:6px; align-items:center;';
+    div.innerHTML = `
+      <input type="text" class="set-name" placeholder="název setu / dekorace…" value="${name}"
+        style="background:var(--surface); border:1px solid var(--border); color:var(--text);
+               font-family:'DM Mono',monospace; font-size:12px; padding:8px 10px; outline:none;
+               transition:border-color 0.2s;"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+      <select class="set-type"
+        style="background:var(--surface); border:1px solid var(--border); color:var(--text);
+               font-family:'DM Mono',monospace; font-size:11px; padding:8px 8px; outline:none;
+               cursor:pointer; -webkit-appearance:none; appearance:none; text-align:center;">
+        <option value="ateliér" ${type==='ateliér'?'selected':''}>Ateliér</option>
+        <option value="reálná lokace" ${type==='reálná lokace'?'selected':''}>Reálná lokace</option>
+        <option value="exteriér" ${type==='exteriér'?'selected':''}>Exteriér</option>
+        <option value="zahraničí" ${type==='zahraničí'?'selected':''}>Zahraničí</option>
+      </select>
+      <span onclick="removeSet(${id})" style="color:var(--muted); cursor:pointer; font-size:18px;
+             line-height:1; text-align:center; transition:color 0.15s; user-select:none;"
+            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</span>
+    `;
+    container.appendChild(div);
+  }
+
+  function removeSet(id) {
+    const el = document.querySelector(`.set-row[data-id="${id}"]`);
+    if (el) el.remove();
+  }
+
+  // Start with no sets — user clicks "Načíst ze scriptu" or adds manually
+  // (no defaultSets pre-filled)
+
+  // ─── PARSE SETS FROM SCRIPT ───
+  // ─── AUTO PARSE SETS ───
+  let _parseDebounce = null;
+
+  function triggerParseSets(delay = 800) {
+    clearTimeout(_parseDebounce);
+    const desc = document.getElementById('projectDesc').value.trim();
+    const apiKey = document.getElementById('apiKey').value.trim();
+    const hasContent = desc || uploadedFiles.length > 0;
+    if (!hasContent || !apiKey) return;
+    _parseDebounce = setTimeout(parseSetsFromScript, delay);
+  }
+
+  async function parseSetsFromScript() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey) return;
+
+    const desc = document.getElementById('projectDesc').value.trim();
+    const projectName = document.getElementById('projectName').value.trim();
+    if (!desc && uploadedFiles.length === 0) return;
+
+    // ── UI: show progress in right panel ──
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('analysisPanel').style.display = 'none';
+    document.getElementById('budgetOutput').classList.remove('visible');
+
+    // Reset progress bar
+    const progressBar = document.getElementById('progressBar');
+    const progressPct = document.getElementById('progressPct');
+    const progressEta = document.getElementById('progressEta');
+    const shimmer     = document.getElementById('progressShimmer');
+    if (progressBar) { progressBar.style.width = '0%'; progressBar.style.background = 'var(--muted)'; }
+    if (progressPct) progressPct.textContent = '0%';
+    if (progressEta) progressEta.textContent = '';
+    if (shimmer) shimmer.style.display = 'block';
+
+    const thinkingBar = document.getElementById('thinkingBar');
+    const stepsEl = document.getElementById('thinkingSteps');
+    thinkingBar.classList.add('visible');
+    document.getElementById('thinkingLabel').innerHTML =
+      'Haiku 4.5 analyzuje script<span style="flex:1;height:1px;background:var(--border);display:inline-block;margin-left:10px;vertical-align:middle;"></span>';
+
+    const analysisSteps = [
+      'Načítám soubory…',
+      'Čtu script a storyboard…',
+      'Identifikuji sety a prostředí…',
+      'Odhaduji hero props…',
+      'Připravuji výsledky…'
+    ];
+
+    // Animate steps while waiting
+    let stepIdx = 0;
+    const analysisStart = Date.now();
+    const analysisEst = 12000; // 12s estimate for analysis
+
+    function renderStep(idx) {
+      stepsEl.innerHTML = analysisSteps.map((s, i) => {
+        const cls = i < idx ? 'done' : i === idx ? 'active' : '';
+        return `<div class="thinking-step ${cls}"><div class="step-dot"></div><span>${s}</span></div>`;
+      }).join('');
+    }
+    renderStep(0);
+    const stepInterval = setInterval(() => {
+      const elapsed = Date.now() - analysisStart;
+      const ratio = elapsed / analysisEst;
+      const pct = Math.min(90 * (1 - Math.exp(-2.5 * ratio)), 91);
+      if (progressBar) progressBar.style.width = pct + '%';
+      if (progressPct) progressPct.textContent = Math.round(pct) + '%';
+      const secs = Math.ceil(Math.max(0, analysisEst - elapsed) / 1000);
+      if (progressEta) progressEta.textContent = pct < 88 ? `zbývá ~${secs}s` : 'dokončuji…';
+
+      stepIdx = Math.min(stepIdx + 1, analysisSteps.length - 2);
+      renderStep(stepIdx);
+    }, 1800);
+
+    // Status badge in sets area
+    const statusEl = document.getElementById('setsStatus');
+    const iconEl  = document.getElementById('setsStatusIcon');
+    const textEl  = document.getElementById('setsStatusText');
+    statusEl.style.display = 'flex';
+    iconEl.textContent = '⏳';
+    textEl.textContent = 'Analyzuji script…';
+    textEl.style.color = 'var(--muted)';
+
+    // ── Build content parts ──
+    const contentParts = [];
+    for (const file of uploadedFiles) {
+      const b64 = await fileToBase64(file);
+      const mt  = file.type === 'application/pdf' ? 'application/pdf' : file.type;
+      const typ = file.type === 'application/pdf' ? 'document' : 'image';
+      contentParts.push({ type: typ, source: { type: 'base64', media_type: mt, data: b64 } });
+    }
+
+    const shootDays = parseInt(document.getElementById('shootDays').value) || 2;
+
+    // Build prompt as plain string (no nested template literals)
+    const projectLine   = 'Projekt: ' + (projectName || '(nezadáno)');
+    const shootLine     = 'Shoot dny: ' + shootDays;
+    const descLine      = desc ? 'Popis / script / treatment:\n' + desc : '';
+    const jsonExample   = '{"sets":[{"name":"Obývací pokoj","type":"reálná lokace","note":"moderní interiér, velká okna"},{"name":"Kuchyně","type":"reálná lokace","note":"vaření na plynu"}],"hero_props":["čisticí sprej","varná deska"],"notes":"žádné speciální požadavky"}';
+
+    const promptText = [
+      'Jsi expert na filmovou rekvizitní výpravu.',
+      'Přečti podklady a identifikuj všechny SETY / PROSTŘEDÍ kde se bude točit.',
+      '',
+      projectLine,
+      shootLine,
+      descLine,
+      '',
+      'Pro každý set urči:',
+      '- name: konkrétní název (Obývací pokoj, Kuchyně moderní, Metro Anděl, Space station lab...)',
+      '- type: PŘESNĚ jedna z hodnot: atelier NEBO realna_lokace NEBO exteriér NEBO zahranicí',
+      '- note: 1 věta co je vidět / co je potřeba zařídit',
+      '',
+      'Také vypiš:',
+      '- hero_props: max 8 klíčových rekvizit nebo speciálních výrob ze scriptu',
+      '- notes: důležité poznámky pro rozpočet (zahraničí, velká výroba, kompars...) nebo null',
+      '',
+      'Odpověz POUZE validním JSON objektem, bez jakéhokoliv dalšího textu. Příklad:',
+      jsonExample
+    ].filter(l => l !== null).join('\n');
+
+    contentParts.push({ type: 'text', text: promptText });
+
+    const analysisAbort = new AbortController();
+
+    try {
+      if (progressEta) progressEta.textContent = 'odesílám…';
+
+      const _analysisBody = JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: contentParts }]
+      });
+
+      const data = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/chat');
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('x-api-key', apiKey);
+        xhr.setRequestHeader('anthropic-version', '2023-06-01');
+        xhr.timeout = 45000;
+
+        analysisAbort.signal.addEventListener('abort', () => { xhr.abort(); });
+
+        xhr.onload = () => {
+          try {
+            const json = JSON.parse(xhr.responseText);
+            if (xhr.status === 529 || xhr.status === 503) {
+              reject(new Error('API přetíženo. Zkus znovu.'));
+            } else if (xhr.status !== 200) {
+              reject(new Error(json.error?.message || `API chyba ${xhr.status}`));
+            } else {
+              resolve(json);
+            }
+          } catch(e) { reject(new Error('Chyba parsování odpovědi.')); }
+        };
+        xhr.ontimeout = () => reject(new Error('Timeout 45s — zkus znovu.'));
+        xhr.onerror  = () => reject(new Error('Síťová chyba.'));
+        xhr.onabort  = () => reject(new DOMException('Aborted', 'AbortError'));
+        xhr.send(_analysisBody);
+      });
+
+      clearInterval(stepInterval);
+
+      const raw = data.content?.map(c => c.text || '').join('').trim() || '';
+      if (!raw) throw new Error('API vrátilo prázdnou odpověď.');
+
+      renderStep(analysisSteps.length);
+      if (progressBar) { progressBar.style.width = '100%'; progressBar.style.background = 'var(--success)'; }
+      if (progressPct) progressPct.textContent = '100%';
+      if (progressEta) progressEta.textContent = '✓ Analýza hotova';
+      if (shimmer) shimmer.style.display = 'none';
+      setTimeout(() => {
+        if (progressBar) { progressBar.style.width = '0%'; progressBar.style.background = 'var(--accent)'; }
+        if (progressPct) progressPct.textContent = '0%';
+        if (progressEta) progressEta.textContent = '';
+      }, 800);
+
+      // Extract JSON — handle markdown fences and surrounding text
+      let parsed;
+      const cleaned = raw.replace(/```json|```/gi, '').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('Odpověď neobsahuje JSON. Odpověď: ' + raw.substring(0, 300));
+      parsed = JSON.parse(jsonMatch[0]);
+      if (!Array.isArray(parsed.sets)) throw new Error('JSON neobsahuje pole "sets".');
+
+      // Normalize type values (model sometimes uses different values)
+      const typeMap = {
+        'atelier': 'ateliér', 'ateljer': 'ateliér', 'studio': 'ateliér',
+        'realna_lokace': 'reálná lokace', 'real': 'reálná lokace', 'interior': 'reálná lokace',
+        'exterior': 'exteriér', 'exteriér': 'exteriér', 'exterier': 'exteriér',
+        'zahranici': 'zahraničí', 'abroad': 'zahraničí', 'foreign': 'zahraničí'
+      };
+      parsed.sets = parsed.sets.map(s => ({
+        ...s,
+        type: typeMap[s.type?.toLowerCase()] || s.type || 'reálná lokace'
+      }));
+
+      // ── Fill sets on left panel ──
+      document.getElementById('setsContainer').innerHTML = '';
+      setCounter = 0;
+      parsed.sets.forEach(s => addSet(s.name || 'Set', s.type));
+      updateCrewEstimate();
+
+      // ── Build right panel analysis view ──
+      const setsRows = parsed.sets.map((s, i) => {
+        const typeColor = s.type === 'ateliér' ? 'var(--accent)' : s.type === 'zahraničí' ? 'var(--danger)' : 'var(--muted)';
+        return `<div style="display:grid;grid-template-columns:18px 1fr auto;gap:10px;align-items:start;
+                            padding:9px 0;border-bottom:1px solid var(--border);">
+          <div style="font-size:10px;color:var(--muted);padding-top:2px;">${i+1}</div>
+          <div>
+            <div style="font-size:12px;color:var(--text);margin-bottom:2px;font-weight:500;">${s.name}</div>
+            <div style="font-size:10px;color:var(--muted);">${s.note || ''}</div>
+          </div>
+          <div style="font-size:9px;letter-spacing:0.08em;text-transform:uppercase;
+                      color:${typeColor};white-space:nowrap;padding-top:3px;">${s.type}</div>
+        </div>`;
+      }).join('');
+
+      const heroRows = (parsed.hero_props || []).length
+        ? `<div style="margin-top:14px;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);">
+             <div style="font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);margin-bottom:7px;">Hero props / výroba</div>
+             ${(parsed.hero_props).map(p => `<div style="font-size:11px;color:var(--text);padding:2px 0;opacity:0.85;">· ${p}</div>`).join('')}
+           </div>` : '';
+
+      const notesRow = parsed.notes && parsed.notes !== 'null'
+        ? `<div style="margin-top:10px;border-left:3px solid var(--accent2);padding:9px 13px;
+                       font-size:11px;color:var(--muted);line-height:1.7;background:var(--surface);">
+             <strong style="color:var(--accent2);">Poznámky:</strong> ${parsed.notes}
+           </div>` : '';
+
+      document.getElementById('analysisContent').innerHTML = `
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.6;">
+          Nalezeno <strong style="color:var(--text);">${parsed.sets.length} setů</strong> —
+          předvyplněno vlevo. Uprav co potřebuješ, pak generuj.
+        </div>
+        ${setsRows}${heroRows}${notesRow}`;
+
+      thinkingBar.classList.remove('visible');
+      document.getElementById('analysisPanel').style.display = 'block';
+
+      // Enable generate button
+      const genBtn = document.getElementById('generateBtn');
+      genBtn.disabled = false; genBtn.style.opacity = '1'; genBtn.title = '';
+      const hint = document.getElementById('generateHint');
+      if (hint) hint.style.display = 'none';
+
+      iconEl.textContent = '✓';
+      textEl.textContent = parsed.sets.length + ' setů — zkontroluj vlevo';
+      textEl.style.color = 'var(--success)';
+      setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+
+    } catch (e) {
+
+      clearInterval(stepInterval);
+      console.error('parseSets error:', e);
+      thinkingBar.classList.remove('visible');
+
+      const isTimeout = e.name === 'AbortError';
+      const msg = isTimeout
+        ? 'Analýza trvala příliš dlouho (>45s). Zkontroluj API klíč nebo zkus znovu.'
+        : e.message;
+
+      document.getElementById('analysisPanel').style.display = 'block';
+      document.getElementById('analysisContent').innerHTML = `
+        <div style="border-left:3px solid var(--danger);padding:10px 14px;
+                    background:rgba(200,110,110,0.06);font-size:11px;
+                    color:var(--danger);line-height:1.7;margin-bottom:12px;">
+          <strong>Analýza selhala:</strong> ${msg}<br>
+          <span style="opacity:0.7;font-size:10px;">Přidej sety ručně vlevo nebo
+            <a href="#" onclick="parseSetsFromScript();return false;"
+               style="color:var(--accent);text-decoration:none;">zkus znovu</a>.
+          </span>
+        </div>`;
+
+      if (progressBar) progressBar.style.width = '0%';
+      if (progressPct) progressPct.textContent = '0%';
+      if (progressEta) progressEta.textContent = '';
+      if (shimmer) shimmer.style.display = 'none';
+
+      iconEl.textContent = '⚠'; textEl.textContent = 'Selhalo — přidej ručně';
+      textEl.style.color = 'var(--danger)';
+      setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+
+      const genBtn = document.getElementById('generateBtn');
+      genBtn.disabled = false; genBtn.style.opacity = '1'; genBtn.title = '';
+      const hint = document.getElementById('generateHint');
+      if (hint) hint.innerHTML = '<span style="color:var(--muted);">Přidej sety ručně vlevo a pak generuj.</span>';
+    }
+  }
+
+
+  function confirmAndGenerate() {
+    // Scroll left panel to generate button area
+    document.querySelector('.panel-left').scrollTo({ top: 99999, behavior: 'smooth' });
+    // Hide analysis panel, show budget area
+    document.getElementById('analysisPanel').style.display = 'none';
+    // Trigger generation
+    generateBudget();
+  }
+
+  function enableGenerateManually() {
+    const genBtn = document.getElementById('generateBtn');
+    genBtn.disabled = false;
+    genBtn.style.opacity = '1';
+    genBtn.title = '';
+    const hint = document.getElementById('generateHint');
+    if (hint) hint.innerHTML = '<span style="color:var(--success);">✓ Ruční mód — sety vyplň vlevo</span>';
+  }
+
+
+  // Checkpoint: Handle checkboxes
+  document.querySelectorAll('.check-item').forEach(item => {
+    item.addEventListener('click', function(e) {
+      if (e.target.type === 'checkbox') {
+        this.classList.toggle('active', e.target.checked);
+      }
+    });
+  });
+
+  // File upload
+  const uploadedFiles = [];
+  const fileInput = document.getElementById('fileInput');
+  const dropzone = document.getElementById('dropzone');
+  const fileList = document.getElementById('fileList');
+
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    handleFiles(e.dataTransfer.files);
+    setTimeout(() => triggerParseSets(600), 50);
+  });
+
+  fileInput.addEventListener('change', e => {
+    handleFiles(e.target.files);
+    // trigger after files are in the array (next tick)
+    setTimeout(() => triggerParseSets(600), 50);
+  });
+
+  function handleFiles(files) {
+    Array.from(files).slice(0, 3 - uploadedFiles.length).forEach(f => {
+      if (uploadedFiles.length >= 3) return;
+      uploadedFiles.push(f);
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `<span class="name">📄 ${f.name}</span><span class="remove" onclick="removeFile(${uploadedFiles.length-1}, this.parentElement)">×</span>`;
+      fileList.appendChild(item);
+    });
+  }
+
+  // Auto-parse on textarea blur (when user finishes typing)
+  document.getElementById('projectDesc').addEventListener('blur', () => triggerParseSets(400));
+
+  // Also trigger if API key is entered AFTER files/text are already present
+  document.getElementById('apiKey').addEventListener('blur', () => triggerParseSets(200));
+
+
+
+  function removeFile(idx, el) {
+    uploadedFiles.splice(idx, 1);
+    el.remove();
+  }
+
+  // Read file as base64
+  function fileToBase64(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+  }
+
+  // Thinking steps
+  const steps = [
+    'Analyzuji parametry projektu…',
+    'Čtu script a storyboard…',
+    'Identifikuji sety a prostředí…',
+    'Kalkuluji labour (pracovníci)…',
+    'Odhaduji transport…',
+    'Sestavuji props po sekcích…',
+    'Aplikuji fee a finalizuji…'
+  ];
+  let _thinkingInterval = null; // global so showError can clear it
+
+  function showThinking() {
+    const container = document.getElementById('thinkingSteps');
+    container.innerHTML = '';
+    document.getElementById('thinkingBar').classList.add('visible');
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('budgetOutput').classList.remove('visible');
+    document.getElementById('thinkingLabel').innerHTML =
+      'Haiku 4.5 generuje rozpočet<span style="flex:1;height:1px;background:var(--border);display:inline-block;margin-left:10px;vertical-align:middle;"></span>';
+
+    // Build steps
+    steps.forEach((s, i) => {
+      const el = document.createElement('div');
+      el.className = 'thinking-step';
+      el.id = `step-${i}`;
+      el.style.animationDelay = `${i * 0.15}s`;
+      el.innerHTML = `<div class="step-dot"></div><span>${s}</span>`;
+      container.appendChild(el);
+    });
+
+    // ── Progress bar simulation ──
+    // Based on real timing: ~15-30s for budget generation
+    // Steps get progressively longer (labour fast, props slow)
+    const startTime = Date.now();
+    const estimatedMs = 20000; // 20s — bar jde rychle, pak zpomalí
+
+    let pct = 0;
+    let stepCurrent = 0;
+
+    const progressBar  = document.getElementById('progressBar');
+    const progressPct  = document.getElementById('progressPct');
+    const progressEta  = document.getElementById('progressEta');
+    const shimmer      = document.getElementById('progressShimmer');
+    if (shimmer) shimmer.style.display = 'block';
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const ratio = elapsed / estimatedMs;
+
+      // Asymptotic — rychle na 80%, pak velmi pomalu na max 96%
+      const rawPct = 96 * (1 - Math.exp(-2.2 * ratio));
+      pct = Math.min(rawPct, 96);
+
+      progressBar.style.width = pct + '%';
+      progressPct.textContent = Math.round(pct) + '%';
+
+      // Live elapsed timer — vždy zobraz kolik uplynulo
+      const elapsedSec = Math.round(elapsed / 1000);
+      progressEta.textContent = pct < 94
+        ? `${elapsedSec}s — čekám na API…`
+        : `${elapsedSec}s — dokončuji…`;
+
+      // Advance steps based on % thresholds
+      const stepThresholds = [5, 15, 30, 50, 68, 82, 93];
+      while (stepCurrent < stepThresholds.length && pct >= stepThresholds[stepCurrent]) {
+        if (stepCurrent > 0) document.getElementById(`step-${stepCurrent-1}`)?.classList.replace('active', 'done');
+        document.getElementById(`step-${stepCurrent}`)?.classList.add('active');
+        stepCurrent++;
+      }
+    }, 200);
+
+    _thinkingInterval = interval;
+    return { interval, startTime };
+  }
+
+  function hideThinking({ interval }) {
+    clearInterval(interval);
+    _thinkingInterval = null;
+
+    // Animate to 100%
+    const progressBar = document.getElementById('progressBar');
+    const progressPct = document.getElementById('progressPct');
+    const progressEta = document.getElementById('progressEta');
+    const shimmer     = document.getElementById('progressShimmer');
+
+    if (progressBar) progressBar.style.width = '100%';
+    if (progressPct) progressPct.textContent = '100%';
+    if (progressEta) progressEta.textContent = '✓ Hotovo';
+    if (shimmer) shimmer.style.display = 'none';
+
+    // Mark all steps done
+    steps.forEach((_, i) => document.getElementById(`step-${i}`)?.classList.add('done'));
+
+    setTimeout(() => {
+      document.getElementById('thinkingBar')?.classList.remove('visible');
+      // Reset bar for next time
+      if (progressBar) progressBar.style.width = '0%';
+      if (progressPct) progressPct.textContent = '0%';
+      if (progressEta) progressEta.textContent = '';
+    }, 600);
+  }
+
+
+  function showError(msg) {
+    // Stop thinking animation
+    if (_thinkingInterval) { clearInterval(_thinkingInterval); _thinkingInterval = null; }
+    const progressBar = document.getElementById('progressBar');
+    const progressPct = document.getElementById('progressPct');
+    const progressEta = document.getElementById('progressEta');
+    const shimmer     = document.getElementById('progressShimmer');
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressPct) progressPct.textContent = '0%';
+    if (progressEta) progressEta.textContent = '';
+    if (shimmer) shimmer.style.display = 'none';
+
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.classList.add('visible');
+    document.getElementById('thinkingBar').classList.remove('visible');
+    document.getElementById('emptyState').style.display = 'flex';
+  }
+
+  function formatCZK(n) {
+    return new Intl.NumberFormat('cs-CZ').format(Math.round(n)) + ' Kč';
+  }
+
+  // ─── THEME TOGGLE ───
+  function toggleTheme() {
+    const isLight = document.body.classList.toggle('light');
+    document.getElementById('themeIcon').textContent = isLight ? '☾' : '☀';
+    try { localStorage.setItem('propsBudget_theme', isLight ? 'light' : 'dark'); } catch(e) {}
+  }
+  // Load saved theme
+  try {
+    if (localStorage.getItem('propsBudget_theme') === 'light') {
+      document.body.classList.add('light');
+      document.getElementById('themeIcon').textContent = '☾';
+    }
+  } catch(e) {}
+
+  // ─── LEARNING SYSTEM ───
+  const LS_INSTRUCTIONS = 'propsBudget_instructions';
+  const LS_LEARNED = 'propsBudget_learned';
+
+  function saveInstructions() {
+    const val = document.getElementById('userInstructions').value;
+    try { localStorage.setItem(LS_INSTRUCTIONS, val); } catch(e) {}
+  }
+
+  function loadInstructions() {
+    try {
+      const saved = localStorage.getItem(LS_INSTRUCTIONS);
+      if (saved) document.getElementById('userInstructions').value = saved;
+    } catch(e) {}
+  }
+
+  function getLearnedCorrections() {
+    try {
+      return JSON.parse(localStorage.getItem(LS_LEARNED) || '[]');
+    } catch(e) { return []; }
+  }
+
+  function addLearnedCorrection(note) {
+    const learned = getLearnedCorrections();
+    // Avoid duplicates — if very similar note exists skip
+    const similar = learned.some(l => l.toLowerCase().includes(note.toLowerCase().substring(0, 30)));
+    if (similar) return;
+    // Keep max 10 corrections
+    if (learned.length >= 10) learned.shift();
+    learned.push(note);
+    try { localStorage.setItem(LS_LEARNED, JSON.stringify(learned)); } catch(e) {}
+    renderLearnedList();
+  }
+
+  function clearLearned() {
+    try { localStorage.removeItem(LS_LEARNED); } catch(e) {}
+    renderLearnedList();
+  }
+
+  function renderLearnedList() {
+    const el = document.getElementById('learnedList');
+    if (!el) return;
+    const learned = getLearnedCorrections();
+    if (!learned.length) {
+      el.innerHTML = '<span style="opacity:0.5;">Zatím žádné naučené korekce.</span>';
+      return;
+    }
+    el.innerHTML = learned.map((l, i) => `
+      <div style="display:flex; align-items:start; gap:6px; padding:3px 0; border-bottom:1px solid rgba(42,42,42,0.5);">
+        <span style="color:var(--accent); flex-shrink:0;">·</span>
+        <span style="flex:1; font-size:10px; color:var(--text); opacity:0.75;">${l}</span>
+        <span onclick="removeLearned(${i})" style="color:var(--muted); cursor:pointer; font-size:14px; line-height:1; flex-shrink:0;"
+          onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</span>
+      </div>`).join('');
+  }
+
+  function removeLearned(idx) {
+    const learned = getLearnedCorrections();
+    learned.splice(idx, 1);
+    try { localStorage.setItem(LS_LEARNED, JSON.stringify(learned)); } catch(e) {}
+    renderLearnedList();
+  }
+
+  function getLearningContext() {
+    const instructions = (document.getElementById('userInstructions')?.value || '').trim();
+    const learned = getLearnedCorrections();
+    const parts = [];
+    if (instructions) parts.push('TRVALÉ INSTRUKCE OD UŽIVATELE:\n' + instructions);
+    if (learned.length) parts.push('NAUČENÉ KOREKCE Z PŘEDCHOZÍCH OPRAV (dodržuj):\n' + learned.map(l => '- ' + l).join('\n'));
+    return parts.join('\n\n');
+  }
+
+  // Init on load
+  document.addEventListener('DOMContentLoaded', () => {
+    loadInstructions();
+    renderLearnedList();
+  });
+  // Also init immediately (in case DOMContentLoaded already fired)
+  loadInstructions();
+  renderLearnedList();
+
+  // ─── ABORT CONTROLLER ───
+  let _abortController = null;
+
+  function stopGeneration() {
+    if (_abortController) {
+      _abortController.abort('user_stop');
+      _abortController = null;
+    }
+    // Immediately reset UI
+    if (_thinkingInterval) { clearInterval(_thinkingInterval); _thinkingInterval = null; }
+    const btn = document.getElementById('generateBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
+    if (stopBtn) stopBtn.style.display = 'none';
+    document.getElementById('thinkingBar')?.classList.remove('visible');
+    const progressBar = document.getElementById('progressBar');
+    const progressPct = document.getElementById('progressPct');
+    const progressEta = document.getElementById('progressEta');
+    const shimmer     = document.getElementById('progressShimmer');
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressPct) progressPct.textContent = '0%';
+    if (progressEta) progressEta.textContent = '';
+    if (shimmer) shimmer.style.display = 'none';
+    showError('Generování zastaveno.');
+  }
+
+  async function generateBudget() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey) { showError('Zadejte prosím Anthropic API klíč.'); return; }
+
+    const btn = document.getElementById('generateBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+    stopBtn.style.display = 'block';
+    document.getElementById('errorMsg').classList.remove('visible');
+
+    _abortController = new AbortController();
+    const interval = showThinking();
+
+    // Gather inputs
+    const projectName = document.getElementById('projectName').value || 'Nový projekt';
+    const projectType = document.getElementById('projectType').value;
+    const budgetLevel = document.getElementById('budgetLevel').value;
+    const shootDays = parseInt(document.getElementById('shootDays').value) || 2;
+    const prepDays = parseInt(document.getElementById('prepDays').value) || 15;
+    const wrapDays = parseInt(document.getElementById('wrapDays').value) || 4;
+    const numScenes = document.querySelectorAll('.set-row').length || 4;
+    const scenesPerDay = parseInt(document.getElementById('scenesPerDay').value) || 1;
+    const _manualCrew = parseInt(document.getElementById('fullJobCrew').value);
+    const activeSets = Array.from(document.querySelectorAll('.set-row')).filter(r => r.querySelector('.set-name').value.trim() !== '').length;
+    const studioSets = Array.from(document.querySelectorAll('.set-row .set-type')).filter(s => s.value === 'ateliér').length;
+    const abroadSets = Array.from(document.querySelectorAll('.set-row .set-type')).filter(s => s.value === 'zahraničí').length;
+    // Auto-estimate if not manually set
+    let _core = 2;
+    if (activeSets >= 2) _core = 3;
+    if (activeSets >= 4) _core = 4;
+    if (activeSets >= 6) _core = 5;
+    if (abroadSets >= 1) _core = Math.max(_core + 1, 4);
+    _core = Math.min(_core, 6);
+    const fullJobCrew = _manualCrew > 0 ? _manualCrew : _core;
+
+    // Shoot crew estimate for prompt
+    const _isHeavy = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';
+    const _isMix   = propsSource === 'mix';
+    const _extSets = abroadSets; // already have abroadSets
+    const _realSets = Math.max(activeSets - studioSets - _extSets, 0);
+    let _extras = _realSets * (_isHeavy ? 4.5 : _isMix ? 3.0 : 2.0) + studioSets * (_isHeavy ? 5.0 : 3.5) + abroadSets * 4.0;
+    let _shootCrew = Math.min(Math.max(Math.round(fullJobCrew + _extras), activeSets >= 3 ? 12 : 6), 25);
+    const propsSource = document.getElementById('propsSource').value;
+    const heroProducts = document.getElementById('heroProducts').value;
+    const budgetCeiling = document.getElementById('budgetCeiling').value;
+    const desc = document.getElementById('projectDesc').value;
+
+    // Collect sets
+    const sets = Array.from(document.querySelectorAll('.set-row')).map(row => {
+      const name = row.querySelector('.set-name').value.trim();
+      const type = row.querySelector('.set-type').value;
+      return name ? `${name} (${type})` : null;
+    }).filter(Boolean);
+    const locationTypes = sets;
+
+    const rates = {
+      propMasterPrep: parseInt(document.getElementById('rate_pm').value),
+      propMasterShoot: parseInt(document.getElementById('rate_pm_s').value),
+      leadingPropmanPrep: parseInt(document.getElementById('rate_lp').value),
+      leadingPropmanShoot: parseInt(document.getElementById('rate_lp_s').value),
+      propmanPrep: parseInt(document.getElementById('rate_p').value),
+      propmanShoot: parseInt(document.getElementById('rate_p_s').value),
+      setdresserPrep: parseInt(document.getElementById('rate_sd').value),
+      setdresserShoot: parseInt(document.getElementById('rate_sd_s').value),
+      propConstruction: parseInt(document.getElementById('rate_pc').value),
+      car: parseInt(document.getElementById('rate_car').value),
+      truck: parseInt(document.getElementById('rate_truck').value),
+      bigTruck: parseInt(document.getElementById('rate_bigtruck').value),
+      fee: parseInt(document.getElementById('rate_fee').value)
+    };
+
+    // Build messages
+    const messages = [];
+    const contentParts = [];
+
+    // NOTE: Soubory (PDF/storyboard) se NEPOSÍLAJÍ do generate requestu —
+    // analýza scriptu již proběhla v první fázi (parseSetsFromScript).
+    // Posílání velkých PDF sem je hlavní důvod pomalého generování.
+
+    const projectTypeLabels = {
+      commercial: 'Reklamní spot / Commercial',
+      fashion: 'Fashion film',
+      music_video: 'Music video',
+      short_film: 'Krátký film',
+      feature: 'Celovečerní film',
+      tvc: 'TVC spot'
+    };
+
+    const budgetLevelLabels = {
+      luxury: 'Luxury (nejvyšší standard)',
+      premium: 'Premium (high-end komerční)',
+      standard: 'Standard',
+      low: 'Low budget'
+    };
+
+    const prompt = `Rekvizitní rozpočet CZK. Sunprops.
+PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%
+${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
+${sets.map((s,i)=>`${i+1}.${s}`).join('|')}
+${desc?'Info:'+desc.substring(0,200):''}
+MÓD:${outputMode==='approx'?'APROX(1paušál/set)':'DETAIL(3pol/set)'} JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
+Vrať POUZE JSON bez textu:
+{"summary":"","labour":{"total":0,"team":[{"role":"Prop master","phase":"prep and wrap","days":0,"rate":0,"total":0}]},"transport":{"total":0,"items":[{"name":"auto","days":0,"rate":0,"total":0}]},"props":{"total":0,"sections":[{"name":"set","items":[{"name":"pol","amount":0}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`
+    contentParts.push({ type: 'text', text: prompt });
+    messages.push({ role: 'user', content: contentParts });
+
+    try {
+      const _body = JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 800, messages });
+      const _kb = Math.round(_body.length / 1024);
+      document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
+      console.log('[Budget] Sending', _kb, 'KB');
+
+      // XHR s tvrdým timeoutem — spolehlivější než fetch+AbortController přes browser CORS
+      const data = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/chat');
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('x-api-key', apiKey);
+        xhr.setRequestHeader('anthropic-version', '2023-06-01');
+        xhr.timeout = 55000; // 55s hard timeout
+
+        // Wire Stop button to abort XHR
+        _abortController.signal.addEventListener('abort', () => {
+          xhr.abort();
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+
+        xhr.onload = () => {
+          try {
+            const json = JSON.parse(xhr.responseText);
+            if (xhr.status === 529 || xhr.status === 503) {
+              reject(new Error('API přetíženo (529). Počkej chvíli a zkus znovu.'));
+            } else if (xhr.status !== 200) {
+              reject(new Error(json.error?.message || `API chyba ${xhr.status}`));
+            } else {
+              resolve(json);
+            }
+          } catch(e) {
+            reject(new Error('Chyba parsování odpovědi: ' + xhr.responseText.substring(0, 100)));
+          }
+        };
+        xhr.ontimeout = () => reject(new Error('Timeout 55s — API neodpovědělo. Zkus znovu.'));
+        xhr.onerror  = () => reject(new Error('Síťová chyba. Zkontroluj připojení.'));
+        xhr.onabort  = () => reject(new DOMException('Aborted', 'AbortError'));
+
+        xhr.send(_body);
+        document.getElementById('progressEta').textContent = 'čekám na API…';
+      });
+
+      const rawText = data.content?.map(c => c.text || '').join('') || '';
+      if (!rawText) throw new Error('API vrátilo prázdnou odpověď.');
+
+      document.getElementById('progressEta').textContent = 'parsuju JSON…';
+      let budget;
+      try {
+        const clean = rawText.replace(/```json|```/gi, '').trim();
+        const match = clean.match(/\{[\s\S]*\}/);
+        budget = JSON.parse(match ? match[0] : clean);
+      } catch(e) {
+        throw new Error('Chyba parsování. Odpověď: ' + rawText.substring(0, 200));
+      }
+
+      hideThinking(interval);
+      window._lastBudgetName = projectName;
+      renderBudget(budget, projectName);
+
+    } catch (err) {
+      hideThinking(interval);
+      if (err.name === 'AbortError') {
+        showError('Generování zastaveno.');
+      } else {
+        showError('Chyba: ' + err.message);
+      }
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      document.getElementById('stopBtn').style.display = 'none';
+      _abortController = null;
+    }
+  }
+
+  function renderBudget(b, projectName) {
+    window._lastBudget = b;
+    window._lastBudgetName = projectName;
+    if (outputMode === 'approx') {
+      renderBudgetApprox(b, projectName);
+    } else {
+      renderBudgetDetailed(b, projectName);
+    }
+  }
+
+  function renderBudgetApprox(b, projectName) {
+    const out = document.getElementById('budgetOutput');
+    const L = getLang();
+    const fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n || 0));
+    const grand = b.grand_total || b.total_base || 0;
+    const labour = b.labour?.total || 0;
+    const transport = b.transport?.total || 0;
+    const props = b.props?.total || 0;
+    const base = labour + transport + props;
+    const fee = b.fee || base * ((b.fee_pct || 7) / 100);
+    const total_base = b.total_base || base + fee;
+
+    let setsHtml = (b.props?.sections || []).map(sec => {
+      const secTotal = sec.items.reduce((s, i) => s + (i.amount || 0), 0);
+      return `
+        <div style="display:grid; grid-template-columns:1fr auto; align-items:center;
+                    padding:14px 16px; border-bottom:1px solid var(--border);">
+          <div>
+            <div style="font-size:13px; color:var(--text); margin-bottom:3px;">${sec.name}</div>
+            <div style="font-size:10px; color:var(--muted);">dressing</div>
+          </div>
+          <div style="font-family:'DM Serif Display',serif; font-size:20px; color:var(--accent);">
+            ${fmt(secTotal)} <span style="font-size:11px; color:var(--muted);">Kč</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    let html = `
+      <div class="budget-header">
+        <div>
+          <div class="budget-title">${projectName}</div>
+          <div class="budget-meta">${L.budgetGenerated}: ${new Date().toLocaleDateString('cs-CZ')}<br>Aproximativní odhad</div>
+        </div>
+        <div class="budget-total-big">
+          <div class="label">${L.totalEstimate}</div>
+          <div class="amount">${fmt(grand)}<span class="currency"> Kč</span></div>
+        </div>
+      </div>
+
+      ${b.summary ? `<div class="ai-notes"><strong>${L.agentLabel}:</strong> ${b.summary}</div>` : ''}
+
+      <!-- SETS -->
+      <div class="budget-section">
+        <div class="budget-section-header" onclick="toggleSection('approx-sets')">
+          <div class="section-title-row">
+            <div class="section-dot props"></div>
+            <div class="section-name">Sety — Dekorace</div>
+          </div>
+          <div class="section-total">${fmt(props)} Kč</div>
+        </div>
+        <div class="section-body" id="approx-sets">
+          ${setsHtml}
+        </div>
+      </div>
+
+      <!-- TOTALS APPROX -->
+      <div class="totals-block">
+        <div class="totals-row"><span class="label">Labour (odhad)</span><span class="value">${fmt(labour)} Kč</span></div>
+        <div class="totals-row"><span class="label">Transport (odhad)</span><span class="value">${fmt(transport)} Kč</span></div>
+        <div class="totals-row"><span class="label">Props / Dekorace</span><span class="value">${fmt(props)} Kč</span></div>
+        <div class="totals-row highlight"><span class="label">Mezisoučet</span><span class="value">${fmt(base)} Kč</span></div>
+        <div class="totals-row"><span class="label">Fee ${b.fee_pct || 7}%</span><span class="value">${fmt(fee)} Kč</span></div>
+        <div class="totals-row highlight"><span class="label">Celkem bez přesčasů</span><span class="value">${fmt(total_base)} Kč</span></div>
+        ${b.overtime_estimate ? `<div class="totals-row"><span class="label">+ Odhad přesčasů</span><span class="value">~${fmt(b.overtime_estimate)} Kč</span></div>` : ''}
+        ${b.overcosts_estimate ? `<div class="totals-row"><span class="label">+ Odhad overcosts</span><span class="value">~${fmt(b.overcosts_estimate)} Kč</span></div>` : ''}
+        <div class="totals-row grand"><span class="label">${L.grandLabel}</span><span class="value">${fmt(grand)} Kč</span></div>
+      </div>
+
+      <div class="export-row">
+        <button class="btn-secondary" onclick="copyJSON()">↗ JSON</button>
+        <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel / Numbers</button>
+        <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
+      </div>
+
+      <div id="revisionBox" style="margin-top:20px; border:1px solid var(--border); background:var(--surface);">
+        <div style="padding:12px 16px; background:var(--surface2); border-bottom:1px solid var(--border);
+                    display:flex; align-items:center; gap:10px;">
+          <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);">Opravit odhad</div>
+        </div>
+        <div style="padding:14px 16px;">
+          <textarea id="revisionNote" placeholder="Napiš co opravit — např. &quot;Lidí je moc, měli by být max 3 na celý prep&quot; nebo &quot;Přidej do obýváku ještě fotbálek 4000 Kč&quot;..."
+            style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+                   font-family:'DM Mono',monospace; font-size:12px; padding:10px 12px; outline:none;
+                   resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
+            <button onclick="reviseBudget()" id="reviseBtn" style="
+              flex:1; background:var(--surface2); border:1px solid var(--border);
+              color:var(--text); font-family:'DM Mono',monospace; font-size:11px;
+              letter-spacing:0.15em; text-transform:uppercase; padding:10px;
+              cursor:pointer; transition:all 0.2s;"
+              onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
+              ↺ Aplikovat opravy
+            </button>
+            <div id="reviseStatus" style="font-size:10px;color:var(--muted);"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    out.innerHTML = html;
+    out.classList.add('visible');
+  }
+
+  function renderBudgetDetailed(b, projectName) {
+    const out = document.getElementById('budgetOutput');
+    const total = b.grand_total || b.total_base || 0;
+    const labour = b.labour?.total || 0;
+    const transport = b.transport?.total || 0;
+    const props = b.props?.total || 0;
+    const base = labour + transport + props;
+
+    const labourPct = Math.round(labour / base * 100);
+    const transportPct = Math.round(transport / base * 100);
+    const propsPct = Math.round(props / base * 100);
+
+    let html = `
+      <div class="budget-header">
+        <div>
+          <div class="budget-title">${projectName}</div>
+          <div class="budget-meta">
+            ${getLang().budgetGenerated}: ${new Date().toLocaleDateString('cs-CZ')}<br>
+            ${getLang().budgetMeta(b.fee_pct || 7)} + odhad přesčasů
+          </div>
+        </div>
+        <div class="budget-total-big">
+          <div class="label">${getLang().totalEstimate}</div>
+          <div class="amount">${new Intl.NumberFormat('cs-CZ').format(Math.round(total))}<span class="currency">Kč</span></div>
+        </div>
+      </div>
+
+      ${b.summary ? `<div class="ai-notes"><strong>${getLang().agentLabel}:</strong> ${b.summary}</div>` : ''}
+
+      <div class="summary-bars">
+        <div class="summary-bar labour" style="--pct:${labourPct}%">
+          <div class="bar-label">Labour</div>
+          <div class="bar-amount">${formatCZK(labour)}</div>
+          <div class="bar-pct">${labourPct} ${getLang().ofBase}</div>
+        </div>
+        <div class="summary-bar transport" style="--pct:${transportPct}%">
+          <div class="bar-label">Transport</div>
+          <div class="bar-amount">${formatCZK(transport)}</div>
+          <div class="bar-pct">${transportPct} ${getLang().ofBase}</div>
+        </div>
+        <div class="summary-bar props" style="--pct:${propsPct}%">
+          <div class="bar-label">Props</div>
+          <div class="bar-amount">${formatCZK(props)}</div>
+          <div class="bar-pct">${propsPct} ${getLang().ofBase}</div>
+        </div>
+      </div>
+    `;
+
+    // LABOUR
+    if (b.labour?.team?.length) {
+      html += `
+        <div class="budget-section">
+          <div class="budget-section-header" onclick="toggleSection('labour-body')">
+            <div class="section-title-row">
+              <div class="section-dot"></div>
+              <div class="section-name">${getLang().labourSection}</div>
+            </div>
+            <div class="section-total">${formatCZK(labour)}</div>
+          </div>
+          <div class="section-body" id="labour-body">
+      `;
+      b.labour.team.forEach(row => {
+        html += `
+          <div class="budget-row">
+            <div class="row-name">${row.role}${row.name && row.name !== '-' ? ` — ${row.name}` : ''}</div>
+            <div class="row-detail">${row.phase}</div>
+            <div class="row-detail">${row.days} dní × ${formatCZK(row.rate)}</div>
+            <div class="row-amount">${formatCZK(row.total)}</div>
+          </div>
+        `;
+      });
+      html += `</div></div>`;
+    }
+
+    // TRANSPORT
+    if (b.transport?.items?.length) {
+      html += `
+        <div class="budget-section">
+          <div class="budget-section-header" onclick="toggleSection('transport-body')">
+            <div class="section-title-row">
+              <div class="section-dot transport"></div>
+              <div class="section-name">Transport</div>
+            </div>
+            <div class="section-total">${formatCZK(transport)}</div>
+          </div>
+          <div class="section-body" id="transport-body">
+      `;
+      b.transport.items.forEach(row => {
+        html += `
+          <div class="budget-row">
+            <div class="row-name">${row.name}</div>
+            <div class="row-detail">${row.days} dní</div>
+            <div class="row-detail">${formatCZK(row.rate)}/den</div>
+            <div class="row-amount">${formatCZK(row.total)}</div>
+          </div>
+        `;
+      });
+      html += `</div></div>`;
+    }
+
+    // PROPS
+    if (b.props?.sections?.length) {
+      html += `
+        <div class="budget-section">
+          <div class="budget-section-header" onclick="toggleSection('props-body')">
+            <div class="section-title-row">
+              <div class="section-dot props"></div>
+              <div class="section-name">${getLang().propsSection}</div>
+            </div>
+            <div class="section-total">${formatCZK(props)}</div>
+          </div>
+          <div class="section-body" id="props-body">
+      `;
+      b.props.sections.forEach(section => {
+        const sectionTotal = section.items.reduce((s, i) => s + (i.amount || 0), 0);
+        html += `<div class="budget-row" style="background:var(--surface2); border-top: 1px solid var(--border);">
+          <div class="row-name" style="font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);">${section.name}</div>
+          <div></div><div></div>
+          <div class="row-amount" style="color:var(--muted)">${formatCZK(sectionTotal)}</div>
+        </div>`;
+        section.items.forEach(item => {
+          html += `
+            <div class="budget-row">
+              <div class="row-name">${item.name}</div>
+              <div></div>
+              <div class="row-note">${item.note || ''}</div>
+              <div class="row-amount">${formatCZK(item.amount)}</div>
+            </div>
+          `;
+        });
+      });
+      html += `</div></div>`;
+    }
+
+    // TOTALS
+    html += `
+      <div class="totals-block">
+        <div class="totals-row"><span class="label">${getLang().subtotalLabel}</span><span class="value">${formatCZK(base)}</span></div>
+        <div class="totals-row"><span class="label">Fee ${b.fee_pct || 7}%</span><span class="value">${formatCZK(b.fee || base * 0.07)}</span></div>
+        <div class="totals-row highlight"><span class="label">${getLang().noFeeTotalLabel}</span><span class="value">${formatCZK(b.total_base || base * 1.07)}</span></div>
+        ${b.overtime_estimate ? `<div class="totals-row"><span class="label">Odhad přesčasů</span><span class="value">~${formatCZK(b.overtime_estimate)}</span></div>` : ''}
+        ${b.overcosts_estimate ? `<div class="totals-row"><span class="label">${getLang().overcostsLabel}</span><span class="value">~${formatCZK(b.overcosts_estimate)}</span></div>` : ''}
+        <div class="totals-row grand"><span class="label">${getLang().grandLabel}</span><span class="value">${formatCZK(total)}</span></div>
+      </div>
+
+      <div class="export-row">
+        <button class="btn-secondary" onclick="copyJSON()">↗ JSON</button>
+        <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel / Numbers</button>
+        <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
+      </div>
+
+      <div id="revisionBox" style="margin-top:20px; border:1px solid var(--border); background:var(--surface);">
+        <div style="padding:12px 16px; background:var(--surface2); border-bottom:1px solid var(--border);
+                    display:flex; align-items:center; gap:10px;">
+          <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);">Opravit odhad</div>
+        </div>
+        <div style="padding:14px 16px;">
+          <textarea id="revisionNote" placeholder="Napiš co opravit — např. &quot;Lidí je moc, měli by být max 3 na celý prep&quot; nebo &quot;Přidej do obýváku ještě fotbálek 4000 Kč&quot;..."
+            style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+                   font-family:'DM Mono',monospace; font-size:12px; padding:10px 12px; outline:none;
+                   resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
+            <button onclick="reviseBudget()" id="reviseBtn" style="
+              flex:1; background:var(--surface2); border:1px solid var(--border);
+              color:var(--text); font-family:'DM Mono',monospace; font-size:11px;
+              letter-spacing:0.15em; text-transform:uppercase; padding:10px;
+              cursor:pointer; transition:all 0.2s;"
+              onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
+              ↺ Aplikovat opravy
+            </button>
+            <div id="reviseStatus" style="font-size:10px;color:var(--muted);"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    out.innerHTML = html;
+    out.classList.add('visible');
+
+    // Animate bars
+    setTimeout(() => {
+      document.querySelectorAll('.summary-bar').forEach(bar => {
+        bar.style.setProperty('--pct', bar.style.getPropertyValue('--pct'));
+      });
+    }, 100);
+
+    // Store for export
+    window._lastBudget = b;
+  }
+
+  function toggleSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+  }
+
+  function copyJSON() {
+    if (window._lastBudget) {
+      navigator.clipboard.writeText(JSON.stringify(window._lastBudget, null, 2));
+      alert('JSON zkopírován do schránky!');
+    }
+  }
+
+  async function reviseBudget() {
+    const note = document.getElementById('revisionNote')?.value?.trim();
+    if (!note) return;
+
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey) { alert('Zadejte API klíč.'); return; }
+
+    const b = window._lastBudget;
+    const projectName = window._lastBudgetName || 'Projekt';
+    if (!b) return;
+
+    const btn = document.getElementById('reviseBtn');
+    const status = document.getElementById('reviseStatus');
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    status.textContent = '⏳ Opravuji…';
+
+    const prompt = [
+      'Jsi expert na filmové rekvizitní rozpočty. Dostal jsi hotový rozpočet a požadavek na opravu.',
+      '',
+      'AKTUÁLNÍ ROZPOČET (JSON):',
+      JSON.stringify(b, null, 2),
+      '',
+      'POŽADAVEK NA OPRAVU:',
+      note,
+      '',
+      'Uprav rozpočet přesně podle požadavku. Zachovej celkovou strukturu, změň jen co je požadováno.',
+      'Přepoč všechny součty (labour.total, transport.total, props.total, subtotal, fee, total_base, grand_total).',
+      'Do pole "summary" přidej na začátek: "↺ Opraveno: ' + note.substring(0, 80) + '"',
+      '',
+      'Vrať POUZE validní JSON ve stejném formátu jako vstupní rozpočet, bez jakéhokoliv dalšího textu.'
+    ].join('\n');
+
+    try {
+      const _revBody = JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
+      const data = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/chat');
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('x-api-key', apiKey);
+        xhr.setRequestHeader('anthropic-version', '2023-06-01');
+        xhr.timeout = 55000;
+        xhr.onload = () => {
+          try {
+            const json = JSON.parse(xhr.responseText);
+            xhr.status === 200 ? resolve(json) : reject(new Error(json.error?.message || `API chyba ${xhr.status}`));
+          } catch(e) { reject(new Error('Chyba parsování.')); }
+        };
+        xhr.ontimeout = () => reject(new Error('Timeout 55s.'));
+        xhr.onerror   = () => reject(new Error('Síťová chyba.'));
+        xhr.send(_revBody);
+      });
+
+      const raw = data.content?.map(c => c.text || '').join('').trim() || '';
+      const cleaned = raw.replace(/```json|```/gi, '').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('Neplatná odpověď');
+      const revised = JSON.parse(jsonMatch[0]);
+
+      // Clear note, save to learned, re-render
+      const savedNote = note;
+      document.getElementById('revisionNote').value = '';
+      status.textContent = '✓ Opraveno';
+      setTimeout(() => { status.textContent = ''; }, 3000);
+
+      // Save as learned correction (summarized)
+      addLearnedCorrection(savedNote.substring(0, 120));
+
+      window._lastBudgetName = projectName;
+      renderBudget(revised, projectName);
+
+    } catch (e) {
+      status.textContent = '⚠ Chyba: ' + e.message;
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  }
+
+  async function downloadExcel() {
+    const b = window._lastBudget;
+    if (!b) return;
+    if (outputMode === 'approx') {
+      await downloadExcelApprox(b);
+    } else {
+      await downloadExcelDetailed(b);
+    }
+  }
+
+  async function downloadExcelApprox(b) {
+    const projectName = document.getElementById('projectName').value || 'ROZPOČET';
+    const ExcelJS = window.ExcelJS;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('List3');
+
+    ws.getColumn(1).width = 50;
+    ws.getColumn(2).width = 20;
+    ws.getColumn(3).width = 14;
+    ws.getColumn(4).width = 14;
+
+    const fBold = { name: 'Calibri', size: 11, bold: true };
+    const fNorm = { name: 'Calibri', size: 11 };
+    const fTitle = { name: 'Calibri', size: 13, bold: true };
+    const fFinal = { name: 'Calibri', size: 13, bold: true };
+    const numFmt = '#,##0';
+    const alignR = { horizontal: 'right' };
+
+    const labour = b.labour?.total || 0;
+    const transport = b.transport?.total || 0;
+    const props = b.props?.total || 0;
+    const base = labour + transport + props;
+    const feePct = b.fee_pct || 7;
+    const fee = b.fee || base * feePct / 100;
+    const total_base = b.total_base || base + fee;
+    const grand = b.grand_total || total_base;
+
+    // Title
+    const tR = ws.addRow([null, null, `APPROXIMATIVE BUDGET — ${projectName}`]);
+    tR.getCell(3).font = fTitle;
+    ws.addRow([]);
+
+    // Labour summary line
+    ws.addRow(['Labour']).getCell(1).font = fBold;
+    const lR = ws.addRow(['total labour', '', '', { formula: `D${ws.rowCount + 1}` }]);
+    lR.getCell(1).font = fBold;
+    const lVal = ws.addRow(['', '', '', labour]);
+    lVal.getCell(4).numFmt = numFmt; lVal.getCell(4).alignment = alignR;
+    const labTotRow = ws.rowCount;
+    ws.addRow([]);
+
+    // Simpler — just write the total directly
+    // (rebuild cleanly)
+    ws.spliceRows(3, ws.rowCount); // clear and redo
+
+    // Redo cleanly
+    ws.addRow([null, null, `APPROXIMATIVE BUDGET — ${projectName}`]).getCell(3).font = fTitle;
+    ws.addRow([]);
+
+    // Labour
+    const lRow = ws.addRow(['Labour — total', '', '', labour]);
+    lRow.getCell(1).font = fBold; lRow.getCell(4).numFmt = numFmt; lRow.getCell(4).alignment = alignR;
+    const labR = ws.rowCount;
+    ws.addRow([]);
+
+    // Transport
+    const tRow = ws.addRow(['Transport — total', '', '', transport]);
+    tRow.getCell(1).font = fBold; tRow.getCell(4).numFmt = numFmt; tRow.getCell(4).alignment = alignR;
+    const trR = ws.rowCount;
+    ws.addRow([]);
+
+    // Props header
+    ws.addRow(['Props']).getCell(1).font = fBold;
+    ws.addRow([]);
+
+    // Sets
+    const prStart = ws.rowCount + 1;
+    (b.props?.sections || []).forEach(sec => {
+      const secTotal = sec.items.reduce((s, i) => s + (i.amount || 0), 0);
+      const sR = ws.addRow([sec.name, '', '', secTotal]);
+      sR.getCell(1).font = fBold;
+      sR.getCell(4).numFmt = numFmt; sR.getCell(4).alignment = alignR;
+      ws.addRow([' ', '', '', 'dressing']).getCell(4).alignment = alignR;
+      ws.addRow([]);
+    });
+    const prEnd = ws.rowCount;
+
+    const prTotR = ws.addRow(['props total', '', '', { formula: `SUMIF(D${prStart}:D${prEnd},">"&0)` }]);
+    prTotR.getCell(1).font = fBold; prTotR.getCell(4).numFmt = numFmt; prTotR.getCell(4).alignment = alignR;
+    const ptRow = ws.rowCount;
+    ws.addRow([]); ws.addRow([]);
+
+    // Totals
+    const totRow = ws.addRow(['total budget', '', '', { formula: `D${labR}+D${trR}+D${ptRow}` }]);
+    totRow.getCell(1).font = fBold; totRow.getCell(4).numFmt = numFmt; totRow.getCell(4).alignment = alignR;
+    const tbRow = ws.rowCount;
+
+    const feeRow2 = ws.addRow([`${feePct}% fee:`, '', '', { formula: `D${tbRow}*${feePct/100}` }]);
+    feeRow2.getCell(4).numFmt = numFmt; feeRow2.getCell(4).alignment = alignR;
+    const frRow = ws.rowCount;
+
+    const baseRow2 = ws.addRow(['celková částka rozpočtu bez přesčasů', '', '', { formula: `D${tbRow}+D${frRow}` }]);
+    baseRow2.getCell(1).font = fBold; baseRow2.getCell(4).font = fBold;
+    baseRow2.getCell(4).numFmt = numFmt; baseRow2.getCell(4).alignment = alignR;
+    const brRow = ws.rowCount;
+    ws.addRow([]); ws.addRow([]);
+
+    // Final
+    const finR = ws.addRow(['APPROXIMATIVE BUDGET', '', '', { formula: `D${brRow}` }]);
+    finR.getCell(1).font = fFinal; finR.getCell(4).font = fFinal;
+    finR.getCell(4).numFmt = numFmt; finR.getCell(4).alignment = alignR;
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeName = projectName.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F]/g, '_');
+    a.href = url; a.download = `${safeName}_approx_rozpocet.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
+  }
+
+  async function downloadExcelDetailed(b) {
+    const projectName = document.getElementById('projectName').value || 'ROZPOČET';
+
+    const ExcelJS = window.ExcelJS;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('List3');
+
+    // Column widths
+    ws.getColumn(1).width = 44;
+    ws.getColumn(2).width = 22;
+    ws.getColumn(3).width = 10;
+    ws.getColumn(4).width = 14;
+    ws.getColumn(5).width = 14;
+
+    const fBold = { name: 'Calibri', size: 11, bold: true };
+    const fNorm = { name: 'Calibri', size: 11 };
+    const fTitle = { name: 'Calibri', size: 12, bold: true };
+    const fFinal = { name: 'Calibri', size: 13, bold: true };
+
+    const numFmt = '#,##0';
+    const alignR = { horizontal: 'right' };
+
+    function addRow(vals, fonts, numCols) {
+      const r = ws.addRow(vals);
+      if (fonts) fonts.forEach((f, i) => { if (f) r.getCell(i+1).font = f; });
+      if (numCols) numCols.forEach(i => {
+        r.getCell(i).numFmt = numFmt;
+        r.getCell(i).alignment = alignR;
+      });
+      return r;
+    }
+
+    function blank(n=1) { for(let i=0;i<n;i++) ws.addRow([]); }
+
+    // ─── TITLE ───
+    const titleRow = ws.addRow([null, null, `FINAL BUDGET — ${projectName}`]);
+    titleRow.getCell(3).font = fTitle;
+    blank();
+
+    // ─── LABOUR ───
+    ws.addRow(['Labour']).getCell(1).font = fBold;
+    const labHdr = ws.addRow(['worker', '', 'days', 'amount / day', 'total amount']);
+    [1,2,3,4,5].forEach(i => labHdr.getCell(i).font = fBold);
+    [3,4,5].forEach(i => { labHdr.getCell(i).alignment = alignR; });
+
+    const labStart = ws.rowCount + 1;
+    const team = b.labour?.team || [];
+    team.forEach(m => {
+      const isMain = m.phase === 'shoot' || team.indexOf(m) === 0;
+      const r = ws.addRow([m.role, m.phase, m.days, m.rate, { formula: `C${ws.rowCount+1}*D${ws.rowCount+1}` }]);
+      // fix formula row reference
+      const rn = ws.rowCount;
+      ws.getRow(rn).getCell(5).value = { formula: `C${rn}*D${rn}` };
+      ws.getRow(rn).getCell(1).font = isMain ? fBold : fNorm;
+      [3,4,5].forEach(i => { ws.getRow(rn).getCell(i).numFmt = numFmt; ws.getRow(rn).getCell(i).alignment = alignR; });
+    });
+    const labEnd = ws.rowCount;
+    const labTotRow = ws.rowCount + 1;
+    const rLabTot = ws.addRow(['total labour', '', { formula: `SUM(C${labStart}:C${labEnd})` }, '', { formula: `SUM(E${labStart}:E${labEnd})` }]);
+    rLabTot.getCell(1).font = fBold;
+    rLabTot.getCell(5).font = fBold;
+    [3,5].forEach(i => { rLabTot.getCell(i).numFmt = numFmt; rLabTot.getCell(i).alignment = alignR; });
+    blank(3);
+
+    // ─── TRANSPORT ───
+    ws.addRow([getLang().transportSection]).getCell(1).font = fBold;
+    const trHdr = ws.addRow(['car', 'days', 'amount/day', 'total amount']);
+    [1,2,3,4].forEach(i => trHdr.getCell(i).font = fBold);
+
+    const trStart = ws.rowCount + 1;
+    const items = b.transport?.items || [];
+    items.forEach(item => {
+      const rn_before = ws.rowCount;
+      ws.addRow([item.name, item.days, item.rate, null]);
+      const rn = ws.rowCount;
+      ws.getRow(rn).getCell(4).value = { formula: `B${rn}*C${rn}` };
+      [2,3,4].forEach(i => { ws.getRow(rn).getCell(i).numFmt = numFmt; ws.getRow(rn).getCell(i).alignment = alignR; });
+    });
+    const trEnd = ws.rowCount;
+    const trTotRow = ws.rowCount + 1;
+    const rTrTot = ws.addRow(['total transport', '', '', { formula: `SUM(D${trStart}:D${trEnd})` }]);
+    rTrTot.getCell(1).font = fBold;
+    rTrTot.getCell(4).font = fBold;
+    rTrTot.getCell(4).numFmt = numFmt;
+    rTrTot.getCell(4).alignment = alignR;
+    blank(3);
+
+    // ─── PROPS ───
+    ws.addRow(['Props']).getCell(1).font = fBold;
+    blank();
+
+    const prStart = ws.rowCount + 1;
+    const sections = b.props?.sections || [];
+    sections.forEach(sec => {
+      const secRow = ws.addRow([sec.name]);
+      secRow.getCell(1).font = fBold;
+      sec.items.forEach(item => {
+        const r = ws.addRow([item.name, item.note || '', '', item.amount]);
+        r.getCell(4).numFmt = numFmt;
+        r.getCell(4).alignment = alignR;
+      });
+      blank();
+    });
+    const prEnd = ws.rowCount;
+    const prTotRow = ws.rowCount + 1;
+    const rPrTot = ws.addRow(['props total', '', '', { formula: `SUMIF(D${prStart}:D${prEnd},">"&0)` }]);
+    rPrTot.getCell(1).font = fBold;
+    rPrTot.getCell(4).font = fBold;
+    rPrTot.getCell(4).numFmt = numFmt;
+    rPrTot.getCell(4).alignment = alignR;
+    blank(2);
+
+    // ─── TOTALS ───
+    const totBudgRow = ws.rowCount + 1;
+    const rTotBudg = ws.addRow(['total budget', '', '', '', { formula: `E${labTotRow}+D${trTotRow}+D${prTotRow}` }]);
+    rTotBudg.getCell(1).font = fBold;
+    rTotBudg.getCell(5).font = fBold;
+    rTotBudg.getCell(5).numFmt = numFmt;
+    rTotBudg.getCell(5).alignment = alignR;
+
+    const feePct = b.fee_pct || 7;
+    const feeRow = ws.rowCount + 1;
+    const rFee = ws.addRow([`${feePct}% fee:`, '', '', '', { formula: `E${totBudgRow}*${feePct/100}` }]);
+    rFee.getCell(5).numFmt = numFmt;
+    rFee.getCell(5).alignment = alignR;
+
+    const baseRow = ws.rowCount + 1;
+    const rBase = ws.addRow(['total budget -overtime not included', '', '', '', { formula: `E${totBudgRow}+E${feeRow}` }]);
+    rBase.getCell(1).font = fBold;
+    rBase.getCell(5).font = fBold;
+    rBase.getCell(5).numFmt = numFmt;
+    rBase.getCell(5).alignment = alignR;
+    blank(2);
+
+    // ─── OVERCOSTS ───
+    ws.addRow(['OVERCOSTS …no fee added']).getCell(1).font = fBold;
+    const ocStart = ws.rowCount + 1;
+    if (b.overcosts_estimate > 0) {
+      const r = ws.addRow(['odhad overcosts', '', '', '', b.overcosts_estimate]);
+      r.getCell(5).numFmt = numFmt;
+      r.getCell(5).alignment = alignR;
+    } else {
+      blank(3);
+    }
+    const ocEnd = ws.rowCount;
+    const ocTotRow = ws.rowCount + 1;
+    const rOcTot = ws.addRow(['OVERCOSTS TOTAL', '', '', '', { formula: `SUM(E${ocStart}:E${ocEnd})` }]);
+    rOcTot.getCell(1).font = fBold;
+    rOcTot.getCell(5).font = fBold;
+    rOcTot.getCell(5).numFmt = numFmt;
+    rOcTot.getCell(5).alignment = alignR;
+    blank(2);
+
+    // ─── OVERTIME ───
+    ws.addRow(['OVERTIME 800,1000,1200,1500,2000']).getCell(1).font = fBold;
+    const otStart = ws.rowCount + 1;
+    if (b.overtime_estimate > 0) {
+      const r = ws.addRow(['odhad overtime', '', '', '', b.overtime_estimate]);
+      r.getCell(5).numFmt = numFmt;
+      r.getCell(5).alignment = alignR;
+    } else {
+      blank(3);
+    }
+    const otEnd = ws.rowCount;
+    const otTotRow = ws.rowCount + 1;
+    const rOtTot = ws.addRow(['OVERTIME TOTAL', '', '', '', { formula: `SUM(E${otStart}:E${otEnd})` }]);
+    rOtTot.getCell(1).font = fBold;
+    rOtTot.getCell(5).font = fBold;
+    rOtTot.getCell(5).numFmt = numFmt;
+    rOtTot.getCell(5).alignment = alignR;
+    blank(3);
+
+    // ─── FINAL BUDGET ───
+    const rFinal = ws.addRow(['FINAL BUDGET', '', '', '', { formula: `E${baseRow}+E${ocTotRow}+E${otTotRow}` }]);
+    rFinal.getCell(1).font = fFinal;
+    rFinal.getCell(5).font = fFinal;
+    rFinal.getCell(5).numFmt = numFmt;
+    rFinal.getCell(5).alignment = alignR;
+
+    // ─── DOWNLOAD ───
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeName = projectName.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F]/g, '_');
+    a.href = url;
+    a.download = `${safeName}_rozpocet.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printBudget() {
+    if (outputMode === 'approx') { printBudgetApprox(); return; }
+    printBudgetDetailed();
+  }
+
+  function printBudgetApprox() {
+    const b = window._lastBudget;
+    if (!b) return;
+    const projectName = document.getElementById('projectName').value || 'ROZPOČET';
+    const today = new Date().toLocaleDateString('cs-CZ');
+    const L = getLang();
+    const fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n || 0)) + ' Kč';
+    const labour = b.labour?.total || 0;
+    const transport = b.transport?.total || 0;
+    const props = b.props?.total || 0;
+    const base = labour + transport + props;
+    const fee = b.fee || base * ((b.fee_pct || 7) / 100);
+    const total_base = b.total_base || base + fee;
+    const grand = b.grand_total || total_base;
+
+    const setsRows = (b.props?.sections || []).map(sec => {
+      const secTotal = sec.items.reduce((s, i) => s + (i.amount || 0), 0);
+      return `<tr>
+        <td style="font-weight:600; padding:10px 12px; border-bottom:1px solid #eee;">${sec.name}</td>
+        <td style="color:#888; padding:10px 12px; border-bottom:1px solid #eee; font-size:9pt;">dressing</td>
+        <td style="text-align:right; padding:10px 12px; border-bottom:1px solid #eee; font-family:'DM Serif Display',serif; font-size:14pt; white-space:nowrap;">${fmt(secTotal)}</td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8">
+<title>${projectName} — Aproximativní rozpočet</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@300;400;500&display=swap');
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'DM Mono',monospace; font-size:10pt; color:#1a1a1a; background:white; }
+  .page { max-width:210mm; margin:0 auto; padding:14mm; }
+  .doc-header { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #1a1a1a; padding-bottom:10px; margin-bottom:18px; }
+  .doc-title { font-family:'DM Serif Display',serif; font-size:24pt; letter-spacing:-0.5px; }
+  .doc-sub { font-size:8pt; color:#888; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:4px; }
+  .doc-meta { text-align:right; font-size:8pt; color:#888; line-height:1.8; }
+  .badge { display:inline-block; background:#1a1a1a; color:white; font-size:8pt; letter-spacing:0.15em; text-transform:uppercase; padding:3px 10px; margin-bottom:12px; }
+  .agent-note { border-left:3px solid #c8a96e; padding:7px 12px; font-size:8.5pt; color:#444; margin-bottom:16px; line-height:1.6; background:#fafaf8; }
+  table { width:100%; border-collapse:collapse; margin-bottom:20px; }
+  .section-title { font-size:7.5pt; letter-spacing:0.2em; text-transform:uppercase; color:#888; border-bottom:1px solid #eee; padding-bottom:4px; margin-bottom:2px; margin-top:16px; }
+  .totals-block { border:1px solid #ddd; margin-top:20px; margin-bottom:8px; }
+  .totals-row { display:flex; justify-content:space-between; padding:7px 12px; border-bottom:1px solid #eee; font-size:9.5pt; }
+  .totals-row:last-child { border-bottom:none; }
+  .totals-row.highlight { background:#f8f8f6; font-weight:600; }
+  .totals-row.grand { background:#1a1a1a; color:white; padding:11px 12px; }
+  .totals-row.grand .lbl { font-family:'DM Serif Display',serif; font-size:13pt; }
+  .totals-row.grand .val { font-family:'DM Serif Display',serif; font-size:17pt; }
+  .totals-row .lbl { opacity:0.65; }
+  .doc-footer { margin-top:14px; border-top:1px solid #eee; padding-top:8px; font-size:7.5pt; color:#aaa; display:flex; justify-content:space-between; }
+  @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } .no-print { display:none !important; } }
+</style></head><body><div class="page">
+  <div class="no-print" style="text-align:right; margin-bottom:16px;">
+    <button onclick="window.print()" style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; background:#1a1a1a; color:white; border:none; padding:10px 20px; cursor:pointer;">⎙ Uložit jako PDF</button>
+    <button onclick="window.close()" style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.15em; background:transparent; color:#999; border:1px solid #ddd; padding:10px 20px; cursor:pointer; margin-left:8px;">Zavřít</button>
+  </div>
+  <div class="doc-header">
+    <div>
+      <div class="doc-sub">Rekvizitní výprava — Aproximativní odhad</div>
+      <div class="doc-title">${projectName}</div>
+    </div>
+    <div class="doc-meta"><strong>Props Budget Agent</strong><br>${today}<br>Labour + Transport + Props + ${b.fee_pct || 7}% fee</div>
+  </div>
+  <div class="badge">≈ Aproximativní</div>
+  ${b.summary ? `<div class="agent-note"><strong>Agent:</strong> ${b.summary}</div>` : ''}
+  <div class="section-title">Sety — Dekorace</div>
+  <table>
+    <thead><tr>
+      <th style="text-align:left; padding:5px 12px; font-size:7.5pt; letter-spacing:0.1em; text-transform:uppercase; color:#999; border-bottom:1px solid #eee; font-weight:400;">Set / Dekorace</th>
+      <th style="text-align:left; padding:5px 12px; font-size:7.5pt; color:#999; border-bottom:1px solid #eee; font-weight:400;"></th>
+      <th style="text-align:right; padding:5px 12px; font-size:7.5pt; letter-spacing:0.1em; text-transform:uppercase; color:#999; border-bottom:1px solid #eee; font-weight:400;">Odhad</th>
+    </tr></thead>
+    <tbody>${setsRows}
+      <tr><td colspan="2" style="font-weight:600; padding:8px 12px; border-top:1.5px solid #1a1a1a;">props total</td>
+      <td style="text-align:right; font-weight:600; padding:8px 12px; border-top:1.5px solid #1a1a1a; font-family:'DM Serif Display',serif; font-size:14pt;">${fmt(props)}</td></tr>
+    </tbody>
+  </table>
+  <div class="totals-block">
+    <div class="totals-row"><span class="lbl">Labour (odhad)</span><span class="val">${fmt(labour)}</span></div>
+    <div class="totals-row"><span class="lbl">Transport (odhad)</span><span class="val">${fmt(transport)}</span></div>
+    <div class="totals-row"><span class="lbl">Props / Dekorace</span><span class="val">${fmt(props)}</span></div>
+    <div class="totals-row highlight"><span class="lbl">Mezisoučet</span><span class="val">${fmt(base)}</span></div>
+    <div class="totals-row"><span class="lbl">Fee ${b.fee_pct || 7}%</span><span class="val">${fmt(fee)}</span></div>
+    <div class="totals-row highlight"><span class="lbl">Celkem bez přesčasů</span><span class="val">${fmt(total_base)}</span></div>
+    ${b.overtime_estimate ? `<div class="totals-row"><span class="lbl">+ Odhad přesčasů</span><span class="val">~${fmt(b.overtime_estimate)}</span></div>` : ''}
+    <div class="totals-row grand"><span class="lbl">KONEČNÝ ODHAD K FAKTURACI</span><span class="val">${fmt(grand)}</span></div>
+  </div>
+  <div class="doc-footer">
+    <span>Props Budget Agent — kalibrováno na 12 reálných rozpočtů</span>
+    <span>Aproximativní odhad, nikoliv závazná nabídka</span>
+  </div>
+</div></body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+  }
+
+  function printBudgetDetailed() {
+    const b = window._lastBudget;
+    if (!b) return;
+    const projectName = document.getElementById('projectName').value || 'ROZPOČET';
+    const today = new Date().toLocaleDateString('cs-CZ');
+
+    const fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n || 0)) + ' Kč';
+
+    const labour = b.labour?.total || 0;
+    const transport = b.transport?.total || 0;
+    const props = b.props?.total || 0;
+    const base = labour + transport + props;
+    const fee = b.fee || base * ((b.fee_pct || 7) / 100);
+    const total_base = b.total_base || base + fee;
+    const grand = b.grand_total || total_base;
+
+    // Labour rows
+    let labourRows = (b.labour?.team || []).map(m => `
+      <tr>
+        <td class="${m.phase === 'shoot' ? 'bold' : ''}">${m.role}${m.name && m.name !== '-' ? ' — ' + m.name : ''}</td>
+        <td class="phase">${m.phase}</td>
+        <td class="num">${m.days}</td>
+        <td class="num">${new Intl.NumberFormat('cs-CZ').format(m.rate)}</td>
+        <td class="num">${new Intl.NumberFormat('cs-CZ').format(m.total)}</td>
+      </tr>`).join('');
+
+    // Transport rows
+    let transportRows = (b.transport?.items || []).map(i => `
+      <tr>
+        <td colspan="2">${i.name}</td>
+        <td class="num">${i.days}</td>
+        <td class="num">${new Intl.NumberFormat('cs-CZ').format(i.rate)}</td>
+        <td class="num">${new Intl.NumberFormat('cs-CZ').format(i.total)}</td>
+      </tr>`).join('');
+
+    // Props rows
+    let propsRows = (b.props?.sections || []).map(sec => {
+      const secTotal = sec.items.reduce((s, i) => s + (i.amount || 0), 0);
+      const items = sec.items.map(item => `
+        <tr>
+          <td colspan="3" class="props-item">${item.name}</td>
+          <td class="num note">${item.note || ''}</td>
+          <td class="num">${new Intl.NumberFormat('cs-CZ').format(item.amount)}</td>
+        </tr>`).join('');
+      return `
+        <tr class="section-header">
+          <td colspan="4">${sec.name}</td>
+          <td class="num">${new Intl.NumberFormat('cs-CZ').format(secTotal)}</td>
+        </tr>${items}`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>${projectName} — Rozpočet</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@300;400;500&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Mono', monospace; font-size: 10pt; color: #1a1a1a; background: white; }
+
+  .page { max-width: 210mm; margin: 0 auto; padding: 14mm 14mm 12mm; }
+
+  /* Header */
+  .doc-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 18px; }
+  .doc-title { font-family: 'DM Serif Display', serif; font-size: 22pt; letter-spacing: -0.5px; line-height: 1; }
+  .doc-meta { text-align: right; font-size: 8pt; color: #555; line-height: 1.7; }
+  .doc-meta strong { color: #1a1a1a; font-size: 9pt; }
+
+  /* Summary bar */
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+  .summary-box { border: 1px solid #ddd; padding: 9px 12px; }
+  .summary-box .lbl { font-size: 7.5pt; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 3px; }
+  .summary-box .val { font-family: 'DM Serif Display', serif; font-size: 14pt; color: #1a1a1a; }
+  .summary-box .pct { font-size: 8pt; color: #aaa; }
+
+  /* Agent note */
+  .agent-note { border-left: 3px solid #c8a96e; padding: 7px 12px; font-size: 8.5pt; color: #444; margin-bottom: 16px; line-height: 1.6; background: #fafaf8; }
+  .agent-note strong { color: #c8a96e; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 9pt; }
+  .section-title { font-size: 7.5pt; letter-spacing: 0.2em; text-transform: uppercase; color: #888; border-bottom: 1px solid #eee; padding: 4px 0 4px; margin-bottom: 2px; margin-top: 16px; }
+  .section-title:first-child { margin-top: 0; }
+
+  th { text-align: left; font-size: 7.5pt; letter-spacing: 0.1em; text-transform: uppercase; color: #999; padding: 4px 6px; border-bottom: 1px solid #eee; font-weight: 400; }
+  th.num { text-align: right; }
+  td { padding: 4px 6px; border-bottom: 1px solid #f2f2f2; vertical-align: top; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.phase { color: #888; font-size: 8.5pt; }
+  td.note { color: #aaa; font-size: 8.5pt; }
+  td.bold { font-weight: 600; }
+  td.props-item { padding-left: 14px; color: #333; }
+
+  tr.section-header td { background: #f8f8f6; font-weight: 600; font-size: 8.5pt; padding: 5px 6px; letter-spacing: 0.05em; }
+  tr.total-row td { font-weight: 600; border-top: 1.5px solid #1a1a1a; border-bottom: none; padding-top: 6px; }
+  tr:last-child td { border-bottom: none; }
+
+  /* Totals block */
+  .totals-block { border: 1px solid #ddd; margin-top: 16px; margin-bottom: 8px; }
+  .totals-row { display: flex; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid #eee; font-size: 9pt; }
+  .totals-row:last-child { border-bottom: none; }
+  .totals-row.highlight { background: #f8f8f6; font-weight: 600; }
+  .totals-row.grand { background: #1a1a1a; color: white; padding: 10px 12px; }
+  .totals-row.grand .lbl { font-family: 'DM Serif Display', serif; font-size: 12pt; font-weight: normal; }
+  .totals-row.grand .val { font-family: 'DM Serif Display', serif; font-size: 16pt; }
+  .totals-row .lbl { color: inherit; opacity: 0.7; }
+  .totals-row .val { font-variant-numeric: tabular-nums; }
+  .totals-row.highlight .lbl, .totals-row.highlight .val { opacity: 1; color: #1a1a1a; }
+
+  /* Footer */
+  .doc-footer { margin-top: 14px; border-top: 1px solid #eee; padding-top: 8px; font-size: 7.5pt; color: #aaa; display: flex; justify-content: space-between; }
+
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { padding: 10mm 12mm; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- PRINT BUTTON (hidden on print) -->
+  <div class="no-print" style="text-align:right; margin-bottom:16px;">
+    <button onclick="window.print()" style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; background:#1a1a1a; color:white; border:none; padding:10px 20px; cursor:pointer;">⎙ Uložit jako PDF</button>
+    <button onclick="window.close()" style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; background:transparent; color:#999; border:1px solid #ddd; padding:10px 20px; cursor:pointer; margin-left:8px;">Zavřít</button>
+  </div>
+
+  <!-- DOC HEADER -->
+  <div class="doc-header">
+    <div>
+      <div style="font-size:7.5pt; letter-spacing:0.2em; text-transform:uppercase; color:#888; margin-bottom:4px;">${getLang().pdfSubtitle}</div>
+      <div class="doc-title">${projectName}</div>
+    </div>
+    <div class="doc-meta">
+      <strong>Props Budget Agent</strong><br>
+      ${getLang().budgetGenerated}: ${today}<br>
+      ${getLang().budgetMeta(b.fee_pct || 7)}
+    </div>
+  </div>
+
+  ${b.summary ? `<div class="agent-note"><strong>${getLang().agentLabel}:</strong> ${b.summary}</div>` : ''}
+
+  <!-- SUMMARY GRID -->
+  <div class="summary-grid">
+    <div class="summary-box">
+      <div class="lbl">Labour</div>
+      <div class="val">${fmt(labour)}</div>
+      <div class="pct">${Math.round(labour/base*100)} ${getLang().ofBase}</div>
+    </div>
+    <div class="summary-box">
+      <div class="lbl">Transport</div>
+      <div class="val">${fmt(transport)}</div>
+      <div class="pct">${Math.round(transport/base*100)} ${getLang().ofBase}</div>
+    </div>
+    <div class="summary-box">
+      <div class="lbl">Props</div>
+      <div class="val">${fmt(props)}</div>
+      <div class="pct">${Math.round(props/base*100)} ${getLang().ofBase}</div>
+    </div>
+  </div>
+
+  <!-- LABOUR -->
+  <div class="section-title">${getLang().labourSection}</div>
+  <table>
+    <thead><tr>
+      <th>${getLang().promptLang === "en" ? "Position / Name" : "Pozice / Jméno"}</th><th>${getLang().promptLang === "en" ? "Phase" : "Fáze"}</th>
+      <th class="num">${getLang().promptLang === "en" ? "Days" : "Dny"}</th><th class="num">${getLang().promptLang === "en" ? "Rate" : "Sazba"}</th><th class="num">${getLang().promptLang === "en" ? "Total" : "Celkem"}</th>
+    </tr></thead>
+    <tbody>${labourRows}
+      <tr class="total-row">
+        <td colspan="4"><strong>${getLang().pdfTotalLabour}</strong></td>
+        <td class="num"><strong>${fmt(labour)}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- TRANSPORT -->
+  <div class="section-title">${getLang().transportSection}</div>
+  <table>
+    <thead><tr>
+      <th colspan="2">Vozidlo</th>
+      <th class="num">Dny</th><th class="num">Sazba</th><th class="num">Celkem</th>
+    </tr></thead>
+    <tbody>${transportRows}
+      <tr class="total-row">
+        <td colspan="4"><strong>${getLang().pdfTotalTransport}</strong></td>
+        <td class="num"><strong>${fmt(transport)}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- PROPS -->
+  <div class="section-title">${getLang().propsSection}</div>
+  <table>
+    <thead><tr>
+      <th colspan="3">Rekvizita</th><th>Poznámka</th><th class="num">Cena</th>
+    </tr></thead>
+    <tbody>${propsRows}
+      <tr class="total-row">
+        <td colspan="4"><strong>${getLang().pdfTotalProps}</strong></td>
+        <td class="num"><strong>${fmt(props)}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- TOTALS -->
+  <div class="totals-block">
+    <div class="totals-row"><span class="lbl">${getLang().subtotalLabel}</span><span class="val">${fmt(base)}</span></div>
+    <div class="totals-row"><span class="lbl">Fee ${b.fee_pct || 7}%</span><span class="val">${fmt(fee)}</span></div>
+    <div class="totals-row highlight"><span class="lbl">Celkem bez přesčasů</span><span class="val">${fmt(total_base)}</span></div>
+    ${b.overtime_estimate ? `<div class="totals-row"><span class="lbl">${getLang().overtimeLabel}</span><span class="val">~${fmt(b.overtime_estimate)}</span></div>` : ''}
+    ${b.overcosts_estimate ? `<div class="totals-row"><span class="lbl">Odhad overcosts</span><span class="val">~${fmt(b.overcosts_estimate)}</span></div>` : ''}
+    <div class="totals-row grand"><span class="lbl">${getLang().grandLabel}</span><span class="val">${fmt(grand)}</span></div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="doc-footer">
+    <span>${getLang().pdfFooterLeft}</span>
+    <span>Odhad, nikoliv závazná nabídka</span>
+  </div>
+
+</div>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+  }
+
+  // Print styles (fallback - not used for PDF anymore)
+  const printCSS = document.createElement('style');
+  printCSS.media = 'print';
+  printCSS.textContent = `
+    header, .panel-left, .btn-generate, .export-row, .api-section { display: none !important; }
+    .main { display: block !important; }
+  `;
+  document.head.appendChild(printCSS);
+</script>
+</body>
+</html>

@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.1</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.2</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1580,9 +1580,11 @@
   // ─── AUTO PARSE SETS ───
   let _parseDebounce = null;
   let _analysisAbort = null;
+  let _analysisStepInterval = null;
 
   function stopAnalysis() {
     if (_analysisAbort) _analysisAbort.abort();
+    if (_analysisStepInterval) { clearInterval(_analysisStepInterval); _analysisStepInterval = null; }
     const thinkingBar = document.getElementById('thinkingBar');
     if (thinkingBar) thinkingBar.classList.remove('visible');
     const stopBtn = document.getElementById('stopAnalysisBtn');
@@ -1593,7 +1595,7 @@
     const progressPct = document.getElementById('progressPct');
     const progressEta = document.getElementById('progressEta');
     const shimmer = document.getElementById('progressShimmer');
-    if (progressBar) { progressBar.style.width = '0%'; }
+    if (progressBar) { progressBar.style.width = '0%'; progressBar.style.background = 'var(--muted)'; }
     if (progressPct) progressPct.textContent = '0%';
     if (progressEta) progressEta.textContent = '';
     if (shimmer) shimmer.style.display = 'none';
@@ -1662,7 +1664,7 @@
       }).join('');
     }
     renderStep(0);
-    const stepInterval = setInterval(() => {
+    _analysisStepInterval = setInterval(() => {
       const elapsed = Date.now() - analysisStart;
       const ratio = elapsed / analysisEst;
       const pct = Math.min(90 * (1 - Math.exp(-2.5 * ratio)), 91);
@@ -1695,6 +1697,7 @@
         method: 'POST',
         headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
         body: formData,
+        signal: _analysisAbort.signal,
       });
       const uploadData = await uploadResp.json();
       if (!uploadResp.ok) throw new Error(uploadData.error?.message || `Upload selhal (${uploadResp.status})`);
@@ -1777,7 +1780,7 @@
         xhr.send(_analysisBody);
       });
 
-      clearInterval(stepInterval);
+      clearInterval(_analysisStepInterval); _analysisStepInterval = null;
 
       const raw = (data.content?.map(c => c.text || '') ?? []).join('').trim() || '';
       if (!raw) throw new Error(data.error?.message || 'API vrátilo prázdnou odpověď.');
@@ -1870,7 +1873,7 @@
 
     } catch (e) {
 
-      clearInterval(stepInterval);
+      clearInterval(_analysisStepInterval); _analysisStepInterval = null;
       console.error('parseSets error:', e);
       thinkingBar.classList.remove('visible');
       const stopBtn2 = document.getElementById('stopAnalysisBtn');

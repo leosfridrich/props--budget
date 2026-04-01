@@ -812,7 +812,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.3</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -843,8 +843,8 @@
     <!-- API KEY -->
     <div class="api-section">
       <label>Anthropic API Klíč</label>
-      <input type="password" id="apiKey" placeholder="sk-ant-..." />
-      <p>Klíč se nikde neukládá — pouze v paměti stránky.</p>
+      <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
+      <p id="apiKeyStatus">Klíč se ukládá do prohlížeče.</p>
     </div>
 
     <div class="section-label">Projekt</div>
@@ -2269,6 +2269,26 @@ document.addEventListener('DOMContentLoaded', () => {
   // Also init immediately (in case DOMContentLoaded already fired)
   loadInstructions();
   renderLearnedList();
+
+  // API klíč — načti z localStorage a ukládej při změně
+  (function() {
+    var keyEl = document.getElementById('apiKey');
+    var statusEl = document.getElementById('apiKeyStatus');
+    try {
+      var saved = localStorage.getItem('propsBudget_apiKey') || '';
+      if (saved && keyEl) {
+        keyEl.value = saved;
+        if (statusEl) statusEl.textContent = 'Klíč načten z prohlížeče ✓';
+      }
+    } catch(e) {}
+    if (keyEl) {
+      keyEl.addEventListener('input', function() {
+        var val = keyEl.value.trim();
+        try { localStorage.setItem('propsBudget_apiKey', val); } catch(e) {}
+        if (statusEl) statusEl.textContent = val ? 'Klíč uložen ✓' : 'Klíč se ukládá do prohlížeče.';
+      });
+    }
+  })();
 
   // ─── ABORT CONTROLLER ───
   let _abortController = null;

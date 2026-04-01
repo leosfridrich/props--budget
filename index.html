@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.8</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.9</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1720,51 +1720,47 @@
     _analysisAbort = null;
 
     try {
-      // Upload každého souboru přes Files API → dostaneme file_id (žádný velký payload v JSON)
-      function xhrUploadFile(file, apiKey) {
+      // Base64 kódování — Safari-safe (ArrayBuffer + chunked)
+      function fileToBase64Safe(file) {
         return new Promise(function(resolve, reject) {
-          var fd = new FormData();
-          fd.append('file', file, file.name);
-          var xhr = new XMLHttpRequest();
-          _analysisAbort = { abort: function() { xhr.abort(); } };
-          xhr.open('POST', '/api/upload', true);
-          xhr.setRequestHeader('x-api-key', apiKey);
-          xhr.setRequestHeader('anthropic-beta', 'files-api-2025-04-14');
-          xhr.onload = function() {
-            try {
-              var d = JSON.parse(xhr.responseText);
-              if (d.id) resolve(d.id);
-              else reject(new Error((d.error && d.error.message) || 'Upload selhal'));
-            } catch(e) { reject(new Error('Chyba parsování odpovědi uploadu')); }
+          var reader = new FileReader();
+          reader.onload = function() {
+            var arr = new Uint8Array(reader.result);
+            var binary = '';
+            var chunk = 8192;
+            for (var i = 0; i < arr.length; i += chunk) {
+              binary += String.fromCharCode.apply(null, arr.subarray(i, Math.min(i + chunk, arr.length)));
+            }
+            resolve(btoa(binary));
           };
-          xhr.onerror = function() { reject(new Error('Síťová chyba při uploadu')); };
-          xhr.onabort = function() { var e = new Error('abort'); e.name = 'AbortError'; reject(e); };
-          xhr.send(fd);
+          reader.onerror = function() { reject(new Error('Chyba čtení souboru')); };
+          reader.readAsArrayBuffer(file);
         });
       }
 
       var contentParts = [];
       for (var fi = 0; fi < uploadedFiles.length; fi++) {
         var file = uploadedFiles[fi];
-        if (progressEta) progressEta.textContent = 'nahrávám soubor ' + (fi + 1) + '/' + uploadedFiles.length + '…';
-        var fileId = await xhrUploadFile(file, apiKey);
-        var isPdf = (file.type || '') === 'application/pdf';
+        if (progressEta) progressEta.textContent = 'kóduji soubor ' + (fi + 1) + '/' + uploadedFiles.length + '…';
+        var b64 = await fileToBase64Safe(file);
+        var mime = file.type || 'application/octet-stream';
+        var isPdf = mime === 'application/pdf';
         contentParts.push({
           type: isPdf ? 'document' : 'image',
-          source: { type: 'file', file_id: fileId }
+          source: { type: 'base64', media_type: mime, data: b64 }
         });
       }
       contentParts.push({ type: 'text', text: promptText });
 
-      if (progressEta) progressEta.textContent = 'analyzuji…';
+      if (progressEta) progressEta.textContent = 'odesílám…';
 
       var payload = JSON.stringify({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-4-5',
         max_tokens: 1024,
         messages: [{ role: 'user', content: contentParts }]
       });
 
-      // XHR na /api/chat — Safari-safe, payload je malý (jen file_id)
+      // XHR na /api/chat — Safari-safe, limit 20MB nastaven na serveru
       var data = await new Promise(function(resolve, reject) {
         var xhr = new XMLHttpRequest();
         _analysisAbort = { abort: function() { xhr.abort(); } };
@@ -1772,10 +1768,10 @@
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('x-api-key', apiKey);
         xhr.setRequestHeader('anthropic-version', '2023-06-01');
-        xhr.setRequestHeader('anthropic-beta', 'files-api-2025-04-14');
+        xhr.setRequestHeader('anthropic-beta', 'pdfs-2024-09-25');
         xhr.onload = function() {
           try { resolve(JSON.parse(xhr.responseText)); }
-          catch(e) { reject(new Error('Chyba parsování odpovědi: ' + xhr.responseText.substring(0, 200))); }
+          catch(e) { reject(new Error('HTTP ' + xhr.status + ': ' + xhr.responseText.substring(0, 300))); }
         };
         xhr.onerror = function() { reject(new Error('Síťová chyba')); };
         xhr.onabort = function() { var e = new Error('abort'); e.name = 'AbortError'; reject(e); };

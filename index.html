@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v1.7</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v1.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1654,13 +1654,22 @@
     textEl.textContent = 'Analyzuji script…';
     textEl.style.color = 'var(--muted)';
 
-    // ── Build content parts ──
+    // ── Upload files via Files API, get file_ids ──
     const contentParts = [];
-    for (const file of uploadedFiles) {
-      const b64 = await fileToBase64(file);
-      const mt  = file.type === 'application/pdf' ? 'application/pdf' : file.type;
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      const file = uploadedFiles[i];
+      if (progressEta) progressEta.textContent = `Nahrávám soubor ${i + 1}/${uploadedFiles.length}…`;
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      const uploadResp = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: formData,
+      });
+      const uploadData = await uploadResp.json();
+      if (!uploadResp.ok) throw new Error(uploadData.error?.message || `Upload selhal (${uploadResp.status})`);
       const typ = file.type === 'application/pdf' ? 'document' : 'image';
-      contentParts.push({ type: typ, source: { type: 'base64', media_type: mt, data: b64 } });
+      contentParts.push({ type: typ, source: { type: 'file', file_id: uploadData.id } });
     }
 
     const shootDays = parseInt(document.getElementById('shootDays').value) || 2;
@@ -1711,8 +1720,7 @@
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('x-api-key', apiKey);
         xhr.setRequestHeader('anthropic-version', '2023-06-01');
-        const hasPdf = uploadedFiles.some(f => f.type === 'application/pdf');
-        if (hasPdf) xhr.setRequestHeader('anthropic-beta', 'pdfs-2024-09-25');
+        xhr.setRequestHeader('anthropic-beta', 'files-api-2025-04-14,pdfs-2024-09-25');
         xhr.timeout = 45000;
 
         analysisAbort.signal.addEventListener('abort', () => { xhr.abort(); });
@@ -1917,14 +1925,9 @@
     setTimeout(() => triggerParseSets(600), 50);
   });
 
-  const MAX_FILE_MB = 2;
   function handleFiles(files) {
     Array.from(files).slice(0, 3 - uploadedFiles.length).forEach(f => {
       if (uploadedFiles.length >= 3) return;
-      if (f.size > MAX_FILE_MB * 1024 * 1024) {
-        alert(`Soubor "${f.name}" je příliš velký (${(f.size/1024/1024).toFixed(1)} MB). Maximum je ${MAX_FILE_MB} MB.`);
-        return;
-      }
       uploadedFiles.push(f);
       const item = document.createElement('div');
       item.className = 'file-item';
@@ -1946,21 +1949,6 @@
     el.remove();
   }
 
-  // Read file as base64
-  function fileToBase64(file) {
-    return new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => {
-        try {
-          const parts = (r.result || '').split(',');
-          if (parts.length < 2) throw new Error('Neplatný formát souboru');
-          res(parts[1]);
-        } catch(e) { rej(new Error('Chyba čtení souboru: ' + e.message)); }
-      };
-      r.onerror = () => rej(new Error('FileReader chyba: ' + (r.error?.message || 'neznámá chyba')));
-      r.readAsDataURL(file);
-    });
-  }
 
   // Thinking steps
   const steps = [

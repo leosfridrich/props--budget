@@ -806,7 +806,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.3</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v2.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -890,9 +890,15 @@
 
     <div class="form-group">
       <div class="dropzone" id="dropzone">
-        <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" multiple />
+        <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none;" />
         <div class="dropzone-icon">⬆</div>
         <p><strong>Nahrát PDF nebo obrázky</strong><br>Storyboard, script, location notes<br>Max. 3 soubory — PDF nebo JPG/PNG</p>
+        <button type="button" onclick="document.getElementById('fileInput').click()"
+          style="margin-top:10px; background:var(--surface2); border:1px solid var(--border);
+                 color:var(--accent); font-family:'DM Mono',monospace; font-size:10px;
+                 letter-spacing:0.12em; text-transform:uppercase; padding:7px 16px; cursor:pointer;">
+          ↗ Vybrat soubory
+        </button>
       </div>
       <div class="file-list" id="fileList"></div>
     </div>
@@ -1688,8 +1694,10 @@
 
     // ── Upload files via Files API, get file_ids ──
     const contentParts = [];
+    console.log('[analysis] uploadedFiles:', uploadedFiles.length);
     for (let i = 0; i < uploadedFiles.length; i++) {
       const file = uploadedFiles[i];
+      console.log(`[analysis] uploading file ${i+1}: ${file.name} (${file.type}, ${(file.size/1024).toFixed(0)} KB)`);
       if (progressEta) progressEta.textContent = `Nahrávám soubor ${i + 1}/${uploadedFiles.length}…`;
       const formData = new FormData();
       formData.append('file', file, file.name);
@@ -1700,10 +1708,12 @@
         signal: _analysisAbort.signal,
       });
       const uploadData = await uploadResp.json();
+      console.log(`[analysis] upload response ${uploadResp.status}:`, JSON.stringify(uploadData).substring(0, 200));
       if (!uploadResp.ok) throw new Error(uploadData.error?.message || `Upload selhal (${uploadResp.status})`);
       const typ = file.type === 'application/pdf' ? 'document' : 'image';
       contentParts.push({ type: typ, source: { type: 'file', file_id: uploadData.id } });
     }
+    console.log('[analysis] contentParts built:', contentParts.length, '— sending to /api/chat');
 
     const shootDays = parseInt(document.getElementById('shootDays').value) || 2;
 
@@ -1760,6 +1770,7 @@
         analysisAbort.signal.addEventListener('abort', () => { xhr.abort(); });
 
         xhr.onload = () => {
+          console.log('[analysis] xhr status:', xhr.status, 'response preview:', xhr.responseText.substring(0, 200));
           try {
             const json = JSON.parse(xhr.responseText);
             if (xhr.status === 529 || xhr.status === 503) {

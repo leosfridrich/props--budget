@@ -1,3 +1,5 @@
+module.exports.config = { api: { bodyParser: { sizeLimit: '20mb' } } };
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');

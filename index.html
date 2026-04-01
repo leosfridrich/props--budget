@@ -812,7 +812,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.1</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.2</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1730,13 +1730,34 @@
     _analysisAbort = null;
 
     try {
-      // Extrahuj text z PDF pomocí PDF.js (client-side, žádný limit)
-      async function extractPdfText(file) {
-        if (typeof pdfjsLib === 'undefined') return null;
+      // Renderuj stránky PDF jako obrázky (funguje i pro image-heavy PDFs)
+      async function renderPdfAsImages(file, maxPages) {
+        if (typeof pdfjsLib === 'undefined') return [];
+        if (progressEta) progressEta.textContent = 'načítám PDF…';
         var ab = await file.arrayBuffer();
-        var pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+        var pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
+        var total = Math.min(pdf.numPages, maxPages || 8);
+        var images = [];
+        for (var p = 1; p <= total; p++) {
+          if (progressEta) progressEta.textContent = 'renderuji str. ' + p + '/' + total + '…';
+          var page = await pdf.getPage(p);
+          var vp = page.getViewport({ scale: 0.5 });
+          var canvas = document.createElement('canvas');
+          canvas.width = vp.width; canvas.height = vp.height;
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+          var b64 = canvas.toDataURL('image/jpeg', 0.72).split(',')[1];
+          images.push(b64);
+        }
+        return images;
+      }
+
+      // Extrahuj text z PDF (pro scripty/treatmenty s textem)
+      async function extractPdfText(file) {
+        if (typeof pdfjsLib === 'undefined') return '';
+        var ab = await file.arrayBuffer();
+        var pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
         var pages = [];
-        for (var p = 1; p <= pdf.numPages; p++) {
+        for (var p = 1; p <= Math.min(pdf.numPages, 30); p++) {
           var page = await pdf.getPage(p);
           var tc = await page.getTextContent();
           pages.push(tc.items.map(function(i) { return i.str; }).join(' '));
@@ -1744,7 +1765,7 @@
         return pages.join('\n');
       }
 
-      // Base64 pro malé obrázky (Safari-safe, chunked)
+      // Base64 pro malé obrázky JPG/PNG (Safari-safe, chunked)
       function fileToBase64Safe(file) {
         return new Promise(function(resolve, reject) {
           var reader = new FileReader();
@@ -1768,29 +1789,31 @@
       for (var fi = 0; fi < uploadedFiles.length; fi++) {
         var file = uploadedFiles[fi];
         var mime = file.type || '';
-        if (progressEta) progressEta.textContent = 'čtu soubor ' + (fi + 1) + '/' + uploadedFiles.length + '…';
 
         if (mime === 'application/pdf') {
-          // PDF → text extraction (žádný size limit)
+          // PDF → render jako obrázky (max 8 stránek) + text
+          var imgs = await renderPdfAsImages(file, 8);
+          for (var ii = 0; ii < imgs.length; ii++) {
+            contentParts.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imgs[ii] } });
+          }
+          // Přidej i text pokud existuje
           var txt = await extractPdfText(file);
-          if (txt && txt.trim().length > 20) {
-            pdfTexts.push('--- ' + file.name + ' ---\n' + txt.trim());
-          } else {
-            pdfTexts.push('--- ' + file.name + ' --- (PDF bez extrahovatelného textu)');
+          if (txt && txt.trim().length > 30) {
+            pdfTexts.push('Obsah ' + file.name + ':\n' + txt.trim().substring(0, 8000));
           }
         } else if (mime.startsWith('image/') && file.size < 3 * 1024 * 1024) {
-          // Obrázky do 3 MB → base64
+          // Obrázky JPG/PNG do 3 MB → base64
+          if (progressEta) progressEta.textContent = 'čtu obrázek…';
           var b64 = await fileToBase64Safe(file);
           contentParts.push({ type: 'image', source: { type: 'base64', media_type: mime, data: b64 } });
+        } else if (mime.startsWith('image/')) {
+          pdfTexts.push('Poznámka: ' + file.name + ' je příliš velký obrázek (>3 MB), nebyl zahrnut.');
         }
-        // větší obrázky ignorujeme (uživatel je upozorněn níže)
       }
 
-      // Sestav finální prompt (PDF text + prompt)
+      // Finální prompt
       var finalPrompt = promptText;
-      if (pdfTexts.length > 0) {
-        finalPrompt = pdfTexts.join('\n\n') + '\n\n' + promptText;
-      }
+      if (pdfTexts.length > 0) finalPrompt = pdfTexts.join('\n') + '\n\n' + promptText;
       contentParts.push({ type: 'text', text: finalPrompt });
 
       if (progressEta) progressEta.textContent = 'odesílám…';

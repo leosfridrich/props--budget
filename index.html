@@ -812,7 +812,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.6</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v3.7</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1623,14 +1623,14 @@
   function triggerParseSets(delay = 800) {
     clearTimeout(_parseDebounce);
     const desc = document.getElementById('projectDesc').value.trim();
-    const apiKey = document.getElementById('apiKey').value.trim();
+    const apiKey = document.getElementById('apiKey').value.replace(/\s/g, '');
     const hasContent = desc || uploadedFiles.length > 0;
     if (!hasContent || !apiKey) return;
     _parseDebounce = setTimeout(parseSetsFromScript, delay);
   }
 
   async function parseSetsFromScript() {
-    const apiKey = document.getElementById('apiKey').value.trim();
+    const apiKey = document.getElementById('apiKey').value.replace(/\s/g, '');
     if (!apiKey) return;
 
     const desc = document.getElementById('projectDesc').value.trim();
@@ -2321,7 +2321,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function generateBudget() {
-    const apiKey = document.getElementById('apiKey').value.trim();
+    const apiKey = document.getElementById('apiKey').value.replace(/\s/g, '');
     if (!apiKey) { showError('Zadejte prosím Anthropic API klíč.'); return; }
 
     const btn = document.getElementById('generateBtn');
@@ -2827,7 +2827,7 @@ Vrať POUZE JSON bez textu:
     const note = document.getElementById('revisionNote')?.value?.trim();
     if (!note) return;
 
-    const apiKey = document.getElementById('apiKey').value.trim();
+    const apiKey = document.getElementById('apiKey').value.replace(/\s/g, '');
     if (!apiKey) { alert('Zadejte API klíč.'); return; }
 
     const b = window._lastBudget;

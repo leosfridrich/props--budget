@@ -2428,10 +2428,22 @@ Vrať POUZE JSON bez textu:
     messages.push({ role: 'user', content: contentParts });
 
     try {
-      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4096, messages });
+      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 2048, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
       console.log('[Budget] Streaming', _kb, 'KB');
+
+      // 1s-tick timeout — Safari throttluje setTimeout>30s, ale 1s vždy funguje
+      let _timedOut = false;
+      let _ticks = 0;
+      const _tickFn = () => {
+        if (_abortController && !_abortController.signal.aborted) {
+          _ticks++;
+          if (_ticks >= 55) { _timedOut = true; _abortController.abort(); }
+          else setTimeout(_tickFn, 1000);
+        }
+      };
+      setTimeout(_tickFn, 1000);
 
       // Streaming fetch — Safari podporuje fetch+ReadableStream bez FormData
       const response = await fetch('/api/stream', {
@@ -2498,7 +2510,11 @@ Vrať POUZE JSON bez textu:
     } catch (err) {
       hideThinking(interval);
       if (err.name === 'AbortError') {
-        showError('Generování zastaveno.');
+        if (_timedOut) {
+          showError('Timeout 55s — API neodpovědělo. Zkus znovu.');
+        } else {
+          showError('Generování zastaveno.');
+        }
       } else {
         showError('Chyba: ' + err.message);
       }

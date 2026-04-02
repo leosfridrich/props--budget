@@ -813,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.0</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.1</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2760,8 +2760,10 @@ JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
 ${outputMode==='approx'
   ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0. Vycházej z referenčních rozpočtů. props.total = součet všech setů.`
   : `MÓD: DETAILNÍ — pro každý set vygeneruj 3–5 konkrétních prop položek s reálnými cenami.`}
+KALIBRACE (historická podhodnocení — přičti k odhadům): labour +150 000 Kč, transport +200 000 Kč, props +300 000 Kč. Toto jsou korekce vycházející z reálných projektů — zapracuj je do výsledných čísel.
 DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
-{"summary":"","labour":{"total":0,"team":[{"role":"Prop master","phase":"prep and wrap","days":0,"rate":0,"total":0}]},"transport":{"total":0,"items":[{"name":"auto","days":0,"rate":0,"total":0}]},"props":{"total":0,"sections":[{"name":"název setu","items":[{"name":"dekorace paušál","amount":50000}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`
+Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} — shoot_days i prep_days MUSÍ být reálná čísla >0.
+{"summary":"","labour":{"total":0,"team":[{"role":"Prop master","name":"","shoot_days":3,"prep_days":16,"rate":4900},{"role":"1. Propman","name":"","shoot_days":3,"prep_days":8,"rate":4500}]},"transport":{"total":0,"items":[{"name":"car prep","days":16,"rate":1700,"total":27200},{"name":"truck I","days":8,"rate":3800,"total":30400}]},"props":{"total":0,"sections":[{"name":"název setu","items":[{"name":"dekorace paušál","amount":50000}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`
     contentParts.push({ type: 'text', text: prompt });
     messages.push({ role: 'user', content: contentParts });
 
@@ -2898,6 +2900,45 @@ DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json
 
       ${b.summary ? `<div class="ai-notes"><strong>${L.agentLabel}:</strong> ${b.summary}</div>` : ''}
 
+      <!-- LABOUR -->
+      ${(b.labour?.team?.length) ? `
+      <div class="budget-section">
+        <div class="budget-section-header" onclick="toggleSection('approx-labour')">
+          <div class="section-title-row"><div class="section-dot"></div><div class="section-name">Labour</div></div>
+          <div class="section-total">${fmt(labour)} Kč</div>
+        </div>
+        <div class="section-body" id="approx-labour">
+          ${(b.labour.team).map(p => {
+            const sd = p.shoot_days ?? (p.phase==='shoot'?p.days:0) ?? 0;
+            const pd = p.prep_days  ?? (p.phase!=='shoot'?p.days:0) ?? 0;
+            const rt = p.rate || 0;
+            return `<div class="budget-row">
+              <div class="row-name">${p.role || ''}</div>
+              <div class="row-detail">shoot ${sd} dní</div>
+              <div class="row-detail">prep ${pd} dní</div>
+              <div class="row-amount">${fmt((sd+pd)*rt)} Kč</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- TRANSPORT -->
+      ${(b.transport?.items?.length) ? `
+      <div class="budget-section">
+        <div class="budget-section-header" onclick="toggleSection('approx-transport')">
+          <div class="section-title-row"><div class="section-dot transport"></div><div class="section-name">Transport</div></div>
+          <div class="section-total">${fmt(transport)} Kč</div>
+        </div>
+        <div class="section-body" id="approx-transport">
+          ${(b.transport.items).map(r => `<div class="budget-row">
+            <div class="row-name">${r.name}</div>
+            <div class="row-detail">${r.days} dní</div>
+            <div class="row-detail">${fmt(r.rate)}/den</div>
+            <div class="row-amount">${fmt(r.total || r.days*r.rate)} Kč</div>
+          </div>`).join('')}
+        </div>
+      </div>` : ''}
+
       <!-- SETS -->
       <div class="budget-section">
         <div class="budget-section-header" onclick="toggleSection('approx-sets')">
@@ -3024,13 +3065,16 @@ DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json
           </div>
           <div class="section-body" id="labour-body">
       `;
-      b.labour.team.forEach(row => {
+      b.labour.team.forEach(p => {
+        const sd = p.shoot_days ?? (p.phase==='shoot'?p.days:0) ?? 0;
+        const pd = p.prep_days  ?? (p.phase!=='shoot'?p.days:0) ?? 0;
+        const rt = p.rate || 0;
         html += `
           <div class="budget-row">
-            <div class="row-name">${row.role}${row.name && row.name !== '-' ? ` — ${row.name}` : ''}</div>
-            <div class="row-detail">${row.phase}</div>
-            <div class="row-detail">${row.days} dní × ${formatCZK(row.rate)}</div>
-            <div class="row-amount">${formatCZK(row.total)}</div>
+            <div class="row-name">${p.role || ''}${p.name ? ` — ${p.name}` : ''}</div>
+            <div class="row-detail">shoot ${sd} dní / prep ${pd} dní</div>
+            <div class="row-detail">${formatCZK(rt)}/den</div>
+            <div class="row-amount">${formatCZK((sd+pd)*rt)}</div>
           </div>
         `;
       });
@@ -3267,80 +3311,128 @@ DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('List3');
 
-    ws.getColumn(1).width = 50;
-    ws.getColumn(2).width = 20;
-    ws.getColumn(3).width = 14;
-    ws.getColumn(4).width = 14;
+    ws.getColumn(1).width = 46; // popis
+    ws.getColumn(2).width = 16; // fáze
+    ws.getColumn(3).width = 8;  // dny
+    ws.getColumn(4).width = 14; // sazba / transport total / props amount
+    ws.getColumn(5).width = 14; // labour total
 
     const fBold  = { name: 'Calibri', size: 11, bold: true };
+    const fNorm  = { name: 'Calibri', size: 11 };
+    const fMuted = { name: 'Calibri', size: 10, color: { argb: 'FF888888' } };
     const fTitle = { name: 'Calibri', size: 13, bold: true };
     const numFmt = '#,##0';
     const alignR = { horizontal: 'right' };
-
-    const labour    = b.labour?.total || 0;
-    const transport = b.transport?.total || 0;
-    const feePct    = b.fee_pct || 7;
+    const blank = (n=1) => { for(let i=0;i<n;i++) ws.addRow([]); };
 
     // ── Titul ──────────────────────────────────────────────────────────────
-    const tR = ws.addRow([null, null, `APPROXIMATIVE BUDGET — ${projectName}`]);
-    tR.getCell(3).font = fTitle;
-    ws.addRow([]);
+    blank();
+    ws.addRow([null, null, `PROPS BUDGET — ${projectName}`]).getCell(3).font = fTitle;
+    blank();
 
-    // ── Labour ─────────────────────────────────────────────────────────────
-    const lRow = ws.addRow(['Labour — total', '', '', labour]);
-    lRow.getCell(1).font = fBold;
-    lRow.getCell(4).numFmt = numFmt; lRow.getCell(4).alignment = alignR;
-    const labR = ws.rowCount;
-    ws.addRow([]);
+    // ── LABOUR ─────────────────────────────────────────────────────────────
+    ws.addRow(['Labour']).getCell(1).font = fBold;
+    const lhR = ws.addRow(['worker', null, 'days', 'amount / day', 'total amount']);
+    [1,2,3,4,5].forEach(i => lhR.getCell(i).font = fMuted);
+    [3,4,5].forEach(i => lhR.getCell(i).alignment = alignR);
 
-    // ── Transport ──────────────────────────────────────────────────────────
-    const tRow = ws.addRow(['Transport — total', '', '', transport]);
-    tRow.getCell(1).font = fBold;
-    tRow.getCell(4).numFmt = numFmt; tRow.getCell(4).alignment = alignR;
-    const trR = ws.rowCount;
-    ws.addRow([]);
+    const labStart = ws.rowCount + 1;
+    (b.labour?.team || []).forEach(p => {
+      const sd = p.shoot_days ?? (p.phase==='shoot' ? p.days : 0) ?? 0;
+      const pd = p.prep_days  ?? (p.phase!=='shoot' ? p.days : 0) ?? 0;
+      const rt = p.rate || 0;
+      // shoot row
+      const srn = ws.rowCount + 1;
+      const sr = ws.addRow([p.role || '', 'shoot', sd, rt, null]);
+      sr.getCell(1).font = fBold;
+      [3,4].forEach(i=>{sr.getCell(i).alignment=alignR;});
+      sr.getCell(4).numFmt = numFmt;
+      sr.getCell(5).value = {formula:`C${srn}*D${srn}`};
+      sr.getCell(5).numFmt = numFmt; sr.getCell(5).alignment = alignR;
+      // prep row
+      const prn = ws.rowCount + 1;
+      const pr = ws.addRow([p.name || '', 'prep and wrap', pd, rt, null]);
+      pr.getCell(1).font = fNorm;
+      [3,4].forEach(i=>{pr.getCell(i).alignment=alignR;});
+      pr.getCell(4).numFmt = numFmt;
+      pr.getCell(5).value = {formula:`C${prn}*D${prn}`};
+      pr.getCell(5).numFmt = numFmt; pr.getCell(5).alignment = alignR;
+    });
+    const labEnd = ws.rowCount;
+    const labTotRn = ws.rowCount + 1;
+    const labTotR = ws.addRow(['total labour']);
+    labTotR.getCell(1).font = fBold;
+    labTotR.getCell(5).value = {formula:`SUM(E${labStart}:E${labEnd})`};
+    labTotR.getCell(5).numFmt = numFmt; labTotR.getCell(5).alignment = alignR; labTotR.getCell(5).font = fBold;
+    blank(2);
 
-    // ── Props ──────────────────────────────────────────────────────────────
+    // ── TRANSPORT ──────────────────────────────────────────────────────────
+    ws.addRow(['Transport']).getCell(1).font = fBold;
+    const thR = ws.addRow(['car', 'days', 'amount/day', 'total amount']);
+    [1,2,3,4].forEach(i=>thR.getCell(i).font=fMuted);
+    [2,3,4].forEach(i=>thR.getCell(i).alignment=alignR);
+
+    const trStart = ws.rowCount + 1;
+    (b.transport?.items || []).forEach(item => {
+      const rn = ws.rowCount + 1;
+      const r = ws.addRow([item.name, item.days, item.rate, null]);
+      r.getCell(2).alignment = alignR; r.getCell(2).numFmt = numFmt;
+      r.getCell(3).numFmt = numFmt; r.getCell(3).alignment = alignR;
+      r.getCell(4).value = {formula:`B${rn}*C${rn}`};
+      r.getCell(4).numFmt = numFmt; r.getCell(4).alignment = alignR;
+    });
+    const trEnd = ws.rowCount;
+    const transTotRn = ws.rowCount + 1;
+    const transTotR = ws.addRow(['total transport']);
+    transTotR.getCell(1).font = fBold;
+    transTotR.getCell(4).value = {formula:`SUM(D${trStart}:D${trEnd})`};
+    transTotR.getCell(4).numFmt = numFmt; transTotR.getCell(4).alignment = alignR; transTotR.getCell(4).font = fBold;
+    blank(2);
+
+    // ── PROPS ──────────────────────────────────────────────────────────────
     ws.addRow(['Props']).getCell(1).font = fBold;
-    ws.addRow([]);
-
+    blank();
     const prStart = ws.rowCount + 1;
     (b.props?.sections || []).forEach(sec => {
-      const secTotal = (sec.items || []).reduce((s, i) => s + (i.amount || 0), 0);
-      const sR = ws.addRow([sec.name, '', '', secTotal]);
-      sR.getCell(1).font = fBold;
-      sR.getCell(4).numFmt = numFmt; sR.getCell(4).alignment = alignR;
-      ws.addRow(['  dressing']);
-      ws.addRow([]);
+      ws.addRow([sec.name]).getCell(1).font = fBold;
+      (sec.items || []).forEach(item => {
+        const r = ws.addRow([item.name, null, null, item.amount || 0]);
+        r.getCell(4).numFmt = numFmt; r.getCell(4).alignment = alignR;
+      });
+      blank();
     });
     const prEnd = ws.rowCount;
+    const propsTotRn = ws.rowCount + 1;
+    const propsTotR = ws.addRow(['props total']);
+    propsTotR.getCell(1).font = fBold;
+    propsTotR.getCell(4).value = {formula:`SUMIF(D${prStart}:D${prEnd},">"&0)`};
+    propsTotR.getCell(4).numFmt = numFmt; propsTotR.getCell(4).alignment = alignR; propsTotR.getCell(4).font = fBold;
+    blank(2);
 
-    const prTotR = ws.addRow(['props total', '', '', { formula: `SUMIF(D${prStart}:D${prEnd},">"&0)` }]);
-    prTotR.getCell(1).font = fBold;
-    prTotR.getCell(4).numFmt = numFmt; prTotR.getCell(4).alignment = alignR;
-    const ptRow = ws.rowCount;
-    ws.addRow([]); ws.addRow([]);
+    // ── SOUČTY ─────────────────────────────────────────────────────────────
+    const feePct = b.fee_pct || 7;
+    const totBudgRn = ws.rowCount + 1;
+    const totBudgR = ws.addRow(['total budget']);
+    totBudgR.getCell(1).font = fBold;
+    totBudgR.getCell(4).value = {formula:`E${labTotRn}+D${transTotRn}+D${propsTotRn}`};
+    totBudgR.getCell(4).numFmt = numFmt; totBudgR.getCell(4).alignment = alignR;
 
-    // ── Součty ─────────────────────────────────────────────────────────────
-    const totRow = ws.addRow(['total budget', '', '', { formula: `D${labR}+D${trR}+D${ptRow}` }]);
-    totRow.getCell(1).font = fBold;
-    totRow.getCell(4).numFmt = numFmt; totRow.getCell(4).alignment = alignR;
-    const tbRow = ws.rowCount;
+    const feeRn = ws.rowCount + 1;
+    const feeR = ws.addRow([`${feePct}% fee:`]);
+    feeR.getCell(4).value = {formula:`D${totBudgRn}*${feePct/100}`};
+    feeR.getCell(4).numFmt = numFmt; feeR.getCell(4).alignment = alignR;
 
-    const feeRow = ws.addRow([`${feePct}% fee:`, '', '', { formula: `D${tbRow}*${feePct / 100}` }]);
-    feeRow.getCell(4).numFmt = numFmt; feeRow.getCell(4).alignment = alignR;
-    const frRow = ws.rowCount;
+    const celkemRn = ws.rowCount + 1;
+    const celkemR = ws.addRow(['celková částka rozpočtu bez přesčasů']);
+    celkemR.getCell(1).font = fBold;
+    celkemR.getCell(4).value = {formula:`D${totBudgRn}+D${feeRn}`};
+    celkemR.getCell(4).numFmt = numFmt; celkemR.getCell(4).alignment = alignR; celkemR.getCell(4).font = fBold;
+    blank(2);
 
-    const baseRow = ws.addRow(['celková částka rozpočtu bez přesčasů', '', '', { formula: `D${tbRow}+D${frRow}` }]);
-    baseRow.getCell(1).font = fBold; baseRow.getCell(4).font = fBold;
-    baseRow.getCell(4).numFmt = numFmt; baseRow.getCell(4).alignment = alignR;
-    const brRow = ws.rowCount;
-    ws.addRow([]); ws.addRow([]);
-
-    // ── Finál ──────────────────────────────────────────────────────────────
-    const finR = ws.addRow(['APPROXIMATIVE BUDGET', '', '', { formula: `D${brRow}` }]);
-    finR.getCell(1).font = fTitle; finR.getCell(4).font = fTitle;
-    finR.getCell(4).numFmt = numFmt; finR.getCell(4).alignment = alignR;
+    const finR = ws.addRow(['APPROXIMATIVE BUDGET']);
+    finR.getCell(1).font = fTitle;
+    finR.getCell(4).value = {formula:`D${celkemRn}`};
+    finR.getCell(4).numFmt = numFmt; finR.getCell(4).alignment = alignR; finR.getCell(4).font = fTitle;
 
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -3397,22 +3489,29 @@ DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json
     [3,4,5].forEach(i => { labHdr.getCell(i).alignment = alignR; });
 
     const labStart = ws.rowCount + 1;
-    const team = b.labour?.team || [];
-    team.forEach(m => {
-      const isMain = m.phase === 'shoot' || team.indexOf(m) === 0;
-      const r = ws.addRow([m.role, m.phase, m.days, m.rate, { formula: `C${ws.rowCount+1}*D${ws.rowCount+1}` }]);
-      // fix formula row reference
-      const rn = ws.rowCount;
-      ws.getRow(rn).getCell(5).value = { formula: `C${rn}*D${rn}` };
-      ws.getRow(rn).getCell(1).font = isMain ? fBold : fNorm;
-      [3,4,5].forEach(i => { ws.getRow(rn).getCell(i).numFmt = numFmt; ws.getRow(rn).getCell(i).alignment = alignR; });
+    (b.labour?.team || []).forEach(p => {
+      const sd = p.shoot_days ?? (p.phase==='shoot' ? p.days : 0) ?? 0;
+      const pd = p.prep_days  ?? (p.phase!=='shoot' ? p.days : 0) ?? 0;
+      const rt = p.rate || 0;
+      const srn = ws.rowCount + 1;
+      const sr = ws.addRow([p.role || '', 'shoot', sd, rt, null]);
+      sr.getCell(1).font = fBold;
+      [3,4].forEach(i=>{sr.getCell(i).numFmt=numFmt;sr.getCell(i).alignment=alignR;});
+      sr.getCell(5).value={formula:`C${srn}*D${srn}`};
+      sr.getCell(5).numFmt=numFmt; sr.getCell(5).alignment=alignR;
+      const prn = ws.rowCount + 1;
+      const pr = ws.addRow([p.name || '', 'prep and wrap', pd, rt, null]);
+      pr.getCell(1).font = fNorm;
+      [3,4].forEach(i=>{pr.getCell(i).numFmt=numFmt;pr.getCell(i).alignment=alignR;});
+      pr.getCell(5).value={formula:`C${prn}*D${prn}`};
+      pr.getCell(5).numFmt=numFmt; pr.getCell(5).alignment=alignR;
     });
     const labEnd = ws.rowCount;
     const labTotRow = ws.rowCount + 1;
-    const rLabTot = ws.addRow(['total labour', '', { formula: `SUM(C${labStart}:C${labEnd})` }, '', { formula: `SUM(E${labStart}:E${labEnd})` }]);
-    rLabTot.getCell(1).font = fBold;
-    rLabTot.getCell(5).font = fBold;
-    [3,5].forEach(i => { rLabTot.getCell(i).numFmt = numFmt; rLabTot.getCell(i).alignment = alignR; });
+    const rLabTot = ws.addRow(['total labour', '', '', '', null]);
+    rLabTot.getCell(1).font = fBold; rLabTot.getCell(5).font = fBold;
+    rLabTot.getCell(5).value={formula:`SUM(E${labStart}:E${labEnd})`};
+    [5].forEach(i => { rLabTot.getCell(i).numFmt = numFmt; rLabTot.getCell(i).alignment = alignR; });
     blank(3);
 
     // ─── TRANSPORT ───
@@ -3589,8 +3688,8 @@ DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json
   .totals-block { border:1px solid #ddd; margin-top:20px; margin-bottom:8px; }
   .totals-row { display:flex; justify-content:space-between; padding:7px 12px; border-bottom:1px solid #eee; font-size:9.5pt; }
   .totals-row:last-child { border-bottom:none; }
-  .totals-row.highlight { background:#f8f8f6; font-weight:600; }
-  .totals-row.grand { background:#1a1a1a; color:white; padding:11px 12px; }
+  .totals-row.highlight { background:white; font-weight:600; }
+  .totals-row.grand { background:white; color:#1a1a1a; padding:11px 12px; border-top:2px solid #1a1a1a; }
   .totals-row.grand .lbl { font-family:'DM Serif Display',serif; font-size:13pt; }
   .totals-row.grand .val { font-family:'DM Serif Display',serif; font-size:17pt; }
   .totals-row .lbl { opacity:0.65; }
@@ -3659,15 +3758,28 @@ DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json
     const total_base = b.total_base || base + fee;
     const grand = b.grand_total || total_base;
 
-    // Labour rows
-    let labourRows = (b.labour?.team || []).map(m => `
+    // Labour rows — 2 řádky na osobu (shoot + prep)
+    let labourRows = (b.labour?.team || []).map(p => {
+      const sd = p.shoot_days ?? (p.phase==='shoot'?p.days:0) ?? 0;
+      const pd = p.prep_days  ?? (p.phase!=='shoot'?p.days:0) ?? 0;
+      const rt = p.rate || 0;
+      const n = new Intl.NumberFormat('cs-CZ');
+      return `
       <tr>
-        <td class="${m.phase === 'shoot' ? 'bold' : ''}">${m.role}${m.name && m.name !== '-' ? ' — ' + m.name : ''}</td>
-        <td class="phase">${m.phase}</td>
-        <td class="num">${m.days}</td>
-        <td class="num">${new Intl.NumberFormat('cs-CZ').format(m.rate)}</td>
-        <td class="num">${new Intl.NumberFormat('cs-CZ').format(m.total)}</td>
-      </tr>`).join('');
+        <td class="bold">${p.role || ''}</td>
+        <td class="phase">shoot</td>
+        <td class="num">${sd}</td>
+        <td class="num">${n.format(rt)}</td>
+        <td class="num">${n.format(sd*rt)}</td>
+      </tr>
+      <tr>
+        <td>${p.name || ''}</td>
+        <td class="phase">prep and wrap</td>
+        <td class="num">${pd}</td>
+        <td class="num">${n.format(rt)}</td>
+        <td class="num">${n.format(pd*rt)}</td>
+      </tr>`;
+    }).join('');
 
     // Transport rows
     let transportRows = (b.transport?.items || []).map(i => `
@@ -3737,7 +3849,7 @@ DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json
   td.bold { font-weight: 600; }
   td.props-item { padding-left: 14px; color: #333; }
 
-  tr.section-header td { background: #f8f8f6; font-weight: 600; font-size: 8.5pt; padding: 5px 6px; letter-spacing: 0.05em; }
+  tr.section-header td { background: white; font-weight: 600; font-size: 8.5pt; padding: 5px 6px; letter-spacing: 0.05em; border-bottom: 1px solid #ddd; }
   tr.total-row td { font-weight: 600; border-top: 1.5px solid #1a1a1a; border-bottom: none; padding-top: 6px; }
   tr:last-child td { border-bottom: none; }
 
@@ -3745,8 +3857,8 @@ DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json
   .totals-block { border: 1px solid #ddd; margin-top: 16px; margin-bottom: 8px; }
   .totals-row { display: flex; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid #eee; font-size: 9pt; }
   .totals-row:last-child { border-bottom: none; }
-  .totals-row.highlight { background: #f8f8f6; font-weight: 600; }
-  .totals-row.grand { background: #1a1a1a; color: white; padding: 10px 12px; }
+  .totals-row.highlight { background: white; font-weight: 600; }
+  .totals-row.grand { background: white; color: #1a1a1a; padding: 10px 12px; border-top: 2px solid #1a1a1a; }
   .totals-row.grand .lbl { font-family: 'DM Serif Display', serif; font-size: 12pt; font-weight: normal; }
   .totals-row.grand .val { font-family: 'DM Serif Display', serif; font-size: 16pt; }
   .totals-row .lbl { color: inherit; opacity: 0.7; }

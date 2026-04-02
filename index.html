@@ -1062,41 +1062,6 @@
 
     <div class="error-msg" id="errorMsg"></div>
 
-    <div class="section-label" style="margin-top:16px;">Referenční podklady</div>
-    <div style="border:1px solid var(--border); background:var(--surface); margin-bottom:16px;">
-      <div style="padding:10px 14px; border-bottom:1px solid var(--border);">
-        <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:7px;">Vzorový rozpočet projektu</label>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button onclick="document.getElementById('refBudgetFile').click()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ Excel / PDF / TXT</button>
-          <input type="file" id="refBudgetFile" accept=".pdf,.txt,.csv,.xlsx,.xls,.ods" style="display:none" onchange="loadRefDoc('budget',this)">
-          <span id="refBudgetStatus" style="font-size:10px; color:var(--muted); flex:1;">Žádný soubor</span>
-          <button id="refBudgetClear" onclick="clearRefDoc('budget')" style="display:none; font-size:10px; background:none; border:none; color:var(--muted); cursor:pointer; padding:0 4px;" title="Smazat">✕</button>
-        </div>
-        <div style="font-size:9px; color:var(--muted); margin-top:5px; opacity:0.7;">Nahraje se jako vzor pro přesnost cen a struktury</div>
-      </div>
-      <div style="padding:10px 14px;">
-        <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:7px;">Rozpis týmu / lidí</label>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button onclick="document.getElementById('refCrewFile').click()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ Excel / PDF / TXT</button>
-          <input type="file" id="refCrewFile" accept=".pdf,.txt,.csv,.xlsx,.xls,.ods" style="display:none" onchange="loadRefDoc('crew',this)">
-          <button id="extractCrewBtn" onclick="extractCrewImages()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--accent); padding:5px 10px; cursor:pointer;">Načíst z obrázků (9)</button>
-          <span id="refCrewStatus" style="font-size:10px; color:var(--muted); flex:1;">Žádný soubor</span>
-          <button id="refCrewClear" onclick="clearRefDoc('crew')" style="display:none; font-size:10px; background:none; border:none; color:var(--muted); cursor:pointer; padding:0 4px;" title="Smazat">✕</button>
-        </div>
-        <div style="font-size:9px; color:var(--muted); margin-top:5px; opacity:0.7;">Reálný rozpis pozic, dní a sazeb pro tento projekt</div>
-      </div>
-      <div style="padding:10px 14px; border-top:1px solid var(--border);">
-        <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:7px;">Scripty / storyboardy</label>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button onclick="document.getElementById('refScriptFile').click()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ Excel / PDF / TXT</button>
-          <input type="file" id="refScriptFile" accept=".pdf,.txt,.csv,.xlsx,.xls,.ods" style="display:none" onchange="loadRefDoc('script',this)">
-          <span id="refScriptStatus" style="font-size:10px; color:var(--muted); flex:1;">Žádný soubor</span>
-          <button id="refScriptClear" onclick="clearRefDoc('script')" style="display:none; font-size:10px; background:none; border:none; color:var(--muted); cursor:pointer; padding:0 4px;" title="Smazat">✕</button>
-        </div>
-        <div style="font-size:9px; color:var(--muted); margin-top:5px; opacity:0.7;">Script nebo storyboard projektu — kontext pro přesnější odhad rekvizit</div>
-      </div>
-    </div>
-
     <div class="section-label" style="margin-top:24px;">Moje instrukce & naučené korekce</div>
     <div style="border:1px solid var(--border); background:var(--surface); margin-bottom:16px;">
 
@@ -2661,33 +2626,23 @@ document.addEventListener('DOMContentLoaded', () => {
       low: 'Low budget'
     };
 
-    // Referenční databáze — všechny nahrané soubory
+    // Referenční kontext — přímo ze seed konstant (16 rozpočtů + 17 scriptů)
     let _refBudgetCtx = '';
-    let _refCrewCtx = '';
     let _refScriptCtx = '';
     try {
-      const _rba = getRefDB('budget');
-      if (_rba.length > 0) {
-        // Kombinuj texty všech souborů, každý zkrácen rovnoměrně aby se vešly
-        const perFile = Math.floor(4000 / _rba.length);
-        const combined = _rba.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
-        _refBudgetCtx = '\n\nREFERENČNÍ ROZPOČTY (' + _rba.length + ' souborů — použij jako vzor pro přesné ceny, strukturu a proporce):\n' + combined;
+      if (typeof _SEED_BUDGETS !== 'undefined' && _SEED_BUDGETS.length > 0) {
+        // 16 souborů → každý max 250 znaků = 4000 znaků celkem
+        const perFile = Math.floor(4000 / _SEED_BUDGETS.length);
+        const combined = _SEED_BUDGETS.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
+        _refBudgetCtx = '\n\nREFERENČNÍ ROZPOČTY (' + _SEED_BUDGETS.length + ' reálných jobů — použij jako vzor pro ceny, strukturu a proporce):\n' + combined;
       }
     } catch(e) {}
     try {
-      const _rca = getRefDB('crew');
-      if (_rca.length > 0) {
-        const perFile = Math.floor(2000 / _rca.length);
-        const combined = _rca.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
-        _refCrewCtx = '\n\nREFERENČNÍ ROZPISY TÝMU (' + _rca.length + ' souborů):\n' + combined;
-      }
-    } catch(e) {}
-    try {
-      const _rsa = getRefDB('script');
-      if (_rsa.length > 0) {
-        const perFile = Math.floor(2000 / _rsa.length);
-        const combined = _rsa.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
-        _refScriptCtx = '\n\nREFERENČNÍ SCRIPTY / STORYBOARDY (' + _rsa.length + ' souborů — kontext projektu):\n' + combined;
+      if (typeof _SEED_SCRIPTS !== 'undefined' && _SEED_SCRIPTS.length > 0) {
+        // 17 scriptů → každý max 120 znaků = 2000 znaků celkem
+        const perFile = Math.floor(2000 / _SEED_SCRIPTS.length);
+        const combined = _SEED_SCRIPTS.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
+        _refScriptCtx = '\n\nREFERENČNÍ SCRIPTY (' + _SEED_SCRIPTS.length + ' projektů — kontext typů zakázek):\n' + combined;
       }
     } catch(e) {}
 
@@ -2695,7 +2650,7 @@ document.addEventListener('DOMContentLoaded', () => {
 PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%
 ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
 ${sets.map((s,i)=>`${i+1}.${s}`).join('|')}
-${desc?'Info:'+desc.substring(0,200):''}${_refBudgetCtx}${_refCrewCtx}${_refScriptCtx}
+${desc?'Info:'+desc.substring(0,200):''}${_refBudgetCtx}${_refScriptCtx}
 MÓD:${outputMode==='approx'?'APROX(1paušál/set)':'DETAIL(3pol/set)'} JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
 DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
 {"summary":"","labour":{"total":0,"team":[{"role":"Prop master","phase":"prep and wrap","days":0,"rate":0,"total":0}]},"transport":{"total":0,"items":[{"name":"auto","days":0,"rate":0,"total":0}]},"props":{"total":0,"sections":[{"name":"set","items":[{"name":"pol","amount":0}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`

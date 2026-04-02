@@ -813,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.2</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3311,19 +3311,32 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('List3');
 
-    ws.getColumn(1).width = 46; // popis
-    ws.getColumn(2).width = 16; // fáze
-    ws.getColumn(3).width = 8;  // dny
-    ws.getColumn(4).width = 14; // sazba / transport total / props amount
-    ws.getColumn(5).width = 14; // labour total
+    ws.getColumn(1).width = 46;
+    ws.getColumn(2).width = 16;
+    ws.getColumn(3).width = 8;
+    ws.getColumn(4).width = 14;
+    ws.getColumn(5).width = 14;
 
-    const fBold  = { name: 'Calibri', size: 11, bold: true };
-    const fNorm  = { name: 'Calibri', size: 11 };
-    const fMuted = { name: 'Calibri', size: 10, color: { argb: 'FF888888' } };
-    const fTitle = { name: 'Calibri', size: 13, bold: true };
+    const fBold  = { name: 'Calibri', size: 12, bold: true };
+    const fNorm  = { name: 'Calibri', size: 12 };
+    const fMuted = { name: 'Calibri', size: 11, color: { argb: 'FF888888' } };
+    const fTitle = { name: 'Calibri', size: 14, bold: true };
     const numFmt = '#,##0';
     const alignR = { horizontal: 'right' };
     const blank = (n=1) => { for(let i=0;i<n;i++) ws.addRow([]); };
+
+    const bT = { style: 'thin', color: { argb: 'FFbbbbbb' } };
+    const bdr = { top: bT, left: bT, bottom: bT, right: bT };
+    const fillSec = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFd9d9d9' } };
+    const fillHdr = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFededed' } };
+    const fillTot = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFe2e2e2' } };
+    const fillGrd = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFc0c0c0' } };
+    function applyBdr(row, from=1, to=5) {
+      for (let c = from; c <= to; c++) row.getCell(c).border = bdr;
+    }
+    function applyFill(row, fill, from=1, to=5) {
+      for (let c = from; c <= to; c++) row.getCell(c).fill = fill;
+    }
 
     // ── Titul ──────────────────────────────────────────────────────────────
     blank();
@@ -3331,17 +3344,20 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     blank();
 
     // ── LABOUR ─────────────────────────────────────────────────────────────
-    ws.addRow(['Labour']).getCell(1).font = fBold;
+    const lSecR = ws.addRow(['Labour']);
+    lSecR.getCell(1).font = fBold;
+    applyBdr(lSecR); applyFill(lSecR, fillSec);
+
     const lhR = ws.addRow(['worker', null, 'days', 'amount / day', 'total amount']);
     [1,2,3,4,5].forEach(i => lhR.getCell(i).font = fMuted);
     [3,4,5].forEach(i => lhR.getCell(i).alignment = alignR);
+    applyBdr(lhR); applyFill(lhR, fillHdr);
 
     const labStart = ws.rowCount + 1;
     (b.labour?.team || []).forEach(p => {
       const sd = p.shoot_days ?? (p.phase==='shoot' ? p.days : 0) ?? 0;
       const pd = p.prep_days  ?? (p.phase!=='shoot' ? p.days : 0) ?? 0;
       const rt = p.rate || 0;
-      // shoot row
       const srn = ws.rowCount + 1;
       const sr = ws.addRow([p.role || '', 'shoot', sd, rt, null]);
       sr.getCell(1).font = fBold;
@@ -3349,7 +3365,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       sr.getCell(4).numFmt = numFmt;
       sr.getCell(5).value = {formula:`C${srn}*D${srn}`};
       sr.getCell(5).numFmt = numFmt; sr.getCell(5).alignment = alignR;
-      // prep row
+      applyBdr(sr);
       const prn = ws.rowCount + 1;
       const pr = ws.addRow([p.name || '', 'prep and wrap', pd, rt, null]);
       pr.getCell(1).font = fNorm;
@@ -3357,20 +3373,40 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       pr.getCell(4).numFmt = numFmt;
       pr.getCell(5).value = {formula:`C${prn}*D${prn}`};
       pr.getCell(5).numFmt = numFmt; pr.getCell(5).alignment = alignR;
+      applyBdr(pr);
     });
     const labEnd = ws.rowCount;
+    // Přidej kalibrační rezervu pokud se AI total liší od sumy řádků
+    const labRowSum = (b.labour?.team||[]).reduce((s,p)=>{
+      const sd=p.shoot_days??0; const pd=p.prep_days??0; const rt=p.rate||0;
+      return s+(sd+pd)*rt;
+    },0);
+    const labAiTotal = b.labour?.total || 0;
+    const labAdj = Math.round(labAiTotal - labRowSum);
+    if (labAdj !== 0) {
+      const adjR = ws.addRow(['kalibrace / rezerva', null, null, null, labAdj]);
+      adjR.getCell(1).font = fMuted; adjR.getCell(1).italic = true;
+      adjR.getCell(5).numFmt = numFmt; adjR.getCell(5).alignment = alignR;
+      applyBdr(adjR);
+    }
+    const labEnd2 = ws.rowCount;
     const labTotRn = ws.rowCount + 1;
     const labTotR = ws.addRow(['total labour']);
     labTotR.getCell(1).font = fBold;
-    labTotR.getCell(5).value = {formula:`SUM(E${labStart}:E${labEnd})`};
+    labTotR.getCell(5).value = {formula:`SUM(E${labStart}:E${labEnd2})`};
     labTotR.getCell(5).numFmt = numFmt; labTotR.getCell(5).alignment = alignR; labTotR.getCell(5).font = fBold;
+    applyBdr(labTotR); applyFill(labTotR, fillTot);
     blank(2);
 
     // ── TRANSPORT ──────────────────────────────────────────────────────────
-    ws.addRow(['Transport']).getCell(1).font = fBold;
+    const tSecR = ws.addRow(['Transport']);
+    tSecR.getCell(1).font = fBold;
+    applyBdr(tSecR); applyFill(tSecR, fillSec);
+
     const thR = ws.addRow(['car', 'days', 'amount/day', 'total amount']);
     [1,2,3,4].forEach(i=>thR.getCell(i).font=fMuted);
     [2,3,4].forEach(i=>thR.getCell(i).alignment=alignR);
+    applyBdr(thR); applyFill(thR, fillHdr);
 
     const trStart = ws.rowCount + 1;
     (b.transport?.items || []).forEach(item => {
@@ -3380,6 +3416,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       r.getCell(3).numFmt = numFmt; r.getCell(3).alignment = alignR;
       r.getCell(4).value = {formula:`B${rn}*C${rn}`};
       r.getCell(4).numFmt = numFmt; r.getCell(4).alignment = alignR;
+      applyBdr(r);
     });
     const trEnd = ws.rowCount;
     const transTotRn = ws.rowCount + 1;
@@ -3387,17 +3424,24 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     transTotR.getCell(1).font = fBold;
     transTotR.getCell(4).value = {formula:`SUM(D${trStart}:D${trEnd})`};
     transTotR.getCell(4).numFmt = numFmt; transTotR.getCell(4).alignment = alignR; transTotR.getCell(4).font = fBold;
+    applyBdr(transTotR); applyFill(transTotR, fillTot);
     blank(2);
 
     // ── PROPS ──────────────────────────────────────────────────────────────
-    ws.addRow(['Props']).getCell(1).font = fBold;
+    const pSecR = ws.addRow(['Props']);
+    pSecR.getCell(1).font = fBold;
+    applyBdr(pSecR); applyFill(pSecR, fillSec);
     blank();
+
     const prStart = ws.rowCount + 1;
     (b.props?.sections || []).forEach(sec => {
-      ws.addRow([sec.name]).getCell(1).font = fBold;
+      const secNameR = ws.addRow([sec.name]);
+      secNameR.getCell(1).font = fBold;
+      applyBdr(secNameR); applyFill(secNameR, fillHdr);
       (sec.items || []).forEach(item => {
         const r = ws.addRow([item.name, null, null, item.amount || 0]);
         r.getCell(4).numFmt = numFmt; r.getCell(4).alignment = alignR;
+        applyBdr(r);
       });
       blank();
     });
@@ -3407,6 +3451,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     propsTotR.getCell(1).font = fBold;
     propsTotR.getCell(4).value = {formula:`SUMIF(D${prStart}:D${prEnd},">"&0)`};
     propsTotR.getCell(4).numFmt = numFmt; propsTotR.getCell(4).alignment = alignR; propsTotR.getCell(4).font = fBold;
+    applyBdr(propsTotR); applyFill(propsTotR, fillTot);
     blank(2);
 
     // ── SOUČTY ─────────────────────────────────────────────────────────────
@@ -3416,23 +3461,27 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     totBudgR.getCell(1).font = fBold;
     totBudgR.getCell(4).value = {formula:`E${labTotRn}+D${transTotRn}+D${propsTotRn}`};
     totBudgR.getCell(4).numFmt = numFmt; totBudgR.getCell(4).alignment = alignR;
+    applyBdr(totBudgR); applyFill(totBudgR, fillTot);
 
     const feeRn = ws.rowCount + 1;
     const feeR = ws.addRow([`${feePct}% fee:`]);
     feeR.getCell(4).value = {formula:`D${totBudgRn}*${feePct/100}`};
     feeR.getCell(4).numFmt = numFmt; feeR.getCell(4).alignment = alignR;
+    applyBdr(feeR);
 
     const celkemRn = ws.rowCount + 1;
     const celkemR = ws.addRow(['celková částka rozpočtu bez přesčasů']);
     celkemR.getCell(1).font = fBold;
     celkemR.getCell(4).value = {formula:`D${totBudgRn}+D${feeRn}`};
     celkemR.getCell(4).numFmt = numFmt; celkemR.getCell(4).alignment = alignR; celkemR.getCell(4).font = fBold;
+    applyBdr(celkemR); applyFill(celkemR, fillSec);
     blank(2);
 
     const finR = ws.addRow(['APPROXIMATIVE BUDGET']);
     finR.getCell(1).font = fTitle;
     finR.getCell(4).value = {formula:`D${celkemRn}`};
     finR.getCell(4).numFmt = numFmt; finR.getCell(4).alignment = alignR; finR.getCell(4).font = fTitle;
+    applyBdr(finR); applyFill(finR, fillGrd);
 
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -3507,10 +3556,22 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       pr.getCell(5).numFmt=numFmt; pr.getCell(5).alignment=alignR;
     });
     const labEnd = ws.rowCount;
+    // Kalibrační rezerva pro detailed export
+    const labRowSum2 = (b.labour?.team||[]).reduce((s,p)=>{
+      const sd=p.shoot_days??0; const pd=p.prep_days??0; const rt=p.rate||0;
+      return s+(sd+pd)*rt;
+    },0);
+    const labAdj2 = Math.round((b.labour?.total||0) - labRowSum2);
+    if (labAdj2 !== 0) {
+      const adjR2 = ws.addRow(['kalibrace / rezerva', '', '', '', labAdj2]);
+      adjR2.getCell(1).font = { name:'Calibri', size:11, italic:true, color:{argb:'FF888888'} };
+      adjR2.getCell(5).numFmt = numFmt; adjR2.getCell(5).alignment = alignR;
+    }
+    const labEnd2 = ws.rowCount;
     const labTotRow = ws.rowCount + 1;
     const rLabTot = ws.addRow(['total labour', '', '', '', null]);
     rLabTot.getCell(1).font = fBold; rLabTot.getCell(5).font = fBold;
-    rLabTot.getCell(5).value={formula:`SUM(E${labStart}:E${labEnd})`};
+    rLabTot.getCell(5).value={formula:`SUM(E${labStart}:E${labEnd2})`};
     [5].forEach(i => { rLabTot.getCell(i).numFmt = numFmt; rLabTot.getCell(i).alignment = alignR; });
     blank(3);
 

@@ -812,7 +812,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.2</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2427,69 +2427,56 @@ Vrať POUZE JSON bez textu:
     contentParts.push({ type: 'text', text: prompt });
     messages.push({ role: 'user', content: contentParts });
 
-    // _timedOut musí být mimo try/catch — jinak ReferenceError v catch bloku
+    // _timedOut mimo try/catch — jinak ReferenceError v catch bloku
     let _timedOut = false;
 
     try {
       const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 700, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
-      console.log('[Budget] Sending', _kb, 'KB, max_tokens=700');
 
-      const data = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        let done = false;
-        let ticks = 0;
-        const finish = (fn) => { if (!done) { done = true; fn(); } };
+      // AbortController kombinující user-stop + timeout
+      const _budgetCtrl = new AbortController();
+      _abortController.signal.addEventListener('abort', () => _budgetCtrl.abort(), { once: true });
 
-        // 1s-tick chain — Safari-safe timeout (Safari throttluje setTimeout>30s)
-        const tick = () => {
-          if (done) return;
-          ticks++;
-          console.log('[Budget] tick', ticks);
-          if (ticks >= 52) {
-            _timedOut = true;
-            xhr.abort();
-            finish(() => reject(new DOMException('timeout', 'AbortError')));
-          } else {
-            setTimeout(tick, 1000);
-          }
+      // AbortSignal.timeout() — nativní, nefouká ho Safari timer throttling ani dimnutí displeje
+      // Safari 16.4+ (iPhone/iPad iOS 16+, macOS Ventura+) ho podporuje
+      if (typeof AbortSignal.timeout === 'function') {
+        const _ts = AbortSignal.timeout(52000);
+        _ts.addEventListener('abort', () => { _timedOut = true; _budgetCtrl.abort(); }, { once: true });
+      } else {
+        // Fallback 1s tick chain pro starší Safari
+        let _ticks = 0;
+        const _tick = () => {
+          if (_budgetCtrl.signal.aborted) return;
+          if (++_ticks >= 52) { _timedOut = true; _budgetCtrl.abort(); }
+          else setTimeout(_tick, 1000);
         };
-        setTimeout(tick, 1000);
+        setTimeout(_tick, 1000);
+      }
 
-        xhr.open('POST', '/api/chat');
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('x-api-key', apiKey);
-        xhr.setRequestHeader('anthropic-version', '2023-06-01');
-
-        _abortController.signal.addEventListener('abort', () => {
-          finish(() => { xhr.abort(); reject(new DOMException('Aborted', 'AbortError')); });
-        });
-
-        xhr.onload = () => finish(() => {
-          console.log('[Budget] onload status=', xhr.status, 'len=', xhr.responseText.length);
-          try {
-            const json = JSON.parse(xhr.responseText);
-            if (xhr.status === 529 || xhr.status === 503) {
-              reject(new Error('API přetíženo. Počkej chvíli a zkus znovu.'));
-            } else if (xhr.status !== 200) {
-              reject(new Error(json.error?.message || `API chyba ${xhr.status}`));
-            } else {
-              resolve(json);
-            }
-          } catch(e) {
-            reject(new Error('Chyba parsování odpovědi: ' + xhr.responseText.substring(0, 200)));
-          }
-        });
-        xhr.onerror = () => { console.error('[Budget] onerror'); finish(() => reject(new Error('Síťová chyba.'))); };
-        xhr.onabort = () => { console.warn('[Budget] onabort'); finish(() => reject(new DOMException('Aborted', 'AbortError'))); };
-
-        xhr.send(_body);
-        document.getElementById('progressEta').textContent = 'čekám na API…';
+      // fetch + JSON body + AbortSignal — Safari-safe (problém byl jen s FormData)
+      document.getElementById('progressEta').textContent = 'čekám na API…';
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: _body,
+        signal: _budgetCtrl.signal,
       });
 
+      if (!response.ok) {
+        let errMsg = `API chyba ${response.status}`;
+        try { const e = await response.json(); errMsg = e.error?.message || errMsg; } catch (_) {}
+        if (response.status === 529 || response.status === 503) errMsg = 'API přetíženo. Počkej chvíli a zkus znovu.';
+        throw new Error(errMsg);
+      }
+
+      const data = await response.json();
       const rawText = (data.content?.map(c => c.text || '') ?? []).join('') || '';
-      console.log('[Budget] rawText len=', rawText.length, rawText.substring(0, 100));
       if (!rawText) throw new Error(data.error?.message || 'API vrátilo prázdnou odpověď.');
 
       document.getElementById('progressEta').textContent = 'parsuju JSON…';
@@ -2498,7 +2485,7 @@ Vrať POUZE JSON bez textu:
         const clean = rawText.replace(/```json|```/gi, '').trim();
         const match = clean.match(/\{[\s\S]*\}/);
         budget = JSON.parse(match ? match[0] : clean);
-      } catch(e) {
+      } catch (e) {
         throw new Error('Chyba parsování. Odpověď: ' + rawText.substring(0, 300));
       }
 
@@ -2507,10 +2494,10 @@ Vrať POUZE JSON bez textu:
       renderBudget(budget, projectName);
 
     } catch (err) {
-      console.error('[Budget] catch:', err.name, err.message);
       hideThinking(interval);
-      if (err.name === 'AbortError') {
-        showError(_timedOut ? 'Timeout 52s — API neodpovědělo. Zkus znovu.' : 'Generování zastaveno.');
+      const isAbort = err.name === 'AbortError' || err.name === 'TimeoutError';
+      if (isAbort) {
+        showError(_timedOut ? 'Timeout 52s — zkus znovu.' : 'Generování zastaveno.');
       } else {
         showError('Chyba: ' + err.message);
       }

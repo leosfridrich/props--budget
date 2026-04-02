@@ -798,6 +798,7 @@
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
   if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -812,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.6</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.7</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1066,8 +1067,8 @@
       <div style="padding:10px 14px; border-bottom:1px solid var(--border);">
         <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:7px;">Vzorový rozpočet projektu</label>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button onclick="document.getElementById('refBudgetFile').click()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ PDF / TXT</button>
-          <input type="file" id="refBudgetFile" accept=".pdf,.txt,.csv" style="display:none" onchange="loadRefDoc('budget',this)">
+          <button onclick="document.getElementById('refBudgetFile').click()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ Excel / PDF / TXT</button>
+          <input type="file" id="refBudgetFile" accept=".pdf,.txt,.csv,.xlsx,.xls,.ods" style="display:none" onchange="loadRefDoc('budget',this)">
           <span id="refBudgetStatus" style="font-size:10px; color:var(--muted); flex:1;">Žádný soubor</span>
           <button id="refBudgetClear" onclick="clearRefDoc('budget')" style="display:none; font-size:10px; background:none; border:none; color:var(--muted); cursor:pointer; padding:0 4px;" title="Smazat">✕</button>
         </div>
@@ -1076,8 +1077,8 @@
       <div style="padding:10px 14px;">
         <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:7px;">Rozpis týmu / lidí</label>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button onclick="document.getElementById('refCrewFile').click()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ PDF / TXT</button>
-          <input type="file" id="refCrewFile" accept=".pdf,.txt,.csv" style="display:none" onchange="loadRefDoc('crew',this)">
+          <button onclick="document.getElementById('refCrewFile').click()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ Excel / PDF / TXT</button>
+          <input type="file" id="refCrewFile" accept=".pdf,.txt,.csv,.xlsx,.xls,.ods" style="display:none" onchange="loadRefDoc('crew',this)">
           <span id="refCrewStatus" style="font-size:10px; color:var(--muted); flex:1;">Žádný soubor</span>
           <button id="refCrewClear" onclick="clearRefDoc('crew')" style="display:none; font-size:10px; background:none; border:none; color:var(--muted); cursor:pointer; padding:0 4px;" title="Smazat">✕</button>
         </div>
@@ -2234,23 +2235,38 @@
     statusEl.textContent = 'Načítám…';
     try {
       let text = '';
-      if (file.type === 'application/pdf') {
-        // PDF.js extrakce — stejná funkce jako pro analýzu scriptu
-        if (typeof pdfjsLib !== 'undefined') {
-          var ab = await file.arrayBuffer();
-          var pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
-          var pages = [];
-          for (var p = 1; p <= Math.min(pdf.numPages, 20); p++) {
-            var pg = await pdf.getPage(p);
-            var tc = await pg.getTextContent();
-            pages.push(tc.items.map(function(i) { return i.str; }).join(' '));
-          }
-          text = pages.join('\n');
+      const name = file.name.toLowerCase();
+
+      if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.ods')) {
+        // Excel → SheetJS → CSV text
+        if (typeof XLSX === 'undefined') throw new Error('SheetJS není načteno');
+        const ab = await file.arrayBuffer();
+        const wb = XLSX.read(ab, { type: 'array' });
+        const parts = [];
+        wb.SheetNames.forEach(function(sName) {
+          const ws = wb.Sheets[sName];
+          const csv = XLSX.utils.sheet_to_csv(ws, { blankrows: false });
+          if (csv.trim().length > 10) parts.push('=== List: ' + sName + ' ===\n' + csv);
+        });
+        text = parts.join('\n\n');
+
+      } else if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
+        if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js není načteno');
+        const ab = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
+        const pages = [];
+        for (let p = 1; p <= Math.min(pdf.numPages, 20); p++) {
+          const pg = await pdf.getPage(p);
+          const tc = await pg.getTextContent();
+          pages.push(tc.items.map(i => i.str).join(' '));
         }
+        text = pages.join('\n');
+
       } else {
         text = await file.text();
       }
-      text = text.trim().substring(0, 5000);
+
+      text = text.trim().substring(0, 6000);
       if (!text) { statusEl.textContent = 'Soubor je prázdný nebo nečitelný'; return; }
       localStorage.setItem(isB ? LS_REF_BUDGET : LS_REF_CREW, text);
       statusEl.textContent = file.name + ' (' + (text.length / 1000).toFixed(1) + 'k znaků)';
@@ -2531,7 +2547,7 @@ DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json
     let _timedOut = false;
 
     try {
-      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1500, messages });
+      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 2000, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
 

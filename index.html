@@ -813,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.5</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.6</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -968,21 +968,31 @@
         </div>
 
         <!-- Manual override -->
-        <div style="padding:10px 14px; display:flex; align-items:center; gap:10px;">
+        <div style="padding:10px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <span style="font-size:10px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; white-space:nowrap;">Přepsat ručně:</span>
+          <span style="font-size:10px; color:var(--accent); margin-right:2px;">core</span>
           <input type="number" id="fullJobCrew" value="" min="1" max="15"
-            placeholder="auto"
-            style="width:70px; background:var(--bg); border:1px solid var(--border);
+            placeholder=""
+            style="width:60px; background:var(--bg); border:1px solid var(--border);
                    color:var(--accent); font-family:'DM Mono',monospace; font-size:13px;
                    padding:6px 10px; outline:none; text-align:center;"
             onfocus="this.style.borderColor='var(--accent)'"
             onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
             oninput="updateCrewEstimate()" />
-          <span style="font-size:10px; color:var(--muted);">— nebo nechte prázdné</span>
+          <span style="font-size:10px; color:var(--accent2); margin-left:6px; margin-right:2px;">shoot</span>
+          <input type="number" id="shootCrewOverride" value="" min="1" max="50"
+            placeholder=""
+            style="width:60px; background:var(--bg); border:1px solid var(--border);
+                   color:var(--accent2); font-family:'DM Mono',monospace; font-size:13px;
+                   padding:6px 10px; outline:none; text-align:center;"
+            onfocus="this.style.borderColor='var(--accent2)'"
+            onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
+            oninput="updateCrewEstimate()" />
+          <span style="font-size:10px; color:var(--muted);">— prázdné = odhad</span>
         </div>
 
       </div>
-      <p style="font-size:10px; color:var(--muted); margin-top:6px;"><strong style="color:var(--text);">Core</strong> = Prop master + propmanové na celý prep+wrap. <strong style="color:var(--accent2);">Shoot</strong> = všichni na natáčení vč. souběžné likvidace. Přepiš core ručně pokud potřebuješ.</p>
+      <p style="font-size:10px; color:var(--muted); margin-top:6px;"><strong style="color:var(--text);">Core</strong> = Prop master + propmanové na celý prep+wrap. <strong style="color:var(--accent2);">Shoot</strong> = všichni na natáčení vč. souběžné likvidace. Prázdné pole = automatický odhad.</p>
     </div>
 
     <div class="form-group">
@@ -1518,22 +1528,24 @@
     if (totalSets <= 1) shootCrew = Math.max(shootCrew, 3);
     shootCrew = Math.min(shootCrew, 25);
 
-    // Manual override for core
+    // Manual overrides
     const manual = parseInt(document.getElementById('fullJobCrew').value);
+    const manualShoot = parseInt(document.getElementById('shootCrewOverride').value);
     const displayCore = manual > 0 ? manual : core;
+    const displayShoot = manualShoot > 0 ? manualShoot : shootCrew;
 
     // ── Display ──
     document.getElementById('crewEstimateValue').innerHTML =
       `<span style="font-size:20px;color:var(--accent);">${displayCore}</span>` +
       `<span style="font-size:10px;color:var(--muted);margin-left:3px;">core</span>` +
       `<span style="font-size:13px;color:var(--border);margin:0 8px;">/</span>` +
-      `<span style="font-size:20px;color:var(--accent2);">${shootCrew}</span>` +
+      `<span style="font-size:20px;color:var(--accent2);">${displayShoot}</span>` +
       `<span style="font-size:10px;color:var(--muted);margin-left:3px;">shoot</span>` +
       `<span style="font-size:10px;color:var(--muted);margin-left:10px;opacity:0.6;">prep ~${corePrepEst}d</span>`;
 
     const chips = [
       `<span style="color:var(--accent)">Core ${displayCore}:</span> Prop master + ${displayCore-1} propman${displayCore>2?'i':''} na celý prep (~${corePrepEst}d)`,
-      `<span style="color:var(--accent2)">Shoot ${shootCrew}:</span> všichni na natáčení + souběžná likvidace`,
+      `<span style="color:var(--accent2)">Shoot ${displayShoot}:</span> všichni na natáčení + souběžná likvidace`,
     ];
 
     const reasons = [];
@@ -1544,6 +1556,7 @@
     if (isHeavy)      reasons.push('full dressing');
     if (isMix)        reasons.push('mix');
     if (manual > 0)   reasons.push('core ručně');
+    if (manualShoot > 0) reasons.push('shoot ručně');
 
     document.getElementById('crewEstimateLabel').innerHTML = `Na základě: ${reasons.join(' · ')}`;
     document.getElementById('crewBreakdown').innerHTML = chips.join('<br>');
@@ -2670,7 +2683,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const _extSets = abroadSets;
     const _realSets = Math.max(activeSets - studioSets - _extSets, 0);
     let _extras = _realSets * (_isHeavy ? 4.5 : _isMix ? 3.0 : 2.0) + studioSets * (_isHeavy ? 5.0 : 3.5) + abroadSets * 4.0;
+    const _manualShoot = parseInt(document.getElementById('shootCrewOverride').value);
     let _shootCrew = Math.min(Math.max(Math.round(fullJobCrew + _extras), activeSets >= 3 ? 12 : 6), 25);
+    if (_manualShoot > 0) _shootCrew = _manualShoot;
     const budgetCeiling = document.getElementById('budgetCeiling').value;
     const desc = document.getElementById('projectDesc').value;
 

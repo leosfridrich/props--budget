@@ -812,7 +812,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.5</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.6</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1060,6 +1060,30 @@
     </div>
 
     <div class="error-msg" id="errorMsg"></div>
+
+    <div class="section-label" style="margin-top:16px;">Referenční podklady</div>
+    <div style="border:1px solid var(--border); background:var(--surface); margin-bottom:16px;">
+      <div style="padding:10px 14px; border-bottom:1px solid var(--border);">
+        <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:7px;">Vzorový rozpočet projektu</label>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button onclick="document.getElementById('refBudgetFile').click()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ PDF / TXT</button>
+          <input type="file" id="refBudgetFile" accept=".pdf,.txt,.csv" style="display:none" onchange="loadRefDoc('budget',this)">
+          <span id="refBudgetStatus" style="font-size:10px; color:var(--muted); flex:1;">Žádný soubor</span>
+          <button id="refBudgetClear" onclick="clearRefDoc('budget')" style="display:none; font-size:10px; background:none; border:none; color:var(--muted); cursor:pointer; padding:0 4px;" title="Smazat">✕</button>
+        </div>
+        <div style="font-size:9px; color:var(--muted); margin-top:5px; opacity:0.7;">Nahraje se jako vzor pro přesnost cen a struktury</div>
+      </div>
+      <div style="padding:10px 14px;">
+        <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:7px;">Rozpis týmu / lidí</label>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button onclick="document.getElementById('refCrewFile').click()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ PDF / TXT</button>
+          <input type="file" id="refCrewFile" accept=".pdf,.txt,.csv" style="display:none" onchange="loadRefDoc('crew',this)">
+          <span id="refCrewStatus" style="font-size:10px; color:var(--muted); flex:1;">Žádný soubor</span>
+          <button id="refCrewClear" onclick="clearRefDoc('crew')" style="display:none; font-size:10px; background:none; border:none; color:var(--muted); cursor:pointer; padding:0 4px;" title="Smazat">✕</button>
+        </div>
+        <div style="font-size:9px; color:var(--muted); margin-top:5px; opacity:0.7;">Reálný rozpis pozic, dní a sazeb pro tento projekt</div>
+      </div>
+    </div>
 
     <div class="section-label" style="margin-top:24px;">Moje instrukce & naučené korekce</div>
     <div style="border:1px solid var(--border); background:var(--surface); margin-bottom:16px;">
@@ -2197,6 +2221,68 @@
   const LS_INSTRUCTIONS = 'propsBudget_instructions';
   const LS_LEARNED = 'propsBudget_learned';
 
+  // ── Referenční podklady ──────────────────────────────────────────────────
+  const LS_REF_BUDGET = 'propsBudget_refBudget';
+  const LS_REF_CREW   = 'propsBudget_refCrew';
+
+  async function loadRefDoc(type, input) {
+    const file = input.files[0];
+    if (!file) return;
+    const isB = type === 'budget';
+    const statusEl = document.getElementById(isB ? 'refBudgetStatus' : 'refCrewStatus');
+    const clearEl  = document.getElementById(isB ? 'refBudgetClear'  : 'refCrewClear');
+    statusEl.textContent = 'Načítám…';
+    try {
+      let text = '';
+      if (file.type === 'application/pdf') {
+        // PDF.js extrakce — stejná funkce jako pro analýzu scriptu
+        if (typeof pdfjsLib !== 'undefined') {
+          var ab = await file.arrayBuffer();
+          var pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
+          var pages = [];
+          for (var p = 1; p <= Math.min(pdf.numPages, 20); p++) {
+            var pg = await pdf.getPage(p);
+            var tc = await pg.getTextContent();
+            pages.push(tc.items.map(function(i) { return i.str; }).join(' '));
+          }
+          text = pages.join('\n');
+        }
+      } else {
+        text = await file.text();
+      }
+      text = text.trim().substring(0, 5000);
+      if (!text) { statusEl.textContent = 'Soubor je prázdný nebo nečitelný'; return; }
+      localStorage.setItem(isB ? LS_REF_BUDGET : LS_REF_CREW, text);
+      statusEl.textContent = file.name + ' (' + (text.length / 1000).toFixed(1) + 'k znaků)';
+      clearEl.style.display = 'inline';
+    } catch(e) {
+      statusEl.textContent = 'Chyba: ' + e.message;
+    }
+    input.value = '';
+  }
+
+  function clearRefDoc(type) {
+    const isB = type === 'budget';
+    try { localStorage.removeItem(isB ? LS_REF_BUDGET : LS_REF_CREW); } catch(e) {}
+    document.getElementById(isB ? 'refBudgetStatus' : 'refCrewStatus').textContent = 'Žádný soubor';
+    document.getElementById(isB ? 'refBudgetClear'  : 'refCrewClear').style.display = 'none';
+  }
+
+  function initRefDocs() {
+    ['budget','crew'].forEach(function(type) {
+      const isB = type === 'budget';
+      try {
+        const saved = localStorage.getItem(isB ? LS_REF_BUDGET : LS_REF_CREW);
+        if (saved && saved.length > 0) {
+          document.getElementById(isB ? 'refBudgetStatus' : 'refCrewStatus').textContent =
+            'Uložen (' + (saved.length / 1000).toFixed(1) + 'k znaků)';
+          document.getElementById(isB ? 'refBudgetClear' : 'refCrewClear').style.display = 'inline';
+        }
+      } catch(e) {}
+    });
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   function saveInstructions() {
     const val = document.getElementById('userInstructions').value;
     try { localStorage.setItem(LS_INSTRUCTIONS, val); } catch(e) {}
@@ -2269,10 +2355,12 @@
 document.addEventListener('DOMContentLoaded', () => {
     loadInstructions();
     renderLearnedList();
+    initRefDocs();
   });
   // Also init immediately (in case DOMContentLoaded already fired)
   loadInstructions();
   renderLearnedList();
+  initRefDocs();
 
   // API klíč — načti z localStorage a ukládej při změně
   (function() {
@@ -2416,11 +2504,23 @@ document.addEventListener('DOMContentLoaded', () => {
       low: 'Low budget'
     };
 
+    // Referenční podklady z localStorage
+    let _refBudgetCtx = '';
+    let _refCrewCtx = '';
+    try {
+      const _rb = localStorage.getItem(LS_REF_BUDGET) || '';
+      if (_rb.trim()) _refBudgetCtx = '\n\nREFERENČNÍ ROZPOČET TOHOTO PROJEKTU (použij jako vzor — přesné ceny, proporce, struktura):\n' + _rb.substring(0, 3500);
+    } catch(e) {}
+    try {
+      const _rc = localStorage.getItem(LS_REF_CREW) || '';
+      if (_rc.trim()) _refCrewCtx = '\n\nREFERENČNÍ ROZPIS TÝMU (použij jako vzor pro pozice, dny, sazby):\n' + _rc.substring(0, 2000);
+    } catch(e) {}
+
     const prompt = `Rekvizitní rozpočet CZK. Sunprops.
 PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%
 ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
 ${sets.map((s,i)=>`${i+1}.${s}`).join('|')}
-${desc?'Info:'+desc.substring(0,200):''}
+${desc?'Info:'+desc.substring(0,200):''}${_refBudgetCtx}${_refCrewCtx}
 MÓD:${outputMode==='approx'?'APROX(1paušál/set)':'DETAIL(3pol/set)'} JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
 DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
 {"summary":"","labour":{"total":0,"team":[{"role":"Prop master","phase":"prep and wrap","days":0,"rate":0,"total":0}]},"transport":{"total":0,"items":[{"name":"auto","days":0,"rate":0,"total":0}]},"props":{"total":0,"sections":[{"name":"set","items":[{"name":"pol","amount":0}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`

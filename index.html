@@ -2308,6 +2308,21 @@
   }
 
   function initRefDocs() {
+    // Migrace starého formátu (plain string) → nová databáze (JSON pole)
+    [['budget', 'propsBudget_refBudget'], ['crew', 'propsBudget_refCrew']].forEach(function([type, oldKey]) {
+      try {
+        const old = localStorage.getItem(oldKey);
+        if (old && old.trim() && !old.startsWith('[')) {
+          const arr = getRefDB(type);
+          // Přidej jako "Dřívější podklady" pokud ještě není v DB
+          if (arr.length === 0) {
+            arr.push({ name: 'Dřívější podklady', text: old.substring(0, 5000), date: '—' });
+            saveRefDB(type, arr);
+          }
+          localStorage.removeItem(oldKey);
+        }
+      } catch(e) {}
+    });
     updateRefStatus('budget');
     updateRefStatus('crew');
   }

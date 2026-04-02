@@ -12,6 +12,9 @@
     },
     "api/analyze.js": {
       "maxDuration": 60
+    },
+    "api/stream.js": {
+      "maxDuration": 60
     }
   }
 }

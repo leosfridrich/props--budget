@@ -2428,72 +2428,67 @@ Vrať POUZE JSON bez textu:
     messages.push({ role: 'user', content: contentParts });
 
     try {
-      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 800, messages });
+      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4096, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
-      console.log('[Budget] Sending', _kb, 'KB');
+      console.log('[Budget] Streaming', _kb, 'KB');
 
-      // XHR s 1s-chain timeoutem — Safari throttluje setTimeout>30s, ale 1s vždy funguje
-      const data = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        let done = false;
-        let ticks = 0;
-        const finish = (fn) => { if (!done) { done = true; fn(); } };
-
-        // 1-sekundové tikání místo jednoho velkého setTimeout (Safari-safe)
-        const tick = () => {
-          if (done) return;
-          ticks++;
-          if (ticks >= 55) {
-            xhr.abort();
-            finish(() => reject(new Error('Timeout 55s — API neodpovědělo. Zkus znovu.')));
-          } else {
-            setTimeout(tick, 1000);
-          }
-        };
-        setTimeout(tick, 1000);
-
-        xhr.open('POST', '/api/chat');
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('x-api-key', apiKey);
-        xhr.setRequestHeader('anthropic-version', '2023-06-01');
-
-        _abortController.signal.addEventListener('abort', () => {
-          finish(() => { xhr.abort(); reject(new DOMException('Aborted', 'AbortError')); });
-        });
-
-        xhr.onload = () => finish(() => {
-          try {
-            const json = JSON.parse(xhr.responseText);
-            if (xhr.status === 529 || xhr.status === 503) {
-              reject(new Error('API přetíženo. Počkej chvíli a zkus znovu.'));
-            } else if (xhr.status !== 200) {
-              reject(new Error(json.error?.message || `API chyba ${xhr.status}`));
-            } else {
-              resolve(json);
-            }
-          } catch(e) {
-            reject(new Error('Chyba parsování odpovědi: ' + xhr.responseText.substring(0, 100)));
-          }
-        });
-        xhr.onerror = () => finish(() => reject(new Error('Síťová chyba.')));
-        xhr.onabort = () => finish(() => reject(new DOMException('Aborted', 'AbortError')));
-
-        xhr.send(_body);
-        document.getElementById('progressEta').textContent = 'čekám na API…';
+      // Streaming fetch — Safari podporuje fetch+ReadableStream bez FormData
+      const response = await fetch('/api/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: _body,
+        signal: _abortController.signal,
       });
 
-      const rawText = (data.content?.map(c => c.text || '') ?? []).join('') || '';
-      if (!rawText) throw new Error(data.error?.message || 'API vrátilo prázdnou odpověď.');
+      if (!response.ok) {
+        let errMsg = `API chyba ${response.status}`;
+        try { const e = await response.json(); errMsg = e.error?.message || errMsg; } catch(e) {}
+        if (response.status === 529 || response.status === 503) errMsg = 'API přetíženo. Počkej chvíli a zkus znovu.';
+        throw new Error(errMsg);
+      }
+
+      document.getElementById('progressEta').textContent = 'streamuji…';
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+      let sseBuffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop(); // neparsovaný zbytek
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') continue;
+          try {
+            const evt = JSON.parse(raw);
+            if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+              accumulated += evt.delta.text;
+            }
+          } catch(e) {}
+        }
+      }
+
+      if (!accumulated) throw new Error('API vrátilo prázdnou odpověď.');
 
       document.getElementById('progressEta').textContent = 'parsuju JSON…';
       let budget;
       try {
-        const clean = rawText.replace(/```json|```/gi, '').trim();
+        const clean = accumulated.replace(/```json|```/gi, '').trim();
         const match = clean.match(/\{[\s\S]*\}/);
         budget = JSON.parse(match ? match[0] : clean);
       } catch(e) {
-        throw new Error('Chyba parsování. Odpověď: ' + rawText.substring(0, 200));
+        throw new Error('Chyba parsování. Odpověď: ' + accumulated.substring(0, 200));
       }
 
       hideThinking(interval);

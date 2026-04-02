@@ -812,7 +812,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.4</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2422,7 +2422,7 @@ ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi pre
 ${sets.map((s,i)=>`${i+1}.${s}`).join('|')}
 ${desc?'Info:'+desc.substring(0,200):''}
 MÓD:${outputMode==='approx'?'APROX(1paušál/set)':'DETAIL(3pol/set)'} JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
-Vrať POUZE JSON bez textu:
+DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
 {"summary":"","labour":{"total":0,"team":[{"role":"Prop master","phase":"prep and wrap","days":0,"rate":0,"total":0}]},"transport":{"total":0,"items":[{"name":"auto","days":0,"rate":0,"total":0}]},"props":{"total":0,"sections":[{"name":"set","items":[{"name":"pol","amount":0}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`
     contentParts.push({ type: 'text', text: prompt });
     messages.push({ role: 'user', content: contentParts });
@@ -2431,7 +2431,7 @@ Vrať POUZE JSON bez textu:
     let _timedOut = false;
 
     try {
-      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 700, messages });
+      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1500, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
 

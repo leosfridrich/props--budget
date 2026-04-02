@@ -2756,9 +2756,12 @@ PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}
 ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
 ${sets.map((s,i)=>`${i+1}.${s}`).join('|')}
 ${desc?'Info:'+desc.substring(0,200):''}${_refBudgetCtx}${_refScriptCtx}${_refExtraCtx}
-MÓD:${outputMode==='approx'?'APROX(1paušál/set)':'DETAIL(3pol/set)'} JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
+JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
+${outputMode==='approx'
+  ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0. Vycházej z referenčních rozpočtů. props.total = součet všech setů.`
+  : `MÓD: DETAILNÍ — pro každý set vygeneruj 3–5 konkrétních prop položek s reálnými cenami.`}
 DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
-{"summary":"","labour":{"total":0,"team":[{"role":"Prop master","phase":"prep and wrap","days":0,"rate":0,"total":0}]},"transport":{"total":0,"items":[{"name":"auto","days":0,"rate":0,"total":0}]},"props":{"total":0,"sections":[{"name":"set","items":[{"name":"pol","amount":0}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`
+{"summary":"","labour":{"total":0,"team":[{"role":"Prop master","phase":"prep and wrap","days":0,"rate":0,"total":0}]},"transport":{"total":0,"items":[{"name":"auto","days":0,"rate":0,"total":0}]},"props":{"total":0,"sections":[{"name":"název setu","items":[{"name":"dekorace paušál","amount":50000}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`
     contentParts.push({ type: 'text', text: prompt });
     messages.push({ role: 'user', content: contentParts });
 

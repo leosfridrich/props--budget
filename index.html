@@ -813,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.4</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1277,7 +1277,7 @@
       noFeeTotalLabel: 'Celkem bez přesčasů',
       overtimeLabel: 'Odhad přesčasů (overtime)',
       overcostsLabel: 'Odhad overcosts',
-      grandLabel: 'KONEČNÝ ODHAD K FAKTURACI',
+      grandLabel: 'KONEČNÝ ODHAD',
       currency: 'Kč',
       ofBase: '% základu',
       days: 'dní',
@@ -3248,7 +3248,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     try {
       const _revBody = JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 800,
+        max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }]
       });
 
@@ -3802,7 +3802,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     <div class="totals-row"><span class="lbl">Fee ${b.fee_pct || 7}%</span><span class="val">${fmt(fee)}</span></div>
     <div class="totals-row highlight"><span class="lbl">Celkem bez přesčasů</span><span class="val">${fmt(total_base)}</span></div>
     ${b.overtime_estimate ? `<div class="totals-row"><span class="lbl">+ Odhad přesčasů</span><span class="val">~${fmt(b.overtime_estimate)}</span></div>` : ''}
-    <div class="totals-row grand"><span class="lbl">KONEČNÝ ODHAD K FAKTURACI</span><span class="val">${fmt(grand)}</span></div>
+    <div class="totals-row grand"><span class="lbl">KONEČNÝ ODHAD</span><span class="val">${fmt(grand)}</span></div>
   </div>
   <div class="doc-footer">
     <span>Props Budget Agent — kalibrováno na 12 reálných rozpočtů</span>

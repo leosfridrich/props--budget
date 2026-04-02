@@ -2760,7 +2760,7 @@ JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
 ${outputMode==='approx'
   ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0. Vycházej z referenčních rozpočtů. props.total = součet všech setů.`
   : `MÓD: DETAILNÍ — pro každý set vygeneruj 3–5 konkrétních prop položek s reálnými cenami.`}
-KALIBRACE (historická podhodnocení — přičti k odhadům): labour +150 000 Kč, transport +200 000 Kč, props +300 000 Kč. Toto jsou korekce vycházející z reálných projektů — zapracuj je do výsledných čísel.
+KALIBRACE (historická podhodnocení): labour — navyš prep_days u členů týmu (zejména prop master a propman) tak aby výsledná suma dní×sazba odpovídala reálnému projektu; přibližně +150 000 Kč více dnů (NEPOUŽÍVEJ labour.total jako lump sum — vše musí být v prep_days jednotlivých lidí). Transport: přidej položky nebo navyš dny o ~+200 000 Kč celkem. Props: zvyš částky u setů o ~+300 000 Kč celkem.
 DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
 Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} — shoot_days i prep_days MUSÍ být reálná čísla >0.
 {"summary":"","labour":{"total":0,"team":[{"role":"Prop master","name":"","shoot_days":3,"prep_days":16,"rate":4900},{"role":"1. Propman","name":"","shoot_days":3,"prep_days":8,"rate":4500}]},"transport":{"total":0,"items":[{"name":"car prep","days":16,"rate":1700,"total":27200},{"name":"truck I","days":8,"rate":3800,"total":30400}]},"props":{"total":0,"sections":[{"name":"název setu","items":[{"name":"dekorace paušál","amount":50000}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`
@@ -3376,16 +3376,22 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       applyBdr(pr);
     });
     const labEnd = ws.rowCount;
-    // Přidej kalibrační rezervu pokud se AI total liší od sumy řádků
+    // Fallback: pokud AI nezapracoval kalibraci do dní, přidej extra prep dny
     const labRowSum = (b.labour?.team||[]).reduce((s,p)=>{
       const sd=p.shoot_days??0; const pd=p.prep_days??0; const rt=p.rate||0;
       return s+(sd+pd)*rt;
     },0);
     const labAiTotal = b.labour?.total || 0;
     const labAdj = Math.round(labAiTotal - labRowSum);
-    if (labAdj !== 0) {
-      const adjR = ws.addRow(['kalibrace / rezerva', null, null, null, labAdj]);
-      adjR.getCell(1).font = fMuted; adjR.getCell(1).italic = true;
+    if (labAdj > 500) {
+      const team = b.labour?.team || [];
+      const avgRate = team.length ? Math.round(team.reduce((s,p)=>s+(p.rate||0),0)/team.length) : 4500;
+      const extraDays = Math.round(labAdj / avgRate);
+      const adjRn = ws.rowCount + 1;
+      const adjR = ws.addRow(['rezervní prep dny', 'prep and wrap', extraDays, avgRate, null]);
+      adjR.getCell(1).font = fMuted;
+      [3,4].forEach(i=>{adjR.getCell(i).alignment=alignR; adjR.getCell(i).numFmt=numFmt;});
+      adjR.getCell(5).value = {formula:`C${adjRn}*D${adjRn}`};
       adjR.getCell(5).numFmt = numFmt; adjR.getCell(5).alignment = alignR;
       applyBdr(adjR);
     }
@@ -3556,15 +3562,21 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       pr.getCell(5).numFmt=numFmt; pr.getCell(5).alignment=alignR;
     });
     const labEnd = ws.rowCount;
-    // Kalibrační rezerva pro detailed export
+    // Fallback: pokud AI nezapracoval kalibraci do dní
     const labRowSum2 = (b.labour?.team||[]).reduce((s,p)=>{
       const sd=p.shoot_days??0; const pd=p.prep_days??0; const rt=p.rate||0;
       return s+(sd+pd)*rt;
     },0);
     const labAdj2 = Math.round((b.labour?.total||0) - labRowSum2);
-    if (labAdj2 !== 0) {
-      const adjR2 = ws.addRow(['kalibrace / rezerva', '', '', '', labAdj2]);
+    if (labAdj2 > 500) {
+      const team2 = b.labour?.team || [];
+      const avgRate2 = team2.length ? Math.round(team2.reduce((s,p)=>s+(p.rate||0),0)/team2.length) : 4500;
+      const extraDays2 = Math.round(labAdj2 / avgRate2);
+      const adjRn2 = ws.rowCount + 1;
+      const adjR2 = ws.addRow(['rezervní prep dny', 'prep and wrap', extraDays2, avgRate2, null]);
       adjR2.getCell(1).font = { name:'Calibri', size:11, italic:true, color:{argb:'FF888888'} };
+      [3,4].forEach(i=>{adjR2.getCell(i).numFmt=numFmt; adjR2.getCell(i).alignment=alignR;});
+      adjR2.getCell(5).value = {formula:`C${adjRn2}*D${adjRn2}`};
       adjR2.getCell(5).numFmt = numFmt; adjR2.getCell(5).alignment = alignR;
     }
     const labEnd2 = ws.rowCount;

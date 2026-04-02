@@ -2771,7 +2771,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     let _timedOut = false;
 
     try {
-      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 2000, messages });
+      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
 

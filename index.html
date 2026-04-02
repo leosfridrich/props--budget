@@ -813,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.7</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2222,23 +2222,43 @@
   const LS_INSTRUCTIONS = 'propsBudget_instructions';
   const LS_LEARNED = 'propsBudget_learned';
 
-  // ── Referenční podklady ──────────────────────────────────────────────────
-  const LS_REF_BUDGET = 'propsBudget_refBudget';
-  const LS_REF_CREW   = 'propsBudget_refCrew';
+  // ── Referenční podklady (databáze více souborů) ───────────────────────────
+  const LS_REF_BUDGET = 'propsBudget_refBudgetDB';
+  const LS_REF_CREW   = 'propsBudget_refCrewDB';
+
+  function getRefDB(type) {
+    try { return JSON.parse(localStorage.getItem(type === 'budget' ? LS_REF_BUDGET : LS_REF_CREW) || '[]'); }
+    catch(e) { return []; }
+  }
+  function saveRefDB(type, arr) {
+    try { localStorage.setItem(type === 'budget' ? LS_REF_BUDGET : LS_REF_CREW, JSON.stringify(arr)); } catch(e) {}
+  }
+  function updateRefStatus(type) {
+    const isB = type === 'budget';
+    const arr = getRefDB(type);
+    const statusEl = document.getElementById(isB ? 'refBudgetStatus' : 'refCrewStatus');
+    const clearEl  = document.getElementById(isB ? 'refBudgetClear'  : 'refCrewClear');
+    if (arr.length === 0) {
+      statusEl.textContent = 'Žádný soubor';
+      clearEl.style.display = 'none';
+    } else {
+      const totalChars = arr.reduce((s, f) => s + f.text.length, 0);
+      statusEl.textContent = arr.length + ' soubor' + (arr.length > 1 ? 'ů' : '') + ' v databázi (' + (totalChars / 1000).toFixed(1) + 'k znaků)';
+      clearEl.style.display = 'inline';
+    }
+  }
 
   async function loadRefDoc(type, input) {
     const file = input.files[0];
     if (!file) return;
     const isB = type === 'budget';
     const statusEl = document.getElementById(isB ? 'refBudgetStatus' : 'refCrewStatus');
-    const clearEl  = document.getElementById(isB ? 'refBudgetClear'  : 'refCrewClear');
-    statusEl.textContent = 'Načítám…';
+    statusEl.textContent = 'Načítám ' + file.name + '…';
     try {
       let text = '';
       const name = file.name.toLowerCase();
 
       if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.ods')) {
-        // Excel → SheetJS → CSV text
         if (typeof XLSX === 'undefined') throw new Error('SheetJS není načteno');
         const ab = await file.arrayBuffer();
         const wb = XLSX.read(ab, { type: 'array' });
@@ -2246,7 +2266,7 @@
         wb.SheetNames.forEach(function(sName) {
           const ws = wb.Sheets[sName];
           const csv = XLSX.utils.sheet_to_csv(ws, { blankrows: false });
-          if (csv.trim().length > 10) parts.push('=== List: ' + sName + ' ===\n' + csv);
+          if (csv.trim().length > 10) parts.push('=== ' + sName + ' ===\n' + csv);
         });
         text = parts.join('\n\n');
 
@@ -2266,11 +2286,16 @@
         text = await file.text();
       }
 
-      text = text.trim().substring(0, 6000);
+      text = text.trim().substring(0, 5000);
       if (!text) { statusEl.textContent = 'Soubor je prázdný nebo nečitelný'; return; }
-      localStorage.setItem(isB ? LS_REF_BUDGET : LS_REF_CREW, text);
-      statusEl.textContent = file.name + ' (' + (text.length / 1000).toFixed(1) + 'k znaků)';
-      clearEl.style.display = 'inline';
+
+      // Přidej do databáze (nekopíruj duplicity — stejné jméno přepíše)
+      const arr = getRefDB(type);
+      const existIdx = arr.findIndex(f => f.name === file.name);
+      const entry = { name: file.name, text, date: new Date().toLocaleDateString('cs') };
+      if (existIdx >= 0) arr[existIdx] = entry; else arr.push(entry);
+      saveRefDB(type, arr);
+      updateRefStatus(type);
     } catch(e) {
       statusEl.textContent = 'Chyba: ' + e.message;
     }
@@ -2278,24 +2303,13 @@
   }
 
   function clearRefDoc(type) {
-    const isB = type === 'budget';
-    try { localStorage.removeItem(isB ? LS_REF_BUDGET : LS_REF_CREW); } catch(e) {}
-    document.getElementById(isB ? 'refBudgetStatus' : 'refCrewStatus').textContent = 'Žádný soubor';
-    document.getElementById(isB ? 'refBudgetClear'  : 'refCrewClear').style.display = 'none';
+    saveRefDB(type, []);
+    updateRefStatus(type);
   }
 
   function initRefDocs() {
-    ['budget','crew'].forEach(function(type) {
-      const isB = type === 'budget';
-      try {
-        const saved = localStorage.getItem(isB ? LS_REF_BUDGET : LS_REF_CREW);
-        if (saved && saved.length > 0) {
-          document.getElementById(isB ? 'refBudgetStatus' : 'refCrewStatus').textContent =
-            'Uložen (' + (saved.length / 1000).toFixed(1) + 'k znaků)';
-          document.getElementById(isB ? 'refBudgetClear' : 'refCrewClear').style.display = 'inline';
-        }
-      } catch(e) {}
-    });
+    updateRefStatus('budget');
+    updateRefStatus('crew');
   }
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -2520,16 +2534,25 @@ document.addEventListener('DOMContentLoaded', () => {
       low: 'Low budget'
     };
 
-    // Referenční podklady z localStorage
+    // Referenční databáze — všechny nahrané soubory
     let _refBudgetCtx = '';
     let _refCrewCtx = '';
     try {
-      const _rb = localStorage.getItem(LS_REF_BUDGET) || '';
-      if (_rb.trim()) _refBudgetCtx = '\n\nREFERENČNÍ ROZPOČET TOHOTO PROJEKTU (použij jako vzor — přesné ceny, proporce, struktura):\n' + _rb.substring(0, 3500);
+      const _rba = getRefDB('budget');
+      if (_rba.length > 0) {
+        // Kombinuj texty všech souborů, každý zkrácen rovnoměrně aby se vešly
+        const perFile = Math.floor(4000 / _rba.length);
+        const combined = _rba.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
+        _refBudgetCtx = '\n\nREFERENČNÍ ROZPOČTY (' + _rba.length + ' souborů — použij jako vzor pro přesné ceny, strukturu a proporce):\n' + combined;
+      }
     } catch(e) {}
     try {
-      const _rc = localStorage.getItem(LS_REF_CREW) || '';
-      if (_rc.trim()) _refCrewCtx = '\n\nREFERENČNÍ ROZPIS TÝMU (použij jako vzor pro pozice, dny, sazby):\n' + _rc.substring(0, 2000);
+      const _rca = getRefDB('crew');
+      if (_rca.length > 0) {
+        const perFile = Math.floor(2000 / _rca.length);
+        const combined = _rca.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
+        _refCrewCtx = '\n\nREFERENČNÍ ROZPISY TÝMU (' + _rca.length + ' souborů):\n' + combined;
+      }
     } catch(e) {}
 
     const prompt = `Rekvizitní rozpočet CZK. Sunprops.
@@ -3050,95 +3073,74 @@ DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json
     ws.getColumn(3).width = 14;
     ws.getColumn(4).width = 14;
 
-    const fBold = { name: 'Calibri', size: 11, bold: true };
-    const fNorm = { name: 'Calibri', size: 11 };
+    const fBold  = { name: 'Calibri', size: 11, bold: true };
     const fTitle = { name: 'Calibri', size: 13, bold: true };
-    const fFinal = { name: 'Calibri', size: 13, bold: true };
     const numFmt = '#,##0';
     const alignR = { horizontal: 'right' };
 
-    const labour = b.labour?.total || 0;
+    const labour    = b.labour?.total || 0;
     const transport = b.transport?.total || 0;
-    const props = b.props?.total || 0;
-    const base = labour + transport + props;
-    const feePct = b.fee_pct || 7;
-    const fee = b.fee || base * feePct / 100;
-    const total_base = b.total_base || base + fee;
-    const grand = b.grand_total || total_base;
+    const feePct    = b.fee_pct || 7;
 
-    // Title
+    // ── Titul ──────────────────────────────────────────────────────────────
     const tR = ws.addRow([null, null, `APPROXIMATIVE BUDGET — ${projectName}`]);
     tR.getCell(3).font = fTitle;
     ws.addRow([]);
 
-    // Labour summary line
-    ws.addRow(['Labour']).getCell(1).font = fBold;
-    const lR = ws.addRow(['total labour', '', '', { formula: `D${ws.rowCount + 1}` }]);
-    lR.getCell(1).font = fBold;
-    const lVal = ws.addRow(['', '', '', labour]);
-    lVal.getCell(4).numFmt = numFmt; lVal.getCell(4).alignment = alignR;
-    const labTotRow = ws.rowCount;
-    ws.addRow([]);
-
-    // Simpler — just write the total directly
-    // (rebuild cleanly)
-    ws.spliceRows(3, ws.rowCount); // clear and redo
-
-    // Redo cleanly
-    ws.addRow([null, null, `APPROXIMATIVE BUDGET — ${projectName}`]).getCell(3).font = fTitle;
-    ws.addRow([]);
-
-    // Labour
+    // ── Labour ─────────────────────────────────────────────────────────────
     const lRow = ws.addRow(['Labour — total', '', '', labour]);
-    lRow.getCell(1).font = fBold; lRow.getCell(4).numFmt = numFmt; lRow.getCell(4).alignment = alignR;
+    lRow.getCell(1).font = fBold;
+    lRow.getCell(4).numFmt = numFmt; lRow.getCell(4).alignment = alignR;
     const labR = ws.rowCount;
     ws.addRow([]);
 
-    // Transport
+    // ── Transport ──────────────────────────────────────────────────────────
     const tRow = ws.addRow(['Transport — total', '', '', transport]);
-    tRow.getCell(1).font = fBold; tRow.getCell(4).numFmt = numFmt; tRow.getCell(4).alignment = alignR;
+    tRow.getCell(1).font = fBold;
+    tRow.getCell(4).numFmt = numFmt; tRow.getCell(4).alignment = alignR;
     const trR = ws.rowCount;
     ws.addRow([]);
 
-    // Props header
+    // ── Props ──────────────────────────────────────────────────────────────
     ws.addRow(['Props']).getCell(1).font = fBold;
     ws.addRow([]);
 
-    // Sets
     const prStart = ws.rowCount + 1;
     (b.props?.sections || []).forEach(sec => {
-      const secTotal = sec.items.reduce((s, i) => s + (i.amount || 0), 0);
+      const secTotal = (sec.items || []).reduce((s, i) => s + (i.amount || 0), 0);
       const sR = ws.addRow([sec.name, '', '', secTotal]);
       sR.getCell(1).font = fBold;
       sR.getCell(4).numFmt = numFmt; sR.getCell(4).alignment = alignR;
-      ws.addRow([' ', '', '', 'dressing']).getCell(4).alignment = alignR;
+      ws.addRow(['  dressing']);
       ws.addRow([]);
     });
     const prEnd = ws.rowCount;
 
     const prTotR = ws.addRow(['props total', '', '', { formula: `SUMIF(D${prStart}:D${prEnd},">"&0)` }]);
-    prTotR.getCell(1).font = fBold; prTotR.getCell(4).numFmt = numFmt; prTotR.getCell(4).alignment = alignR;
+    prTotR.getCell(1).font = fBold;
+    prTotR.getCell(4).numFmt = numFmt; prTotR.getCell(4).alignment = alignR;
     const ptRow = ws.rowCount;
     ws.addRow([]); ws.addRow([]);
 
-    // Totals
+    // ── Součty ─────────────────────────────────────────────────────────────
     const totRow = ws.addRow(['total budget', '', '', { formula: `D${labR}+D${trR}+D${ptRow}` }]);
-    totRow.getCell(1).font = fBold; totRow.getCell(4).numFmt = numFmt; totRow.getCell(4).alignment = alignR;
+    totRow.getCell(1).font = fBold;
+    totRow.getCell(4).numFmt = numFmt; totRow.getCell(4).alignment = alignR;
     const tbRow = ws.rowCount;
 
-    const feeRow2 = ws.addRow([`${feePct}% fee:`, '', '', { formula: `D${tbRow}*${feePct/100}` }]);
-    feeRow2.getCell(4).numFmt = numFmt; feeRow2.getCell(4).alignment = alignR;
+    const feeRow = ws.addRow([`${feePct}% fee:`, '', '', { formula: `D${tbRow}*${feePct / 100}` }]);
+    feeRow.getCell(4).numFmt = numFmt; feeRow.getCell(4).alignment = alignR;
     const frRow = ws.rowCount;
 
-    const baseRow2 = ws.addRow(['celková částka rozpočtu bez přesčasů', '', '', { formula: `D${tbRow}+D${frRow}` }]);
-    baseRow2.getCell(1).font = fBold; baseRow2.getCell(4).font = fBold;
-    baseRow2.getCell(4).numFmt = numFmt; baseRow2.getCell(4).alignment = alignR;
+    const baseRow = ws.addRow(['celková částka rozpočtu bez přesčasů', '', '', { formula: `D${tbRow}+D${frRow}` }]);
+    baseRow.getCell(1).font = fBold; baseRow.getCell(4).font = fBold;
+    baseRow.getCell(4).numFmt = numFmt; baseRow.getCell(4).alignment = alignR;
     const brRow = ws.rowCount;
     ws.addRow([]); ws.addRow([]);
 
-    // Final
+    // ── Finál ──────────────────────────────────────────────────────────────
     const finR = ws.addRow(['APPROXIMATIVE BUDGET', '', '', { formula: `D${brRow}` }]);
-    finR.getCell(1).font = fFinal; finR.getCell(4).font = fFinal;
+    finR.getCell(1).font = fTitle; finR.getCell(4).font = fTitle;
     finR.getCell(4).numFmt = numFmt; finR.getCell(4).alignment = alignR;
 
     const buf = await wb.xlsx.writeBuffer();

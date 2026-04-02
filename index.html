@@ -812,7 +812,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.3</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v4.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2342,7 +2342,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const prepDays = parseInt(document.getElementById('prepDays').value) || 15;
     const wrapDays = parseInt(document.getElementById('wrapDays').value) || 4;
     const numScenes = document.querySelectorAll('.set-row').length || 4;
-    const scenesPerDay = parseInt(document.getElementById('scenesPerDay').value) || 1;
+    const scenesPerDay = parseInt((document.getElementById('scenesPerDay') || {}).value) || 1;
+    const propsSource = document.getElementById('propsSource').value;
+    const heroProducts = document.getElementById('heroProducts').value;
     const _manualCrew = parseInt(document.getElementById('fullJobCrew').value);
     const activeSets = Array.from(document.querySelectorAll('.set-row')).filter(r => r.querySelector('.set-name').value.trim() !== '').length;
     const studioSets = Array.from(document.querySelectorAll('.set-row .set-type')).filter(s => s.value === 'ateliér').length;
@@ -2359,12 +2361,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Shoot crew estimate for prompt
     const _isHeavy = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';
     const _isMix   = propsSource === 'mix';
-    const _extSets = abroadSets; // already have abroadSets
+    const _extSets = abroadSets;
     const _realSets = Math.max(activeSets - studioSets - _extSets, 0);
     let _extras = _realSets * (_isHeavy ? 4.5 : _isMix ? 3.0 : 2.0) + studioSets * (_isHeavy ? 5.0 : 3.5) + abroadSets * 4.0;
     let _shootCrew = Math.min(Math.max(Math.round(fullJobCrew + _extras), activeSets >= 3 ? 12 : 6), 25);
-    const propsSource = document.getElementById('propsSource').value;
-    const heroProducts = document.getElementById('heroProducts').value;
     const budgetCeiling = document.getElementById('budgetCeiling').value;
     const desc = document.getElementById('projectDesc').value;
 

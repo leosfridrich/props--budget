@@ -876,7 +876,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v6.8</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v6.9</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3020,6 +3020,25 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch(e) {}
 
+    // ─── KOTVY — spočítáme z parametrů v JS, předáme modelu přesná čísla ───
+    // Tím eliminujeme vágní "navyš o ~X Kč" instrukce, které způsobovaly nedeterminismus
+    const _avgPrepRate  = Math.round((rates.propMasterPrep + rates.leadingPropmanPrep + rates.propmanPrep) / 3);
+    const _avgShootRate = Math.round((rates.propMasterShoot + rates.leadingPropmanShoot + rates.propmanShoot) / 3);
+    // Labour: core tým × dny × průměrná sazba + shoot crew přesčasy
+    const _labourAnchor = Math.round(
+      fullJobCrew * (prepDays * _avgPrepRate + shootDays * _avgShootRate) +
+      Math.max(_shootCrew - fullJobCrew, 0) * shootDays * rates.propmanShoot
+    );
+    // Transport: 1 auto celý prep + 1 kamion na shoot + extra kamion za každé 2 sety
+    const _truckCount = Math.max(1, Math.ceil(Math.max(activeSets,1) / 2));
+    const _transportAnchor = Math.round(
+      prepDays * rates.car + shootDays * _truckCount * rates.truck
+    );
+    // Props: částka na set podle úrovně rozpočtu
+    const _propsPerSet = { luxury: 110000, premium: 70000, standard: 40000, low: 18000 };
+    const _propsAnchor = Math.round(Math.max(activeSets,1) * (_propsPerSet[budgetLevel] || 40000));
+    const _fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n));
+
     const prompt = `Rekvizitní rozpočet CZK. Sunprops.
 PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%
 ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
@@ -3027,9 +3046,12 @@ ${sets.map((s,i)=>`${i+1}.${s}`).join('|')}
 ${desc?'Info:'+desc.substring(0,200):''}${_refBudgetCtx}${_refScriptCtx}${_refCrewCtx}${_refExtraCtx}
 JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
 ${outputMode==='approx'
-  ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0. Vycházej z referenčních rozpočtů. props.total = součet všech setů.`
+  ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0.`
   : `MÓD: DETAILNÍ — pro každý set vygeneruj 3–5 konkrétních prop položek s reálnými cenami.`}
-KALIBRACE (historická podhodnocení): labour — navyš prep_days u členů týmu (zejména prop master a propman) tak aby výsledná suma dní×sazba odpovídala reálnému projektu; přibližně +150 000 Kč více dnů (NEPOUŽÍVEJ labour.total jako lump sum — vše musí být v prep_days jednotlivých lidí). Transport: přidej položky nebo navyš dny o ~+200 000 Kč celkem. Props: zvyš částky u setů o ~+300 000 Kč celkem.
+CÍLOVÉ ČÁSTKY (vypočtené z parametrů projektu — drž se jich, odchylka max ±15 %):
+- Labour celkem: ${_fmt(_labourAnchor)} Kč → rozlož do prep_days/shoot_days u ${fullJobCrew}+ členů týmu; NEPOUŽÍVEJ labour.total jako lump sum
+- Transport celkem: ${_fmt(_transportAnchor)} Kč → auto prep ${prepDays}d, ${_truckCount}× kamion shoot ${shootDays}d, doplň dle setů
+- Props celkem: ${_fmt(_propsAnchor)} Kč → ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč/set průměr
 ${_learningCtx ? _learningCtx + '\n' : ''}DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
 Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} — shoot_days i prep_days MUSÍ být reálná čísla >0.
 {"summary":"","labour":{"total":0,"team":[{"role":"Prop master","name":"","shoot_days":3,"prep_days":16,"rate":4900},{"role":"1. Propman","name":"","shoot_days":3,"prep_days":8,"rate":4500}]},"transport":{"total":0,"items":[{"name":"car prep","days":16,"rate":1700,"total":27200},{"name":"truck I","days":8,"rate":3800,"total":30400}]},"props":{"total":0,"sections":[{"name":"název setu","items":[{"name":"dekorace paušál","amount":50000}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`

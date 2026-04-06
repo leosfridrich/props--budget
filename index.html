@@ -813,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.12</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.13</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3020,12 +3020,19 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
             const sd = p.shoot_days ?? (p.phase==='shoot'?p.days:0) ?? 0;
             const pd = p.prep_days  ?? (p.phase!=='shoot'?p.days:0) ?? 0;
             const rt = p.rate || 0;
-            return `<div class="budget-row">
+            const shootRow = sd > 0 ? `<div class="budget-row">
               <div class="row-name">${p.role || ''}</div>
               <div class="row-detail">shoot ${sd} dní</div>
+              <div class="row-detail">${fmt(rt)}/den</div>
+              <div class="row-amount">${fmt(sd*rt)} Kč</div>
+            </div>` : '';
+            const prepRow = pd > 0 ? `<div class="budget-row" style="opacity:0.75;">
+              <div class="row-name" style="padding-left:12px;">${p.name || 'prep and wrap'}</div>
               <div class="row-detail">prep ${pd} dní</div>
-              <div class="row-amount">${fmt((sd+pd)*rt)} Kč</div>
-            </div>`;
+              <div class="row-detail">${fmt(rt)}/den</div>
+              <div class="row-amount">${fmt(pd*rt)} Kč</div>
+            </div>` : '';
+            return shootRow + prepRow;
           }).join('')}
         </div>
       </div>` : ''}
@@ -3268,14 +3275,20 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         const sd = p.shoot_days ?? (p.phase==='shoot'?p.days:0) ?? 0;
         const pd = p.prep_days  ?? (p.phase!=='shoot'?p.days:0) ?? 0;
         const rt = p.rate || 0;
-        html += `
+        if (sd > 0) html += `
           <div class="budget-row">
             <div class="row-name">${p.role || ''}${p.name ? ` — ${p.name}` : ''}</div>
-            <div class="row-detail">shoot ${sd} dní / prep ${pd} dní</div>
+            <div class="row-detail">shoot ${sd} dní</div>
             <div class="row-detail">${formatCZK(rt)}/den</div>
-            <div class="row-amount">${formatCZK((sd+pd)*rt)}</div>
-          </div>
-        `;
+            <div class="row-amount">${formatCZK(sd*rt)}</div>
+          </div>`;
+        if (pd > 0) html += `
+          <div class="budget-row" style="opacity:0.75;">
+            <div class="row-name" style="padding-left:12px;">${p.name || 'prep and wrap'}</div>
+            <div class="row-detail">prep ${pd} dní</div>
+            <div class="row-detail">${formatCZK(rt)}/den</div>
+            <div class="row-amount">${formatCZK(pd*rt)}</div>
+          </div>`;
       });
       html += `</div></div>`;
     }

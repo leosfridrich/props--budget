@@ -876,7 +876,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v6.9</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v6.10</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2897,6 +2897,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     _abortController = new AbortController();
     const interval = showThinking();
+    // Scrolluj na pravý panel ihned po spuštění generování
+    requestAnimationFrame(() => {
+      document.getElementById('thinkingBar').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollRightTop();
+    });
 
     // Gather inputs
     const projectName = document.getElementById('projectName').value || 'Nový projekt';
@@ -3039,6 +3044,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const _propsAnchor = Math.round(Math.max(activeSets,1) * (_propsPerSet[budgetLevel] || 40000));
     const _fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n));
 
+    // Hero props — rozparsuji na jednotlivé položky pro prompt
+    const _heroItems = heroProducts
+      ? heroProducts.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean)
+      : [];
+    const _heroSection = _heroItems.length > 0
+      ? `\nHERO PROPS (POVINNÉ — každou položku vlož jako samostatný řádek do sekce "Hero props" v props.sections, odhadni realistickou cenu výroby/nákupu/pronájmu v Kč):
+${_heroItems.map((h,i) => `${i+1}. ${h}`).join('\n')}\nTato sekce musí být jako PRVNÍ v props.sections[].`
+      : '';
+    // Zvýšíme kotvu props o odhad hero props (500–5000 Kč/položku dle úrovně)
+    const _heroPricePerItem = { luxury: 8000, premium: 5000, standard: 2500, low: 1000 };
+    const _heroAnchorAdd = _heroItems.length * (_heroPricePerItem[budgetLevel] || 2500);
+
     const prompt = `Rekvizitní rozpočet CZK. Sunprops.
 PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%
 ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
@@ -3047,14 +3064,14 @@ ${desc?'Info:'+desc.substring(0,200):''}${_refBudgetCtx}${_refScriptCtx}${_refCr
 JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
 ${outputMode==='approx'
   ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0.`
-  : `MÓD: DETAILNÍ — pro každý set vygeneruj 3–5 konkrétních prop položek s reálnými cenami.`}
+  : `MÓD: DETAILNÍ — pro každý set vygeneruj 3–5 konkrétních prop položek s reálnými cenami.`}${_heroSection}
 CÍLOVÉ ČÁSTKY (vypočtené z parametrů projektu — drž se jich, odchylka max ±15 %):
 - Labour celkem: ${_fmt(_labourAnchor)} Kč → rozlož do prep_days/shoot_days u ${fullJobCrew}+ členů týmu; NEPOUŽÍVEJ labour.total jako lump sum
 - Transport celkem: ${_fmt(_transportAnchor)} Kč → auto prep ${prepDays}d, ${_truckCount}× kamion shoot ${shootDays}d, doplň dle setů
-- Props celkem: ${_fmt(_propsAnchor)} Kč → ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč/set průměr
+- Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč → ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč/set + hero props
 ${_learningCtx ? _learningCtx + '\n' : ''}DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
 Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} — shoot_days i prep_days MUSÍ být reálná čísla >0.
-{"summary":"","labour":{"total":0,"team":[{"role":"Prop master","name":"","shoot_days":3,"prep_days":16,"rate":4900},{"role":"1. Propman","name":"","shoot_days":3,"prep_days":8,"rate":4500}]},"transport":{"total":0,"items":[{"name":"car prep","days":16,"rate":1700,"total":27200},{"name":"truck I","days":8,"rate":3800,"total":30400}]},"props":{"total":0,"sections":[{"name":"název setu","items":[{"name":"dekorace paušál","amount":50000}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`
+{"summary":"","labour":{"total":0,"team":[{"role":"Prop master","name":"","shoot_days":3,"prep_days":16,"rate":4900},{"role":"1. Propman","name":"","shoot_days":3,"prep_days":8,"rate":4500}]},"transport":{"total":0,"items":[{"name":"car prep","days":16,"rate":1700,"total":27200},{"name":"truck I","days":8,"rate":3800,"total":30400}]},"props":{"total":0,"sections":[{"name":"Hero props","items":[{"name":"hero item","amount":5000}]},{"name":"název setu","items":[{"name":"dekorace paušál","amount":50000}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`
     contentParts.push({ type: 'text', text: prompt });
     messages.push({ role: 'user', content: contentParts });
 

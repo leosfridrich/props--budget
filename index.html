@@ -832,7 +832,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.15</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.16</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3625,429 +3625,288 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     }
   }
 
-  async function downloadExcelApprox(b) {
-    const projectName = document.getElementById('projectName').value || 'ROZPOČET';
-    const ExcelJS = window.ExcelJS;
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('List3');
+  // ─── Sdílený Excel builder — styl přesně podle MIU MIU konečný rozpočet ───
+  function buildMiuWorksheet(ws, b, projectName, isDetailed) {
+    // Sloupce přesně podle vzoru (A=18.08, B=22.92, C=12.62, D=13.5, E=14.11)
+    ws.getColumn(1).width = 18.08;
+    ws.getColumn(2).width = 22.92;
+    ws.getColumn(3).width = 12.62;
+    ws.getColumn(4).width = 13.5;
+    ws.getColumn(5).width = 14.11;
 
-    ws.getColumn(1).width = 46;
-    ws.getColumn(2).width = 16;
-    ws.getColumn(3).width = 8;
-    ws.getColumn(4).width = 14;
-    ws.getColumn(5).width = 14;
+    // Fonty podle vzoru
+    const fBody  = { name: 'Helvetica Neue Light', size: 11 };
+    const fBodyM = { name: 'Helvetica Neue Light', size: 12 };
+    const fBold  = { name: 'Helvetica Neue',       size: 12, bold: true };
+    const fSecHd = { name: 'Helvetica Neue Light', size: 14 };
+    const fTitle = { name: 'Arial',                size: 19 };
+    const fFinal = { name: 'Helvetica Neue',       size: 16, bold: true };
+    const fOcRed = { name: 'Helvetica Neue Light', size: 12, color: { argb: 'FFFF2600' } };
+    const fOtRed = { name: 'Helvetica Neue Light', size: 12, color: { argb: 'FFDD0806' } };
+    const fOcHd  = { name: 'Helvetica Neue',       size: 14, bold: true, color: { argb: 'FFFF2600' } };
 
-    const fBold  = { name: 'Calibri', size: 12, bold: true };
-    const fNorm  = { name: 'Calibri', size: 12 };
-    const fMuted = { name: 'Calibri', size: 11, color: { argb: 'FF888888' } };
-    const fTitle = { name: 'Calibri', size: 14, bold: true };
-    const numFmt = '#,##0';
-    const alignR = { horizontal: 'right' };
-    const blank = (n=1) => { for(let i=0;i<n;i++) ws.addRow([]); };
+    // Barvy pozadí
+    const C_LAB_HDR  = 'FFE0E0E0';   // Labour sekce hlavička
+    const C_TOTAL_L  = 'FFDDDDDD';   // total labour + KONEČNÝ ROZPOČET
+    const C_TR_HDR   = 'FFD5D5D5';   // Transport sekce + total
+    const C_PR_PEACH = 'FFFFD09C';   // Props spacer nadpis
+    const C_PR_YEL   = 'FFFFE4A0';   // Props sub-sekce nadpisy
+    const C_PR_TOT   = 'FFDCDCDC';   // Props total
+    const C_OC_BLUE  = 'FFA7C0DE';   // OVERCOSTS blok
+    const C_WHITE    = 'FFFFFFFF';
 
-    // ExcelJS 4.x: každá buňka musí mít vlastní kopii objektu (shared ref způsobí ztrátu stylu)
-    const DARK  = 'FFd0d0d0';
-    const MID   = 'FFe8e8e8';
-    const LIGHT = 'FFf2f2f2';
-    const GRAND = 'FFb8b8b8';
-    function mkBdr() {
-      return {
-        top:    { style: 'thin', color: { argb: 'FFaaaaaa' } },
-        left:   { style: 'thin', color: { argb: 'FFaaaaaa' } },
-        bottom: { style: 'thin', color: { argb: 'FFaaaaaa' } },
-        right:  { style: 'thin', color: { argb: 'FFaaaaaa' } }
-      };
-    }
-    function mkFill(argb) {
+    const numFmt = '#,##0" Kč"';
+    const numFmtD = '#,##0" Kč";#,##0" Kč"';
+    const aR = { horizontal: 'right' };
+    const BLK = 'FF000000';
+
+    function fill(argb) {
       return { type: 'pattern', pattern: 'solid', fgColor: { argb }, bgColor: { argb: 'FFFFFFFF' } };
     }
-    function styleRow(row, fillArgb, ht=18, from=1, to=5) {
-      row.height = ht;
-      for (let c = from; c <= to; c++) {
-        row.getCell(c).border = mkBdr();
-        if (fillArgb) row.getCell(c).fill = mkFill(fillArgb);
+    // rámečky: style + barva pro každý okraj
+    function bdr(top, bottom, left='thin', right='thin') {
+      const mk = s => ({ style: s, color: { argb: BLK } });
+      return { top: mk(top), bottom: mk(bottom), left: mk(left), right: mk(right) };
+    }
+    // Aplikuj styl na celý řádek (cols 1–5)
+    function styleRow(row, opts) {
+      // opts: { ht, fill, font, bdrTop, bdrBot, bdrLeft, bdrRight, amtCol, amtNumFmt }
+      if (opts.ht) row.height = opts.ht;
+      const bT = opts.bdrTop    || 'thin';
+      const bB = opts.bdrBot    || 'thin';
+      for (let c = 1; c <= 5; c++) {
+        const cell = row.getCell(c);
+        const bL = (c === 1) ? (opts.bdrLeft  || 'medium') : 'thin';
+        const bR = (c === 5) ? (opts.bdrRight || 'thin')   : 'thin';
+        cell.border = bdr(bT, bB, bL, bR);
+        if (opts.fill) cell.fill = fill(opts.fill);
+        if (opts.font) cell.font = opts.font;
       }
     }
+    function blank(n=1) { for (let i=0;i<n;i++) ws.addRow([]); }
 
-    // ── Titul ──────────────────────────────────────────────────────────────
+    // ── TITUL ─────────────────────────────────────────────────────────────
     blank();
-    ws.addRow([null, null, `PROPS BUDGET — ${projectName}`]).getCell(3).font = fTitle;
+    const tR = ws.addRow([null, null, `PROPS BUDGET — ${projectName}`]);
+    tR.height = 63;
+    tR.getCell(3).font = fTitle;
+    tR.getCell(3).alignment = { horizontal: 'left', wrapText: true, vertical: 'bottom' };
+    ws.mergeCells(`C${ws.rowCount}:E${ws.rowCount}`);
+
+    // ── LABOUR ────────────────────────────────────────────────────────────
     blank();
+    const labSecR = ws.addRow(['Labour']);
+    labSecR.height = 21.55;
+    labSecR.getCell(1).font = fSecHd;
+    styleRow(labSecR, { ht: 21.55, fill: C_LAB_HDR, bdrTop: 'thick', bdrBot: 'thick', bdrLeft: 'thick', bdrRight: 'thick' });
 
-    // ── LABOUR ─────────────────────────────────────────────────────────────
-    const lSecR = ws.addRow(['Labour']);
-    lSecR.getCell(1).font = fBold;
-    styleRow(lSecR, DARK);
-
-    const lhR = ws.addRow(['worker', null, 'days', 'amount / day', 'total amount']);
-    [1,2,3,4,5].forEach(i => lhR.getCell(i).font = fMuted);
-    [3,4,5].forEach(i => lhR.getCell(i).alignment = alignR);
-    styleRow(lhR, MID);
+    const labHdrR = ws.addRow(['worker', null, 'days', 'amount / day', 'total amount']);
+    labHdrR.height = 19.15;
+    [1,2,3,4,5].forEach(i => labHdrR.getCell(i).font = fBody);
+    [3,4,5].forEach(i => labHdrR.getCell(i).alignment = aR);
+    styleRow(labHdrR, { ht: 19.15, fill: C_LAB_HDR, bdrTop: 'thick', bdrBot: 'thick', bdrLeft: 'thick', bdrRight: 'thick' });
 
     const labStart = ws.rowCount + 1;
     (b.labour?.team || []).forEach(p => {
       const sd = p.shoot_days ?? (p.phase==='shoot' ? p.days : 0) ?? 0;
       const pd = p.prep_days  ?? (p.phase!=='shoot' ? p.days : 0) ?? 0;
       const rt = p.rate || 0;
+      // shoot řádek
       const srn = ws.rowCount + 1;
       const sr = ws.addRow([p.role || '', 'shoot', sd, rt, null]);
       sr.getCell(1).font = fBold;
-      [3,4].forEach(i=>{sr.getCell(i).alignment=alignR;});
-      sr.getCell(4).numFmt = numFmt;
-      sr.getCell(5).value = {formula:`C${srn}*D${srn}`};
-      sr.getCell(5).numFmt = numFmt; sr.getCell(5).alignment = alignR;
-      styleRow(sr, null);
+      sr.getCell(2).font = fBody;
+      [3,4].forEach(i => { sr.getCell(i).font = fBody; sr.getCell(i).alignment = aR; sr.getCell(i).numFmt = numFmt; });
+      sr.getCell(5).value = { formula: `C${srn}*D${srn}` };
+      sr.getCell(5).numFmt = numFmt; sr.getCell(5).alignment = aR; sr.getCell(5).font = fBody;
+      styleRow(sr, { ht: 16.15, bdrTop: 'medium', bdrBot: 'thin', bdrLeft: 'thick' });
+      // prep řádek
       const prn = ws.rowCount + 1;
       const pr = ws.addRow([p.name || '', 'prep and wrap', pd, rt, null]);
-      pr.getCell(1).font = fNorm;
-      [3,4].forEach(i=>{pr.getCell(i).alignment=alignR;});
-      pr.getCell(4).numFmt = numFmt;
-      pr.getCell(5).value = {formula:`C${prn}*D${prn}`};
-      pr.getCell(5).numFmt = numFmt; pr.getCell(5).alignment = alignR;
-      styleRow(pr, null);
+      [1,2].forEach(i => pr.getCell(i).font = fBody);
+      [3,4].forEach(i => { pr.getCell(i).font = fBody; pr.getCell(i).alignment = aR; pr.getCell(i).numFmt = numFmt; });
+      pr.getCell(5).value = { formula: `C${prn}*D${prn}` };
+      pr.getCell(5).numFmt = numFmt; pr.getCell(5).alignment = aR; pr.getCell(5).font = fBody;
+      styleRow(pr, { ht: 16.15, bdrTop: 'thin', bdrBot: 'medium', bdrLeft: 'thick' });
     });
     const labEnd = ws.rowCount;
-    // Fallback: pokud AI nezapracoval kalibraci do dní, přidej extra prep dny
-    const labRowSum = (b.labour?.team||[]).reduce((s,p)=>{
-      const sd=p.shoot_days??0; const pd=p.prep_days??0; const rt=p.rate||0;
-      return s+(sd+pd)*rt;
-    },0);
-    const labAiTotal = b.labour?.total || 0;
-    const labAdj = Math.round(labAiTotal - labRowSum);
-    if (labAdj > 500) {
-      const team = b.labour?.team || [];
-      const avgRate = team.length ? Math.round(team.reduce((s,p)=>s+(p.rate||0),0)/team.length) : 4500;
-      const extraDays = Math.round(labAdj / avgRate);
-      const adjRn = ws.rowCount + 1;
-      const adjR = ws.addRow(['rezervní prep dny', 'prep and wrap', extraDays, avgRate, null]);
-      adjR.getCell(1).font = fMuted;
-      [3,4].forEach(i=>{adjR.getCell(i).alignment=alignR; adjR.getCell(i).numFmt=numFmt;});
-      adjR.getCell(5).value = {formula:`C${adjRn}*D${adjRn}`};
-      adjR.getCell(5).numFmt = numFmt; adjR.getCell(5).alignment = alignR;
-      styleRow(adjR, LIGHT);
-    }
-    const labEnd2 = ws.rowCount;
     const labTotRn = ws.rowCount + 1;
-    const labTotR = ws.addRow(['total labour']);
+    const labTotR = ws.addRow(['total labour', null, null, null, null]);
     labTotR.getCell(1).font = fBold;
-    labTotR.getCell(5).value = {formula:`SUM(E${labStart}:E${labEnd2})`};
-    labTotR.getCell(5).numFmt = numFmt; labTotR.getCell(5).alignment = alignR; labTotR.getCell(5).font = fBold;
-    styleRow(labTotR, MID);
+    labTotR.getCell(5).value = { formula: `SUM(E${labStart}:E${labEnd})` };
+    labTotR.getCell(5).numFmt = numFmt; labTotR.getCell(5).alignment = aR; labTotR.getCell(5).font = fBold;
+    styleRow(labTotR, { ht: 20.55, fill: C_TOTAL_L, bdrTop: 'medium', bdrBot: 'medium', bdrLeft: 'thick', bdrRight: 'thick' });
+
+    // ── TRANSPORT ─────────────────────────────────────────────────────────
     blank(2);
+    const trSecR = ws.addRow(['Transport']);
+    trSecR.getCell(1).font = fSecHd;
+    styleRow(trSecR, { ht: 21.55, fill: C_TR_HDR, bdrTop: 'thick', bdrBot: 'thick', bdrLeft: 'thick', bdrRight: 'thick' });
 
-    // ── TRANSPORT ──────────────────────────────────────────────────────────
-    const tSecR = ws.addRow(['Transport']);
-    tSecR.getCell(1).font = fBold;
-    styleRow(tSecR, DARK);
-
-    const thR = ws.addRow(['car', 'days', 'amount/day', 'total amount']);
-    [1,2,3,4].forEach(i=>thR.getCell(i).font=fMuted);
-    [2,3,4].forEach(i=>thR.getCell(i).alignment=alignR);
-    styleRow(thR, MID);
+    const trHdrR = ws.addRow(['car', 'days', 'amount/day', 'total amount']);
+    [1,2,3,4].forEach(i => trHdrR.getCell(i).font = fBody);
+    [2,3,4].forEach(i => trHdrR.getCell(i).alignment = aR);
+    styleRow(trHdrR, { ht: 19.15, fill: C_TR_HDR, bdrTop: 'thick', bdrBot: 'thick', bdrLeft: 'thick', bdrRight: 'thick' });
 
     const trStart = ws.rowCount + 1;
     (b.transport?.items || []).forEach(item => {
       const rn = ws.rowCount + 1;
       const r = ws.addRow([item.name, item.days, item.rate, null]);
-      r.getCell(2).alignment = alignR; r.getCell(2).numFmt = numFmt;
-      r.getCell(3).numFmt = numFmt; r.getCell(3).alignment = alignR;
-      r.getCell(4).value = {formula:`B${rn}*C${rn}`};
-      r.getCell(4).numFmt = numFmt; r.getCell(4).alignment = alignR;
-      styleRow(r, null);
+      r.getCell(1).font = fBodyM;
+      [2,3].forEach(i => { r.getCell(i).font = fBodyM; r.getCell(i).alignment = aR; r.getCell(i).numFmt = numFmt; });
+      r.getCell(4).value = { formula: `B${rn}*C${rn}` };
+      r.getCell(4).numFmt = numFmtD; r.getCell(4).alignment = aR; r.getCell(4).font = fBodyM;
+      styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick' });
     });
     const trEnd = ws.rowCount;
-    const transTotRn = ws.rowCount + 1;
-    const transTotR = ws.addRow(['total transport']);
-    transTotR.getCell(1).font = fBold;
-    transTotR.getCell(4).value = {formula:`SUM(D${trStart}:D${trEnd})`};
-    transTotR.getCell(4).numFmt = numFmt; transTotR.getCell(4).alignment = alignR; transTotR.getCell(4).font = fBold;
-    styleRow(transTotR, MID);
-    blank(2);
+    const trTotRn = ws.rowCount + 1;
+    const trTotR = ws.addRow(['total transport', null, null, null]);
+    trTotR.getCell(1).font = fBold;
+    trTotR.getCell(4).value = { formula: `SUM(D${trStart}:D${trEnd})` };
+    trTotR.getCell(4).numFmt = numFmtD; trTotR.getCell(4).alignment = aR; trTotR.getCell(4).font = fBold;
+    styleRow(trTotR, { ht: 20.55, fill: C_TR_HDR, bdrTop: 'medium', bdrBot: 'medium', bdrLeft: 'thick', bdrRight: 'thick' });
 
-    // ── PROPS ──────────────────────────────────────────────────────────────
-    const pSecR = ws.addRow(['Props']);
-    pSecR.getCell(1).font = fBold;
-    styleRow(pSecR, DARK);
-    blank();
+    // ── PROPS ─────────────────────────────────────────────────────────────
+    blank(2);
+    const prSecR = ws.addRow(['Props / Dekorace']);
+    prSecR.getCell(1).font = fSecHd;
+    styleRow(prSecR, { ht: 21.55, fill: C_TR_HDR, bdrTop: 'thick', bdrBot: 'thick', bdrLeft: 'thick', bdrRight: 'thick' });
+    // Props spacer s oranžovým pozadím
+    const prSpacerR = ws.addRow([null]);
+    styleRow(prSpacerR, { ht: 8, fill: C_PR_PEACH, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
 
     const prStart = ws.rowCount + 1;
     (b.props?.sections || []).forEach(sec => {
-      const secNameR = ws.addRow([sec.name]);
-      secNameR.getCell(1).font = fBold;
-      styleRow(secNameR, MID);
-      (sec.items || []).forEach(item => {
-        const r = ws.addRow([item.name, null, null, item.amount || 0]);
-        r.getCell(4).numFmt = numFmt; r.getCell(4).alignment = alignR;
-        styleRow(r, null);
-      });
-      blank();
+      // Sub-sekce nadpis (žluté pozadí)
+      const secHdrR = ws.addRow([sec.name]);
+      secHdrR.getCell(1).font = fBodyM;
+      styleRow(secHdrR, { ht: 17.65, fill: C_PR_YEL, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
+      // Položky
+      if (isDetailed) {
+        (sec.items || []).forEach(item => {
+          const r = ws.addRow([item.name, item.note || '', null, item.amount || 0]);
+          r.getCell(1).font = fBodyM; r.getCell(2).font = fBody;
+          r.getCell(4).numFmt = numFmtD; r.getCell(4).alignment = aR; r.getCell(4).font = fBodyM;
+          styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick' });
+        });
+      } else {
+        // Approx: jedna řádka s paušálem
+        const secTotal = (sec.items || []).reduce((s, i) => s + (i.amount || 0), 0);
+        const r = ws.addRow(['dressing / dekorace paušál', null, null, secTotal]);
+        r.getCell(1).font = fBody;
+        r.getCell(4).numFmt = numFmtD; r.getCell(4).alignment = aR; r.getCell(4).font = fBodyM;
+        styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick' });
+      }
     });
     const prEnd = ws.rowCount;
-    const propsTotRn = ws.rowCount + 1;
-    const propsTotR = ws.addRow(['props total']);
-    propsTotR.getCell(1).font = fBold;
-    propsTotR.getCell(4).value = {formula:`SUMIF(D${prStart}:D${prEnd},">"&0)`};
-    propsTotR.getCell(4).numFmt = numFmt; propsTotR.getCell(4).alignment = alignR; propsTotR.getCell(4).font = fBold;
-    styleRow(propsTotR, MID);
-    blank(2);
+    const prTotRn = ws.rowCount + 1;
+    const prTotR = ws.addRow(['props total', null, null, null]);
+    prTotR.getCell(1).font = fBold;
+    prTotR.getCell(4).value = { formula: `SUMIF(D${prStart}:D${prEnd},">"&0)` };
+    prTotR.getCell(4).numFmt = numFmtD; prTotR.getCell(4).alignment = aR; prTotR.getCell(4).font = fBold;
+    styleRow(prTotR, { ht: 20.55, fill: C_PR_TOT, bdrTop: 'medium', bdrBot: 'medium', bdrLeft: 'thick', bdrRight: 'thick' });
 
-    // ── SOUČTY ─────────────────────────────────────────────────────────────
+    // ── SOUČTY ────────────────────────────────────────────────────────────
+    blank(2);
     const feePct = b.fee_pct || 7;
+    // total budget
     const totBudgRn = ws.rowCount + 1;
-    const totBudgR = ws.addRow(['total budget']);
-    totBudgR.getCell(1).font = fBold;
-    totBudgR.getCell(4).value = {formula:`E${labTotRn}+D${transTotRn}+D${propsTotRn}`};
-    totBudgR.getCell(4).numFmt = numFmt; totBudgR.getCell(4).alignment = alignR;
-    styleRow(totBudgR, MID);
-
+    const totBudgR = ws.addRow(['total budget', null, null, null, null]);
+    totBudgR.getCell(1).font = fBodyM;
+    // Labour total je v E, transport a props jsou v D → sjednoť do E sloupce přes pomocný vzorec
+    totBudgR.getCell(5).value = { formula: `E${labTotRn}+D${trTotRn}+D${prTotRn}` };
+    totBudgR.getCell(5).numFmt = numFmt; totBudgR.getCell(5).alignment = aR; totBudgR.getCell(5).font = fBodyM;
+    styleRow(totBudgR, { ht: 18.65, bdrTop: 'medium', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
+    // fee
     const feeRn = ws.rowCount + 1;
-    const feeR = ws.addRow([`${feePct}% fee:`]);
-    feeR.getCell(4).value = {formula:`D${totBudgRn}*${feePct/100}`};
-    feeR.getCell(4).numFmt = numFmt; feeR.getCell(4).alignment = alignR;
-    styleRow(feeR, null);
+    const feeR = ws.addRow([`${feePct}% fee`, null, null, null, null]);
+    feeR.getCell(1).font = fBodyM;
+    feeR.getCell(5).value = { formula: `E${totBudgRn}*${feePct/100}` };
+    feeR.getCell(5).numFmt = numFmt; feeR.getCell(5).alignment = aR; feeR.getCell(5).font = fBodyM;
+    styleRow(feeR, { ht: 18.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
+    // celková částka bez přesčasů
+    const baseRn = ws.rowCount + 1;
+    const baseR = ws.addRow(['celková částka rozpočtu bez přesčasů', null, null, null, null]);
+    baseR.getCell(1).font = fBold; baseR.getCell(1).alignment = { wrapText: true };
+    baseR.getCell(5).value = { formula: `E${totBudgRn}+E${feeRn}` };
+    baseR.getCell(5).numFmt = numFmt; baseR.getCell(5).alignment = aR; baseR.getCell(5).font = { name: 'Helvetica Neue', size: 13, bold: true };
+    styleRow(baseR, { ht: 26.45, fill: C_TOTAL_L, bdrTop: 'medium', bdrBot: 'medium', bdrLeft: 'thick', bdrRight: 'thick' });
 
-    const celkemRn = ws.rowCount + 1;
-    const celkemR = ws.addRow(['celková částka rozpočtu bez přesčasů']);
-    celkemR.getCell(1).font = fBold;
-    celkemR.getCell(4).value = {formula:`D${totBudgRn}+D${feeRn}`};
-    celkemR.getCell(4).numFmt = numFmt; celkemR.getCell(4).alignment = alignR; celkemR.getCell(4).font = fBold;
-    styleRow(celkemR, DARK);
-    blank(2);
+    // ── OVERCOSTS ─────────────────────────────────────────────────────────
+    if (b.overcosts_estimate > 0) {
+      blank(2);
+      const ocSecR = ws.addRow(['OVERCOSTS …no fee added']);
+      ocSecR.getCell(1).font = fOcHd;
+      styleRow(ocSecR, { ht: 24.95, fill: C_OC_BLUE, bdrTop: 'thick', bdrBot: 'thick', bdrLeft: 'thick', bdrRight: 'thick' });
+      const ocStart = ws.rowCount + 1;
+      const ocR = ws.addRow(['odhad overcosts', null, null, null, b.overcosts_estimate]);
+      ocR.getCell(1).font = fOcRed;
+      ocR.getCell(5).numFmt = numFmt; ocR.getCell(5).alignment = aR; ocR.getCell(5).font = fOcRed;
+      styleRow(ocR, { ht: 18.15, fill: C_OC_BLUE, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
+      const ocEnd = ws.rowCount;
+      const ocTotRn = ws.rowCount + 1;
+      const ocTotR = ws.addRow(['OVERCOSTS TOTAL', null, null, null, null]);
+      ocTotR.getCell(1).font = { name: 'Helvetica Neue Light', size: 12, color: { argb: 'FFFF2600' } };
+      ocTotR.getCell(5).value = { formula: `SUM(E${ocStart}:E${ocEnd})` };
+      ocTotR.getCell(5).numFmt = numFmt; ocTotR.getCell(5).alignment = aR;
+      ocTotR.getCell(5).font = { name: 'Helvetica Neue', size: 12, bold: true, color: { argb: 'FFFF2600' } };
+      styleRow(ocTotR, { ht: 20.55, fill: C_OC_BLUE, bdrTop: 'medium', bdrBot: 'medium', bdrLeft: 'thick', bdrRight: 'thick' });
+    }
 
-    const finR = ws.addRow(['APPROXIMATIVE BUDGET']);
-    finR.getCell(1).font = fTitle;
-    finR.getCell(4).value = {formula:`D${celkemRn}`};
-    finR.getCell(4).numFmt = numFmt; finR.getCell(4).alignment = alignR; finR.getCell(4).font = fTitle;
-    styleRow(finR, GRAND, 22);
+    // ── OVERTIME ──────────────────────────────────────────────────────────
+    if (b.overtime_estimate > 0) {
+      blank(2);
+      const otSecR = ws.addRow(['OVERTIME 800,1000,1200,1500,2000']);
+      otSecR.getCell(1).font = fOtRed;
+      styleRow(otSecR, { ht: 22.5, bdrTop: 'thick', bdrBot: 'thick', bdrLeft: 'thick', bdrRight: 'thick' });
+      const otStart = ws.rowCount + 1;
+      const otR = ws.addRow(['odhad overtime', null, null, null, b.overtime_estimate]);
+      otR.getCell(1).font = fOtRed;
+      otR.getCell(5).numFmt = numFmt; otR.getCell(5).alignment = aR; otR.getCell(5).font = fOtRed;
+      styleRow(otR, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
+      const otEnd = ws.rowCount;
+      const otTotRn = ws.rowCount + 1;
+      const otTotR = ws.addRow(['OVERTIME TOTAL', null, null, null, null]);
+      otTotR.getCell(1).font = { name: 'Helvetica Neue Light', size: 16, color: { argb: 'FFDD0806' } };
+      otTotR.getCell(5).value = { formula: `SUM(E${otStart}:E${otEnd})` };
+      otTotR.getCell(5).numFmt = numFmt; otTotR.getCell(5).alignment = aR;
+      otTotR.getCell(5).font = { name: 'Helvetica Neue Light', size: 16, color: { argb: 'FFDD0806' } };
+      styleRow(otTotR, { ht: 22.5, bdrTop: 'medium', bdrBot: 'medium', bdrLeft: 'thick', bdrRight: 'thick' });
+    }
 
+    // ── KONEČNÝ ROZPOČET ──────────────────────────────────────────────────
+    blank(3);
+    const finR = ws.addRow(['KONEČNÝ ROZPOČET K FAKTURACI', null, null, null, null]);
+    finR.getCell(1).font = fFinal;
+    finR.getCell(5).value = { formula: `E${baseRn}` };
+    finR.getCell(5).numFmt = numFmt; finR.getCell(5).alignment = aR; finR.getCell(5).font = fFinal;
+    styleRow(finR, { ht: 22.5, fill: C_TOTAL_L, bdrTop: 'thick', bdrBot: 'thick', bdrLeft: 'thick', bdrRight: 'thick' });
+  }
+
+  async function downloadExcelApprox(b) {
+    const projectName = document.getElementById('projectName').value || 'ROZPOČET';
+    const wb = new window.ExcelJS.Workbook();
+    const ws = wb.addWorksheet('List3');
+    buildMiuWorksheet(ws, b, projectName, false);
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const safeName = projectName.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F]/g, '_');
-    a.href = url; a.download = `${safeName}_approx_rozpocet.xlsx`;
+    a.href = url; a.download = `${projectName.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F]/g,'_')}_approx_rozpocet.xlsx`;
     a.click(); URL.revokeObjectURL(url);
   }
 
   async function downloadExcelDetailed(b) {
     const projectName = document.getElementById('projectName').value || 'ROZPOČET';
-
-    const ExcelJS = window.ExcelJS;
-    const wb = new ExcelJS.Workbook();
+    const wb = new window.ExcelJS.Workbook();
     const ws = wb.addWorksheet('List3');
-
-    // Column widths
-    ws.getColumn(1).width = 44;
-    ws.getColumn(2).width = 22;
-    ws.getColumn(3).width = 10;
-    ws.getColumn(4).width = 14;
-    ws.getColumn(5).width = 14;
-
-    const fBold  = { name: 'Calibri', size: 12, bold: true };
-    const fNorm  = { name: 'Calibri', size: 12 };
-    const fMuted = { name: 'Calibri', size: 11, color: { argb: 'FF888888' } };
-    const fTitle = { name: 'Calibri', size: 13, bold: true };
-    const fFinal = { name: 'Calibri', size: 14, bold: true };
-
-    const numFmt = '#,##0';
-    const alignR = { horizontal: 'right' };
-
-    const DARK  = 'FFd0d0d0';
-    const MID   = 'FFe8e8e8';
-    const GRAND = 'FFb8b8b8';
-    function mkBdr() {
-      return {
-        top:    { style: 'thin', color: { argb: 'FFaaaaaa' } },
-        left:   { style: 'thin', color: { argb: 'FFaaaaaa' } },
-        bottom: { style: 'thin', color: { argb: 'FFaaaaaa' } },
-        right:  { style: 'thin', color: { argb: 'FFaaaaaa' } }
-      };
-    }
-    function mkFill(argb) {
-      return { type: 'pattern', pattern: 'solid', fgColor: { argb }, bgColor: { argb: 'FFFFFFFF' } };
-    }
-    function styleRow(row, fillArgb, ht=18, from=1, to=5) {
-      row.height = ht;
-      for (let c = from; c <= to; c++) {
-        row.getCell(c).border = mkBdr();
-        if (fillArgb) row.getCell(c).fill = mkFill(fillArgb);
-      }
-    }
-
-    function blank(n=1) { for(let i=0;i<n;i++) ws.addRow([]); }
-
-    // ─── TITLE ───
-    blank();
-    const titleRow = ws.addRow([null, null, `FINAL BUDGET — ${projectName}`]);
-    titleRow.getCell(3).font = fTitle;
-    blank();
-
-    // ─── LABOUR ───
-    const lSecR = ws.addRow(['Labour']); lSecR.getCell(1).font = fBold; styleRow(lSecR, DARK);
-    const labHdr = ws.addRow(['worker', '', 'days', 'amount / day', 'total amount']);
-    [1,2,3,4,5].forEach(i => labHdr.getCell(i).font = fMuted);
-    [3,4,5].forEach(i => { labHdr.getCell(i).alignment = alignR; });
-    styleRow(labHdr, MID);
-
-    const labStart = ws.rowCount + 1;
-    (b.labour?.team || []).forEach(p => {
-      const sd = p.shoot_days ?? (p.phase==='shoot' ? p.days : 0) ?? 0;
-      const pd = p.prep_days  ?? (p.phase!=='shoot' ? p.days : 0) ?? 0;
-      const rt = p.rate || 0;
-      const srn = ws.rowCount + 1;
-      const sr = ws.addRow([p.role || '', 'shoot', sd, rt, null]);
-      sr.getCell(1).font = fBold;
-      [3,4].forEach(i=>{sr.getCell(i).numFmt=numFmt;sr.getCell(i).alignment=alignR;});
-      sr.getCell(5).value={formula:`C${srn}*D${srn}`};
-      sr.getCell(5).numFmt=numFmt; sr.getCell(5).alignment=alignR;
-      styleRow(sr, null);
-      const prn = ws.rowCount + 1;
-      const pr = ws.addRow([p.name || '', 'prep and wrap', pd, rt, null]);
-      pr.getCell(1).font = fNorm;
-      [3,4].forEach(i=>{pr.getCell(i).numFmt=numFmt;pr.getCell(i).alignment=alignR;});
-      pr.getCell(5).value={formula:`C${prn}*D${prn}`};
-      pr.getCell(5).numFmt=numFmt; pr.getCell(5).alignment=alignR;
-      styleRow(pr, null);
-    });
-    const labEnd = ws.rowCount;
-    // Fallback: pokud AI nezapracoval kalibraci do dní
-    const labRowSum2 = (b.labour?.team||[]).reduce((s,p)=>{
-      const sd=p.shoot_days??0; const pd=p.prep_days??0; const rt=p.rate||0;
-      return s+(sd+pd)*rt;
-    },0);
-    const labAdj2 = Math.round((b.labour?.total||0) - labRowSum2);
-    if (labAdj2 > 500) {
-      const team2 = b.labour?.team || [];
-      const avgRate2 = team2.length ? Math.round(team2.reduce((s,p)=>s+(p.rate||0),0)/team2.length) : 4500;
-      const extraDays2 = Math.round(labAdj2 / avgRate2);
-      const adjRn2 = ws.rowCount + 1;
-      const adjR2 = ws.addRow(['rezervní prep dny', 'prep and wrap', extraDays2, avgRate2, null]);
-      adjR2.getCell(1).font = { name:'Calibri', size:12, italic:true, color:{argb:'FF888888'} };
-      [3,4].forEach(i=>{adjR2.getCell(i).numFmt=numFmt; adjR2.getCell(i).alignment=alignR;});
-      adjR2.getCell(5).value = {formula:`C${adjRn2}*D${adjRn2}`};
-      adjR2.getCell(5).numFmt = numFmt; adjR2.getCell(5).alignment = alignR;
-      styleRow(adjR2, null);
-    }
-    const labEnd2 = ws.rowCount;
-    const labTotRow = ws.rowCount + 1;
-    const rLabTot = ws.addRow(['total labour', '', '', '', null]);
-    rLabTot.getCell(1).font = fBold; rLabTot.getCell(5).font = fBold;
-    rLabTot.getCell(5).value={formula:`SUM(E${labStart}:E${labEnd2})`};
-    rLabTot.getCell(5).numFmt = numFmt; rLabTot.getCell(5).alignment = alignR;
-    styleRow(rLabTot, MID);
-    blank(2);
-
-    // ─── TRANSPORT ───
-    const tSecR = ws.addRow([getLang().transportSection]); tSecR.getCell(1).font = fBold; styleRow(tSecR, DARK);
-    const trHdr = ws.addRow(['car', 'days', 'amount/day', 'total amount']);
-    [1,2,3,4].forEach(i => trHdr.getCell(i).font = fMuted);
-    [2,3,4].forEach(i => trHdr.getCell(i).alignment = alignR);
-    styleRow(trHdr, MID);
-
-    const trStart = ws.rowCount + 1;
-    (b.transport?.items || []).forEach(item => {
-      const rn = ws.rowCount + 1;
-      const r = ws.addRow([item.name, item.days, item.rate, null]);
-      r.getCell(4).value = { formula: `B${rn}*C${rn}` };
-      [2,3,4].forEach(i => { r.getCell(i).numFmt = numFmt; r.getCell(i).alignment = alignR; });
-      styleRow(r, null);
-    });
-    const trEnd = ws.rowCount;
-    const trTotRow = ws.rowCount + 1;
-    const rTrTot = ws.addRow(['total transport', '', '', { formula: `SUM(D${trStart}:D${trEnd})` }]);
-    rTrTot.getCell(1).font = fBold; rTrTot.getCell(4).font = fBold;
-    rTrTot.getCell(4).numFmt = numFmt; rTrTot.getCell(4).alignment = alignR;
-    styleRow(rTrTot, MID);
-    blank(2);
-
-    // ─── PROPS ───
-    const pSecR = ws.addRow(['Props']); pSecR.getCell(1).font = fBold; styleRow(pSecR, DARK);
-    blank();
-
-    const prStart = ws.rowCount + 1;
-    (b.props?.sections || []).forEach(sec => {
-      const secRow = ws.addRow([sec.name]); secRow.getCell(1).font = fBold; styleRow(secRow, MID);
-      (sec.items||[]).forEach(item => {
-        const r = ws.addRow([item.name, item.note || '', '', item.amount]);
-        r.getCell(4).numFmt = numFmt; r.getCell(4).alignment = alignR;
-        styleRow(r, null);
-      });
-      blank();
-    });
-    const prEnd = ws.rowCount;
-    const prTotRow = ws.rowCount + 1;
-    const rPrTot = ws.addRow(['props total', '', '', { formula: `SUMIF(D${prStart}:D${prEnd},">"&0)` }]);
-    rPrTot.getCell(1).font = fBold; rPrTot.getCell(4).font = fBold;
-    rPrTot.getCell(4).numFmt = numFmt; rPrTot.getCell(4).alignment = alignR;
-    styleRow(rPrTot, MID);
-    blank(2);
-
-    // ─── TOTALS ───
-    const totBudgRow = ws.rowCount + 1;
-    const rTotBudg = ws.addRow(['total budget', '', '', '', { formula: `E${labTotRow}+D${trTotRow}+D${prTotRow}` }]);
-    rTotBudg.getCell(1).font = fBold; rTotBudg.getCell(5).font = fBold;
-    rTotBudg.getCell(5).numFmt = numFmt; rTotBudg.getCell(5).alignment = alignR;
-    styleRow(rTotBudg, MID);
-
-    const feePct = b.fee_pct || 7;
-    const feeRow = ws.rowCount + 1;
-    const rFee = ws.addRow([`${feePct}% fee:`, '', '', '', { formula: `E${totBudgRow}*${feePct/100}` }]);
-    rFee.getCell(5).numFmt = numFmt; rFee.getCell(5).alignment = alignR;
-    styleRow(rFee, null);
-
-    const baseRow = ws.rowCount + 1;
-    const rBase = ws.addRow(['total budget -overtime not included', '', '', '', { formula: `E${totBudgRow}+E${feeRow}` }]);
-    rBase.getCell(1).font = fBold; rBase.getCell(5).font = fBold;
-    rBase.getCell(5).numFmt = numFmt; rBase.getCell(5).alignment = alignR;
-    styleRow(rBase, DARK);
-    blank(2);
-
-    // ─── OVERCOSTS ───
-    const ocSecR = ws.addRow(['OVERCOSTS …no fee added']); ocSecR.getCell(1).font = fBold; styleRow(ocSecR, DARK);
-    const ocStart = ws.rowCount + 1;
-    if (b.overcosts_estimate > 0) {
-      const r = ws.addRow(['odhad overcosts', '', '', '', b.overcosts_estimate]);
-      r.getCell(5).numFmt = numFmt; r.getCell(5).alignment = alignR; styleRow(r, null);
-    } else { blank(2); }
-    const ocEnd = ws.rowCount;
-    const ocTotRow = ws.rowCount + 1;
-    const rOcTot = ws.addRow(['OVERCOSTS TOTAL', '', '', '', { formula: `SUM(E${ocStart}:E${ocEnd})` }]);
-    rOcTot.getCell(1).font = fBold; rOcTot.getCell(5).font = fBold;
-    rOcTot.getCell(5).numFmt = numFmt; rOcTot.getCell(5).alignment = alignR;
-    styleRow(rOcTot, MID);
-    blank(2);
-
-    // ─── OVERTIME ───
-    const otSecR = ws.addRow(['OVERTIME 800,1000,1200,1500,2000']); otSecR.getCell(1).font = fBold; styleRow(otSecR, DARK);
-    const otStart = ws.rowCount + 1;
-    if (b.overtime_estimate > 0) {
-      const r = ws.addRow(['odhad overtime', '', '', '', b.overtime_estimate]);
-      r.getCell(5).numFmt = numFmt; r.getCell(5).alignment = alignR; styleRow(r, null);
-    } else { blank(2); }
-    const otEnd = ws.rowCount;
-    const otTotRow = ws.rowCount + 1;
-    const rOtTot = ws.addRow(['OVERTIME TOTAL', '', '', '', { formula: `SUM(E${otStart}:E${otEnd})` }]);
-    rOtTot.getCell(1).font = fBold; rOtTot.getCell(5).font = fBold;
-    rOtTot.getCell(5).numFmt = numFmt; rOtTot.getCell(5).alignment = alignR;
-    styleRow(rOtTot, MID);
-    blank(2);
-
-    // ─── FINAL BUDGET ───
-    const rFinal = ws.addRow(['FINAL BUDGET', '', '', '', { formula: `E${baseRow}+E${ocTotRow}+E${otTotRow}` }]);
-    rFinal.getCell(1).font = fFinal; rFinal.getCell(5).font = fFinal;
-    rFinal.getCell(5).numFmt = numFmt; rFinal.getCell(5).alignment = alignR;
-    styleRow(rFinal, GRAND, 22);
-
-    // ─── DOWNLOAD ───
+    buildMiuWorksheet(ws, b, projectName, true);
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const safeName = projectName.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F]/g, '_');
-    a.href = url;
-    a.download = `${safeName}_rozpocet.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = `${projectName.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F]/g,'_')}_rozpocet.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
   }
 
   function printBudget() {

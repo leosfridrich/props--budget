@@ -741,6 +741,50 @@
 
   .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
 
+  .btn-new-gen {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 13px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 20px;
+  }
+  .btn-new-gen:hover { background: var(--accent); color: #0e0e0e; }
+
+  /* Historie generací */
+  .history-bar {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    margin-bottom: 20px;
+  }
+  .history-bar-hdr {
+    padding: 10px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    user-select: none;
+  }
+  .history-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 16px;
+    border-bottom: 1px solid rgba(42,42,42,0.5);
+    cursor: pointer;
+    transition: background 0.1s;
+    gap: 10px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-item:hover { background: rgba(200,169,110,0.06); }
+  .history-item.active { border-left: 3px solid var(--accent); }
+  .history-item-name { font-size: 12px; color: var(--text); flex: 1; }
+  .history-item-meta { font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .history-item-total { font-family: 'DM Serif Display', serif; font-size: 14px; color: var(--accent); white-space: nowrap; }
+
   /* Notes area */
   .ai-notes {
     background: var(--surface);
@@ -832,7 +876,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.18</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.19</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1238,6 +1282,15 @@
           ↗ Generovat rozpočet
         </button>
       </div>
+    </div>
+
+    <!-- History bar -->
+    <div id="historyBar" style="display:none;" class="history-bar">
+      <div class="history-bar-hdr" onclick="toggleHistoryBar()">
+        <span>Historie generací</span>
+        <span id="historyBarChevron" style="font-size:10px; color:var(--muted);">▲</span>
+      </div>
+      <div id="historyBarList"></div>
     </div>
 
     <!-- Budget output -->
@@ -2035,6 +2088,91 @@
   }
 
 
+  // ─── BUDGET HISTORY ───
+  const HISTORY_KEY = 'propsBudget_history';
+  const HISTORY_MAX = 10;
+
+  function saveBudgetHistory(b, projectName) {
+    const history = getBudgetHistory();
+    const labour = (b.labour?.team||[]).reduce((s,p)=>{
+      const sd=p.shoot_days??(p.phase==='shoot'?p.days:0)??0;
+      const pd=p.prep_days??(p.phase!=='shoot'?p.days:0)??0;
+      return s+(sd+pd)*(p.rate||0);
+    },0);
+    const transport=(b.transport?.items||[]).reduce((s,i)=>s+(i.days||0)*(i.rate||0),0);
+    const props=(b.props?.sections||[]).reduce((s,sec)=>s+(sec.items||[]).reduce((ss,i)=>ss+(i.amount||0),0),0);
+    const base=labour+transport+props;
+    const fee=Math.round(base*(b.fee_pct||7)/100);
+    const total=base+fee+(b.overtime_estimate||0)+(b.overcosts_estimate||0);
+    const entry = {
+      id: Date.now(),
+      name: projectName || b.project_name || 'Bez názvu',
+      ts: new Date().toLocaleString('cs-CZ',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}),
+      total,
+      budget: b
+    };
+    history.unshift(entry);
+    if (history.length > HISTORY_MAX) history.length = HISTORY_MAX;
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch(e){}
+    renderHistoryBar();
+  }
+
+  function getBudgetHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'); } catch(e){ return []; }
+  }
+
+  let _historyBarOpen = true;
+  function toggleHistoryBar() {
+    _historyBarOpen = !_historyBarOpen;
+    document.getElementById('historyBarList').style.display = _historyBarOpen ? '' : 'none';
+    document.getElementById('historyBarChevron').textContent = _historyBarOpen ? '▲' : '▼';
+  }
+
+  function renderHistoryBar() {
+    const history = getBudgetHistory();
+    const bar = document.getElementById('historyBar');
+    const list = document.getElementById('historyBarList');
+    if (!bar || !list) return;
+    if (history.length === 0) { bar.style.display = 'none'; return; }
+    bar.style.display = '';
+    list.style.display = _historyBarOpen ? '' : 'none';
+    document.getElementById('historyBarChevron').textContent = _historyBarOpen ? '▲' : '▼';
+    const fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n||0));
+    const currentId = window._lastHistoryId;
+    list.innerHTML = history.map((e,i) => `
+      <div class="history-item${e.id===currentId?' active':''}" onclick="restoreFromHistory(${i})">
+        <div style="flex:1; min-width:0;">
+          <div class="history-item-name">${e.name}</div>
+          <div class="history-item-meta">${e.ts}</div>
+        </div>
+        <div class="history-item-total">${fmt(e.total)} Kč</div>
+      </div>`).join('');
+  }
+
+  function restoreFromHistory(idx) {
+    const history = getBudgetHistory();
+    const entry = history[idx];
+    if (!entry) return;
+    window._lastHistoryId = entry.id;
+    window._revisionDiff = null;
+    window._restoringFromHistory = true;
+    renderBudget(entry.budget, entry.name);
+    renderHistoryBar();
+  }
+
+  function generateNewBudget() {
+    // Scrolluj vlevo na input panelu, focus na generate button
+    document.querySelector('.panel-left').scrollTo({ top: 0, behavior: 'smooth' });
+    const btn = document.querySelector('.btn-generate');
+    if (btn) {
+      btn.style.boxShadow = '0 0 0 2px var(--accent)';
+      setTimeout(() => { btn.style.boxShadow = ''; }, 1200);
+    }
+    const panelLeft = document.querySelector('.panel-left');
+    if (panelLeft) panelLeft.scrollTo({ top: 0, behavior: 'smooth' });
+    document.querySelector('.panels').scrollLeft = 0;
+  }
+
   function scrollRightTop() {
     const p = document.querySelector('.panel-right');
     if (p) p.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2690,6 +2828,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderActualsList();
     initRefDocs();
     renderExtraRefList();
+    renderHistoryBar();
   });
   // Also init immediately (in case DOMContentLoaded already fired)
   loadInstructions();
@@ -2697,6 +2836,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderActualsList();
   initRefDocs();
   renderExtraRefList();
+  renderHistoryBar();
 
   // API klíč — načti z localStorage a ukládej při změně
   (function() {
@@ -2982,6 +3122,11 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
   function renderBudget(b, projectName) {
     window._lastBudget = b;
     window._lastBudgetName = projectName;
+    // Ulož do historie pouze při nové generaci (ne při obnově z historie)
+    if (!window._restoringFromHistory) {
+      saveBudgetHistory(b, projectName);
+    }
+    window._restoringFromHistory = false;
     if (outputMode === 'approx') {
       renderBudgetApprox(b, projectName);
     } else {
@@ -3132,6 +3277,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel / Numbers</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
       </div>
+      <button class="btn-new-gen" onclick="generateNewBudget()">↗ Generovat další</button>
 
       <div id="revisionBox" style="margin-top:20px; border:1px solid var(--border); background:var(--surface);">
         <div style="padding:12px 16px; background:var(--surface2); border-bottom:1px solid var(--border);
@@ -3426,6 +3572,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel / Numbers</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
       </div>
+      <button class="btn-new-gen" onclick="generateNewBudget()">↗ Generovat další</button>
 
       <div id="revisionBox" style="margin-top:20px; border:1px solid var(--border); background:var(--surface);">
         <div style="padding:12px 16px; background:var(--surface2); border-bottom:1px solid var(--border);

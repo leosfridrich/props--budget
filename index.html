@@ -609,20 +609,20 @@
   /* Revision diff highlight */
   .budget-row.rev-changed {
     border-left: 3px solid var(--accent2);
-    background: rgba(126,184,200,0.05);
+    background: rgba(126,184,200,0.12);
   }
   .budget-row.rev-new {
     border-left: 3px solid var(--success);
-    background: rgba(110,200,145,0.05);
+    background: rgba(110,200,145,0.12);
   }
-  .rev-amount-changed { color: var(--accent2) !important; }
-  .rev-amount-new { color: var(--success) !important; }
+  .rev-amount-changed { color: var(--accent2) !important; font-weight: 700 !important; }
+  .rev-amount-new { color: var(--success) !important; font-weight: 700 !important; }
   .rev-delta {
-    display: block;
+    display: inline-block;
     font-size: 9px;
     letter-spacing: 0.05em;
-    margin-top: 2px;
-    text-align: right;
+    margin-left: 6px;
+    opacity: 0.85;
   }
 
   /* Totals block */
@@ -832,7 +832,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.14</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.15</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2036,11 +2036,13 @@
 
 
   function confirmAndGenerate() {
-    // Scroll left panel to generate button area
-    document.querySelector('.panel-left').scrollTo({ top: 99999, behavior: 'smooth' });
-    // Hide analysis panel, show budget area
-    document.getElementById('analysisPanel').style.display = 'none';
-    // Trigger generation
+    // Scroll RIGHT panel to budgetOutput (below analysis)
+    const panelRight = document.querySelector('.panel-right');
+    const budgetOut = document.getElementById('budgetOutput');
+    if (panelRight && budgetOut) {
+      panelRight.scrollTo({ top: budgetOut.offsetTop - 16, behavior: 'smooth' });
+    }
+    // Trigger generation (analysisPanel stays visible above)
     generateBudget();
   }
 
@@ -2981,6 +2983,14 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     } else {
       renderBudgetDetailed(b, projectName);
     }
+    // Po vyrenderování scrolluj panel-right na výsledek
+    requestAnimationFrame(() => {
+      const panelRight = document.querySelector('.panel-right');
+      const budgetOut = document.getElementById('budgetOutput');
+      if (panelRight && budgetOut) {
+        panelRight.scrollTo({ top: budgetOut.offsetTop - 16, behavior: 'smooth' });
+      }
+    });
   }
 
   function renderBudgetApprox(b, projectName) {
@@ -3465,33 +3475,41 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
   function computeRevisionDiff(oldB, newB) {
     if (!oldB || !newB) return {};
     const diff = {};
+    const norm = s => (s || '').toLowerCase().trim();
     const calcPerson = p => {
-      const sd = p.shoot_days ?? 0; const pd = p.prep_days ?? 0; const rt = p.rate || 0;
-      return { shoot: sd * rt, prep: pd * rt, total: (sd + pd) * rt, sd, pd, rt };
+      const sd = p.shoot_days ?? (p.phase==='shoot'?p.days:0) ?? 0;
+      const pd = p.prep_days  ?? (p.phase!=='shoot'?p.days:0) ?? 0;
+      return (sd + pd) * (p.rate || 0);
     };
-    // Labour
-    (newB.labour?.team || []).forEach(p => {
-      const old = (oldB.labour?.team || []).find(o => o.role === p.role);
-      const n = calcPerson(p);
-      if (!old) { diff['labour:' + p.role] = { isNew: true, newAmt: n.total }; return; }
-      const o = calcPerson(old);
-      if (Math.abs(n.total - o.total) > 50) diff['labour:' + p.role] = { oldAmt: o.total, newAmt: n.total, delta: n.total - o.total };
+    // Labour — match by role (case-insensitive), fallback by index
+    const oldTeam = oldB.labour?.team || [];
+    (newB.labour?.team || []).forEach((p, i) => {
+      const key = 'labour:' + p.role;
+      const old = oldTeam.find(o => norm(o.role) === norm(p.role)) || oldTeam[i];
+      const newAmt = calcPerson(p);
+      if (!old) { diff[key] = { isNew: true, newAmt }; return; }
+      const oldAmt = calcPerson(old);
+      if (Math.abs(newAmt - oldAmt) > 50) diff[key] = { oldAmt, newAmt, delta: newAmt - oldAmt };
     });
-    // Transport
-    (newB.transport?.items || []).forEach(item => {
-      const old = (oldB.transport?.items || []).find(o => o.name === item.name);
+    // Transport — match by name (case-insensitive), fallback by index
+    const oldItems = oldB.transport?.items || [];
+    (newB.transport?.items || []).forEach((item, i) => {
+      const key = 'transport:' + item.name;
+      const old = oldItems.find(o => norm(o.name) === norm(item.name)) || oldItems[i];
       const newAmt = (item.days || 0) * (item.rate || 0);
-      if (!old) { diff['transport:' + item.name] = { isNew: true, newAmt }; return; }
+      if (!old) { diff[key] = { isNew: true, newAmt }; return; }
       const oldAmt = (old.days || 0) * (old.rate || 0);
-      if (Math.abs(newAmt - oldAmt) > 50) diff['transport:' + item.name] = { oldAmt, newAmt, delta: newAmt - oldAmt };
+      if (Math.abs(newAmt - oldAmt) > 50) diff[key] = { oldAmt, newAmt, delta: newAmt - oldAmt };
     });
-    // Props sections
-    (newB.props?.sections || []).forEach(sec => {
-      const newAmt = (sec.items || []).reduce((s, i) => s + (i.amount || 0), 0);
-      const old = (oldB.props?.sections || []).find(o => o.name === sec.name);
-      if (!old) { diff['props:' + sec.name] = { isNew: true, newAmt }; return; }
-      const oldAmt = (old.items || []).reduce((s, i) => s + (i.amount || 0), 0);
-      if (Math.abs(newAmt - oldAmt) > 50) diff['props:' + sec.name] = { oldAmt, newAmt, delta: newAmt - oldAmt };
+    // Props sections — match by name (case-insensitive), fallback by index
+    const oldSecs = oldB.props?.sections || [];
+    (newB.props?.sections || []).forEach((sec, i) => {
+      const key = 'props:' + sec.name;
+      const old = oldSecs.find(o => norm(o.name) === norm(sec.name)) || oldSecs[i];
+      const newAmt = (sec.items || []).reduce((s, it) => s + (it.amount || 0), 0);
+      if (!old) { diff[key] = { isNew: true, newAmt }; return; }
+      const oldAmt = (old.items || []).reduce((s, it) => s + (it.amount || 0), 0);
+      if (Math.abs(newAmt - oldAmt) > 50) diff[key] = { oldAmt, newAmt, delta: newAmt - oldAmt };
     });
     return diff;
   }

@@ -813,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.11</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.12</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2821,39 +2821,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const _learningCtx = getLearningContext();
 
     // Referenční kontext — z RefDB (obsahuje seed data + vše co uživatel nahrál)
+    // Pevný limit na soubor (ne dělený počtem) — Claude zvládá 200k tokenů
     let _refBudgetCtx = '';
     let _refScriptCtx = '';
     let _refCrewCtx = '';
     try {
       const _budgets = getRefDB('budget');
       if (_budgets.length > 0) {
-        const perFile = Math.floor(6000 / _budgets.length);
-        const combined = _budgets.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
-        _refBudgetCtx = '\n\nREFERENČNÍ ROZPOČTY (' + _budgets.length + ' reálných jobů — použij jako vzor pro ceny, strukturu a proporce):\n' + combined;
+        const combined = _budgets.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, 2000)).join('\n\n');
+        _refBudgetCtx = '\n\nREFERENČNÍ ROZPOČTY (' + _budgets.length + ' reálných jobů — použij jako vzor pro ceny, strukturu, počty dní a proporce):\n' + combined;
       }
     } catch(e) {}
     try {
       const _scripts = getRefDB('script');
       if (_scripts.length > 0) {
-        const perFile = Math.floor(3000 / _scripts.length);
-        const combined = _scripts.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
-        _refScriptCtx = '\n\nREFERENČNÍ SCRIPTY (' + _scripts.length + ' projektů — kontext typů zakázek):\n' + combined;
+        const combined = _scripts.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, 1000)).join('\n\n');
+        _refScriptCtx = '\n\nREFERENČNÍ SCRIPTY (' + _scripts.length + ' projektů — kontext typů zakázek a složitosti):\n' + combined;
       }
     } catch(e) {}
     try {
       const _crew = getRefDB('crew');
       if (_crew.length > 0) {
-        const perFile = Math.floor(3000 / _crew.length);
-        const combined = _crew.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
-        _refCrewCtx = '\n\nTABULKY LIDÍ / CREW LISTY (' + _crew.length + ' souborů — použij jako základ pro sestavení týmu a sazby):\n' + combined;
+        const combined = _crew.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, 3000)).join('\n\n');
+        _refCrewCtx = '\n\nTABULKY LIDÍ / CREW LISTY (' + _crew.length + ' souborů — POUŽIJ jako základ pro sestavení týmu, role, jména a sazby):\n' + combined;
       }
     } catch(e) {}
     let _refExtraCtx = '';
     try {
       const _extra = getExtraRefs();
       if (_extra.length > 0) {
-        const perFile = Math.floor(3000 / _extra.length);
-        const combined = _extra.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, perFile)).join('\n\n');
+        const combined = _extra.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, 2000)).join('\n\n');
         _refExtraCtx = '\n\nDALŠÍ REFERENCE (' + _extra.length + ' souborů):\n' + combined;
       }
     } catch(e) {}

@@ -813,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.8</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.9</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3422,9 +3422,13 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       'POŽADAVEK NA OPRAVU:',
       note,
       '',
-      'Uprav rozpočet přesně podle požadavku. Zachovej celkovou strukturu, změň jen co je požadováno.',
-      'Přepoč všechny součty (labour.total, transport.total, props.total, subtotal, fee, total_base, grand_total).',
-      'Do pole "summary" přidej na začátek: "↺ Opraveno: ' + note.substring(0, 80) + '"',
+      'PRAVIDLA:',
+      '1. Uprav přesně to co požadavek říká. Zachovej celkovou strukturu JSON.',
+      '2. LABOUR: Změny prováděj na konkrétních lidech v labour.team[] — uprav shoot_days, prep_days, rate nebo přidej/odeber osoby. NIKDY neopravuj jen labour.total.',
+      '3. TRANSPORT: Změny prováděj na konkrétních vozidlech v transport.items[] — uprav days, rate nebo přidej/odeber položky. NIKDY neopravuj jen transport.total.',
+      '4. PROPS: Změny prováděj na konkrétních položkách v props.sections[].items[] — uprav amount nebo přidej/odeber položky. NIKDY neopravuj jen props.total.',
+      '5. Pole labour.total, transport.total, props.total, subtotal, fee, total_base, grand_total nastav na 0 — jsou přepočítávány automaticky.',
+      '6. Do pole "summary" přidej na začátek: "↺ Opraveno: ' + note.substring(0, 80) + '"',
       '',
       'Vrať POUZE validní JSON ve stejném formátu jako vstupní rozpočet, bez jakéhokoliv dalšího textu.'
     ].join('\n');

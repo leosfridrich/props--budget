@@ -813,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.7</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1858,6 +1858,7 @@
       var payload = JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 1024,
+        temperature: 0,
         messages: [{ role: 'user', content: contentParts }]
       });
 
@@ -2865,7 +2866,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     let _timedOut = false;
 
     try {
-      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000, messages });
+      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000, temperature: 0, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
 
@@ -2957,13 +2958,17 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const out = document.getElementById('budgetOutput');
     const L = getLang();
     const fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n || 0));
-    const grand = b.grand_total || b.total_base || 0;
-    const labour = b.labour?.total || 0;
-    const transport = b.transport?.total || 0;
-    const props = b.props?.total || 0;
+    const labour = (b.labour?.team || []).reduce((s, p) => {
+      const sd = p.shoot_days ?? (p.phase==='shoot' ? p.days : 0) ?? 0;
+      const pd = p.prep_days  ?? (p.phase!=='shoot' ? p.days : 0) ?? 0;
+      return s + (sd + pd) * (p.rate || 0);
+    }, 0);
+    const transport = (b.transport?.items || []).reduce((s, i) => s + (i.days || 0) * (i.rate || 0), 0);
+    const props = (b.props?.sections || []).reduce((s, sec) => s + (sec.items || []).reduce((ss, i) => ss + (i.amount || 0), 0), 0);
     const base = labour + transport + props;
-    const fee = b.fee || base * ((b.fee_pct || 7) / 100);
-    const total_base = b.total_base || base + fee;
+    const fee = Math.round(base * ((b.fee_pct || 7) / 100));
+    const total_base = base + fee;
+    const grand = total_base + (b.overtime_estimate || 0) + (b.overcosts_estimate || 0);
 
     let setsHtml = (b.props?.sections || []).map(sec => {
       const secTotal = sec.items.reduce((s, i) => s + (i.amount || 0), 0);
@@ -3178,11 +3183,17 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
 
   function renderBudgetDetailed(b, projectName) {
     const out = document.getElementById('budgetOutput');
-    const total = b.grand_total || b.total_base || 0;
-    const labour = b.labour?.total || 0;
-    const transport = b.transport?.total || 0;
-    const props = b.props?.total || 0;
+    const labour = (b.labour?.team || []).reduce((s, p) => {
+      const sd = p.shoot_days ?? (p.phase==='shoot' ? p.days : 0) ?? 0;
+      const pd = p.prep_days  ?? (p.phase!=='shoot' ? p.days : 0) ?? 0;
+      return s + (sd + pd) * (p.rate || 0);
+    }, 0);
+    const transport = (b.transport?.items || []).reduce((s, i) => s + (i.days || 0) * (i.rate || 0), 0);
+    const props = (b.props?.sections || []).reduce((s, sec) => s + (sec.items || []).reduce((ss, i) => ss + (i.amount || 0), 0), 0);
     const base = labour + transport + props;
+    const fee = Math.round(base * ((b.fee_pct || 7) / 100));
+    const total_base = base + fee;
+    const total = total_base + (b.overtime_estimate || 0) + (b.overcosts_estimate || 0);
 
     const labourPct = Math.round(labour / base * 100);
     const transportPct = Math.round(transport / base * 100);
@@ -3317,8 +3328,8 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     html += `
       <div class="totals-block">
         <div class="totals-row"><span class="label">${getLang().subtotalLabel}</span><span class="value">${formatCZK(base)}</span></div>
-        <div class="totals-row"><span class="label">Fee ${b.fee_pct || 7}%</span><span class="value">${formatCZK(b.fee || base * 0.07)}</span></div>
-        <div class="totals-row highlight"><span class="label">${getLang().noFeeTotalLabel}</span><span class="value">${formatCZK(b.total_base || base * 1.07)}</span></div>
+        <div class="totals-row"><span class="label">Fee ${b.fee_pct || 7}%</span><span class="value">${formatCZK(fee)}</span></div>
+        <div class="totals-row highlight"><span class="label">${getLang().noFeeTotalLabel}</span><span class="value">${formatCZK(total_base)}</span></div>
         ${b.overtime_estimate ? `<div class="totals-row"><span class="label">Odhad přesčasů</span><span class="value">~${formatCZK(b.overtime_estimate)}</span></div>` : ''}
         ${b.overcosts_estimate ? `<div class="totals-row"><span class="label">${getLang().overcostsLabel}</span><span class="value">~${formatCZK(b.overcosts_estimate)}</span></div>` : ''}
         <div class="totals-row grand"><span class="label">${getLang().grandLabel}</span><span class="value">${formatCZK(total)}</span></div>
@@ -3422,6 +3433,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       const _revBody = JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 4000,
+        temperature: 0,
         messages: [{ role: 'user', content: prompt }]
       });
 
@@ -3915,13 +3927,17 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const today = new Date().toLocaleDateString('cs-CZ');
     const L = getLang();
     const fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n || 0)) + ' Kč';
-    const labour = b.labour?.total || 0;
-    const transport = b.transport?.total || 0;
-    const props = b.props?.total || 0;
+    const labour = (b.labour?.team || []).reduce((s, p) => {
+      const sd = p.shoot_days ?? (p.phase==='shoot' ? p.days : 0) ?? 0;
+      const pd = p.prep_days  ?? (p.phase!=='shoot' ? p.days : 0) ?? 0;
+      return s + (sd + pd) * (p.rate || 0);
+    }, 0);
+    const transport = (b.transport?.items || []).reduce((s, i) => s + (i.days || 0) * (i.rate || 0), 0);
+    const props = (b.props?.sections || []).reduce((s, sec) => s + (sec.items || []).reduce((ss, i) => ss + (i.amount || 0), 0), 0);
     const base = labour + transport + props;
-    const fee = b.fee || base * ((b.fee_pct || 7) / 100);
-    const total_base = b.total_base || base + fee;
-    const grand = b.grand_total || total_base;
+    const fee = Math.round(base * ((b.fee_pct || 7) / 100));
+    const total_base = base + fee;
+    const grand = total_base + (b.overtime_estimate || 0) + (b.overcosts_estimate || 0);
 
     const setsRows = (b.props?.sections || []).map(sec => {
       const secTotal = sec.items.reduce((s, i) => s + (i.amount || 0), 0);
@@ -4012,13 +4028,17 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
 
     const fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n || 0)) + ' Kč';
 
-    const labour = b.labour?.total || 0;
-    const transport = b.transport?.total || 0;
-    const props = b.props?.total || 0;
+    const labour = (b.labour?.team || []).reduce((s, p) => {
+      const sd = p.shoot_days ?? (p.phase==='shoot' ? p.days : 0) ?? 0;
+      const pd = p.prep_days  ?? (p.phase!=='shoot' ? p.days : 0) ?? 0;
+      return s + (sd + pd) * (p.rate || 0);
+    }, 0);
+    const transport = (b.transport?.items || []).reduce((s, i) => s + (i.days || 0) * (i.rate || 0), 0);
+    const props = (b.props?.sections || []).reduce((s, sec) => s + (sec.items || []).reduce((ss, i) => ss + (i.amount || 0), 0), 0);
     const base = labour + transport + props;
-    const fee = b.fee || base * ((b.fee_pct || 7) / 100);
-    const total_base = b.total_base || base + fee;
-    const grand = b.grand_total || total_base;
+    const fee = Math.round(base * ((b.fee_pct || 7) / 100));
+    const total_base = base + fee;
+    const grand = total_base + (b.overtime_estimate || 0) + (b.overcosts_estimate || 0);
 
     // Labour rows — 2 řádky na osobu (shoot + prep)
     let labourRows = (b.labour?.team || []).map(p => {

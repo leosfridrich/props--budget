@@ -832,7 +832,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.17</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.18</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3714,18 +3714,20 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       const sr = ws.addRow([p.role || '', 'shoot', sd, rt, null]);
       sr.getCell(1).font = fBold;
       sr.getCell(2).font = fBody;
-      [3,4].forEach(i => { sr.getCell(i).font = fBody; sr.getCell(i).alignment = aR; sr.getCell(i).numFmt = numFmt; });
+      sr.getCell(3).font = fBody; sr.getCell(3).alignment = aR; sr.getCell(3).numFmt = '#,##0';   // dny — bez Kč
+      sr.getCell(4).font = fBody; sr.getCell(4).alignment = aR; sr.getCell(4).numFmt = numFmt;    // sazba/den
       sr.getCell(5).value = { formula: `C${srn}*D${srn}` };
       sr.getCell(5).numFmt = numFmt; sr.getCell(5).alignment = aR; sr.getCell(5).font = fBody;
-      styleRow(sr, { ht: 16.15, bdrTop: 'medium', bdrBot: 'thin', bdrLeft: 'thick' });
+      styleRow(sr, { ht: 16.15, bdrTop: 'medium', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
       // prep řádek
       const prn = ws.rowCount + 1;
       const pr = ws.addRow([p.name || '', 'prep and wrap', pd, rt, null]);
       [1,2].forEach(i => pr.getCell(i).font = fBody);
-      [3,4].forEach(i => { pr.getCell(i).font = fBody; pr.getCell(i).alignment = aR; pr.getCell(i).numFmt = numFmt; });
+      pr.getCell(3).font = fBody; pr.getCell(3).alignment = aR; pr.getCell(3).numFmt = '#,##0';   // dny — bez Kč
+      pr.getCell(4).font = fBody; pr.getCell(4).alignment = aR; pr.getCell(4).numFmt = numFmt;    // sazba/den
       pr.getCell(5).value = { formula: `C${prn}*D${prn}` };
       pr.getCell(5).numFmt = numFmt; pr.getCell(5).alignment = aR; pr.getCell(5).font = fBody;
-      styleRow(pr, { ht: 16.15, bdrTop: 'thin', bdrBot: 'medium', bdrLeft: 'thick' });
+      styleRow(pr, { ht: 16.15, bdrTop: 'thin', bdrBot: 'medium', bdrLeft: 'thick', bdrRight: 'thick' });
     });
     const labEnd = ws.rowCount;
     const labTotRn = ws.rowCount + 1;
@@ -3751,10 +3753,11 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       const rn = ws.rowCount + 1;
       const r = ws.addRow([item.name, item.days, item.rate, null]);
       r.getCell(1).font = fBodyM;
-      [2,3].forEach(i => { r.getCell(i).font = fBodyM; r.getCell(i).alignment = aR; r.getCell(i).numFmt = numFmt; });
+      r.getCell(2).font = fBodyM; r.getCell(2).alignment = aR; r.getCell(2).numFmt = '#,##0';    // dny — bez Kč
+      r.getCell(3).font = fBodyM; r.getCell(3).alignment = aR; r.getCell(3).numFmt = numFmt;     // sazba/den
       r.getCell(4).value = { formula: `B${rn}*C${rn}` };
       r.getCell(4).numFmt = numFmtD; r.getCell(4).alignment = aR; r.getCell(4).font = fBodyM;
-      styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick' });
+      styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
     });
     const trEnd = ws.rowCount;
     const trTotRn = ws.rowCount + 1;
@@ -3785,7 +3788,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           const r = ws.addRow([item.name, item.note || '', null, item.amount || 0]);
           r.getCell(1).font = fBodyM; r.getCell(2).font = fBody;
           r.getCell(4).numFmt = numFmtD; r.getCell(4).alignment = aR; r.getCell(4).font = fBodyM;
-          styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick' });
+          styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
         });
       } else {
         // Approx: jedna řádka s paušálem
@@ -3793,7 +3796,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         const r = ws.addRow(['dressing / dekorace paušál', null, null, secTotal]);
         r.getCell(1).font = fBody;
         r.getCell(4).numFmt = numFmtD; r.getCell(4).alignment = aR; r.getCell(4).font = fBodyM;
-        styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick' });
+        styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
       }
     });
     const prEnd = ws.rowCount;

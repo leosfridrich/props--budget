@@ -606,6 +606,25 @@
     opacity: 0.7;
   }
 
+  /* Revision diff highlight */
+  .budget-row.rev-changed {
+    border-left: 3px solid var(--accent2);
+    background: rgba(126,184,200,0.05);
+  }
+  .budget-row.rev-new {
+    border-left: 3px solid var(--success);
+    background: rgba(110,200,145,0.05);
+  }
+  .rev-amount-changed { color: var(--accent2) !important; }
+  .rev-amount-new { color: var(--success) !important; }
+  .rev-delta {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+    text-align: right;
+  }
+
   /* Totals block */
   .totals-block {
     border: 1px solid var(--border);
@@ -813,7 +832,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.13</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.14</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2934,6 +2953,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       }
 
       hideThinking(interval);
+      window._revisionDiff = null;
       window._lastBudgetName = projectName;
       renderBudget(budget, projectName);
 
@@ -2981,15 +3001,22 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
 
     let setsHtml = (b.props?.sections || []).map(sec => {
       const secTotal = sec.items.reduce((s, i) => s + (i.amount || 0), 0);
+      const dk = window._revisionDiff?.['props:' + sec.name];
+      const borderStyle = dk ? `border-left:3px solid ${dk.isNew ? 'var(--success)' : 'var(--accent2)'};` : '';
+      const amtColor = dk ? (dk.isNew ? 'var(--success)' : 'var(--accent2)') : 'var(--accent)';
+      const deltaHtml = dk && !dk.isNew ? `<div style="font-size:9px;color:${dk.delta>0?'var(--danger)':'var(--success)'};">${dk.delta>0?'+':''}${fmt(dk.delta)} Kč</div>` : '';
       return `
         <div style="display:grid; grid-template-columns:1fr auto; align-items:center;
-                    padding:14px 16px; border-bottom:1px solid var(--border);">
+                    padding:14px 16px; border-bottom:1px solid var(--border);${borderStyle}">
           <div>
             <div style="font-size:13px; color:var(--text); margin-bottom:3px;">${sec.name}</div>
             <div style="font-size:10px; color:var(--muted);">dressing</div>
           </div>
-          <div style="font-family:'DM Serif Display',serif; font-size:20px; color:var(--accent);">
-            ${fmt(secTotal)} <span style="font-size:11px; color:var(--muted);">Kč</span>
+          <div style="text-align:right;">
+            <div style="font-family:'DM Serif Display',serif; font-size:20px; color:${amtColor};">
+              ${fmt(secTotal)} <span style="font-size:11px; color:var(--muted);">Kč</span>
+            </div>
+            ${deltaHtml}
           </div>
         </div>`;
     }).join('');
@@ -3020,17 +3047,21 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
             const sd = p.shoot_days ?? (p.phase==='shoot'?p.days:0) ?? 0;
             const pd = p.prep_days  ?? (p.phase!=='shoot'?p.days:0) ?? 0;
             const rt = p.rate || 0;
-            const shootRow = sd > 0 ? `<div class="budget-row">
+            const dk = window._revisionDiff?.['labour:' + p.role];
+            const cls = dk ? (dk.isNew ? ' rev-new' : ' rev-changed') : '';
+            const amtCls = dk ? (dk.isNew ? ' rev-amount-new' : ' rev-amount-changed') : '';
+            const deltaHtml = dk && !dk.isNew ? `<span class="rev-delta" style="color:${dk.delta>0?'var(--danger)':'var(--success)'}">${dk.delta>0?'+':''}${fmt(dk.delta)} Kč</span>` : '';
+            const shootRow = sd > 0 ? `<div class="budget-row${cls}">
               <div class="row-name">${p.role || ''}</div>
               <div class="row-detail">shoot ${sd} dní</div>
               <div class="row-detail">${fmt(rt)}/den</div>
-              <div class="row-amount">${fmt(sd*rt)} Kč</div>
+              <div class="row-amount${amtCls}">${fmt(sd*rt)} Kč${deltaHtml}</div>
             </div>` : '';
-            const prepRow = pd > 0 ? `<div class="budget-row" style="opacity:0.75;">
+            const prepRow = pd > 0 ? `<div class="budget-row${cls}" style="opacity:0.75;">
               <div class="row-name" style="padding-left:12px;">${p.name || 'prep and wrap'}</div>
               <div class="row-detail">prep ${pd} dní</div>
               <div class="row-detail">${fmt(rt)}/den</div>
-              <div class="row-amount">${fmt(pd*rt)} Kč</div>
+              <div class="row-amount${amtCls}">${fmt(pd*rt)} Kč</div>
             </div>` : '';
             return shootRow + prepRow;
           }).join('')}
@@ -3045,12 +3076,19 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           <div class="section-total">${fmt(transport)} Kč</div>
         </div>
         <div class="section-body" id="approx-transport">
-          ${(b.transport.items).map(r => `<div class="budget-row">
-            <div class="row-name">${r.name}</div>
-            <div class="row-detail">${r.days} dní</div>
-            <div class="row-detail">${fmt(r.rate)}/den</div>
-            <div class="row-amount">${fmt(r.total || r.days*r.rate)} Kč</div>
-          </div>`).join('')}
+          ${(b.transport.items).map(r => {
+            const dk = window._revisionDiff?.['transport:' + r.name];
+            const cls = dk ? (dk.isNew ? ' rev-new' : ' rev-changed') : '';
+            const amtCls = dk ? (dk.isNew ? ' rev-amount-new' : ' rev-amount-changed') : '';
+            const amt = r.days * r.rate;
+            const deltaHtml = dk && !dk.isNew ? `<span class="rev-delta" style="color:${dk.delta>0?'var(--danger)':'var(--success)'}">${dk.delta>0?'+':''}${fmt(dk.delta)} Kč</span>` : '';
+            return `<div class="budget-row${cls}">
+              <div class="row-name">${r.name}</div>
+              <div class="row-detail">${r.days} dní</div>
+              <div class="row-detail">${fmt(r.rate)}/den</div>
+              <div class="row-amount${amtCls}">${fmt(amt)} Kč${deltaHtml}</div>
+            </div>`;
+          }).join('')}
         </div>
       </div>` : ''}
 
@@ -3275,19 +3313,23 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         const sd = p.shoot_days ?? (p.phase==='shoot'?p.days:0) ?? 0;
         const pd = p.prep_days  ?? (p.phase!=='shoot'?p.days:0) ?? 0;
         const rt = p.rate || 0;
+        const dk = window._revisionDiff?.['labour:' + p.role];
+        const cls = dk ? (dk.isNew ? ' rev-new' : ' rev-changed') : '';
+        const amtCls = dk ? (dk.isNew ? ' rev-amount-new' : ' rev-amount-changed') : '';
+        const deltaHtml = dk && !dk.isNew ? `<span class="rev-delta" style="color:${dk.delta>0?'var(--danger)':'var(--success)'}">${dk.delta>0?'+':''}${formatCZK(dk.delta)}</span>` : '';
         if (sd > 0) html += `
-          <div class="budget-row">
+          <div class="budget-row${cls}">
             <div class="row-name">${p.role || ''}${p.name ? ` — ${p.name}` : ''}</div>
             <div class="row-detail">shoot ${sd} dní</div>
             <div class="row-detail">${formatCZK(rt)}/den</div>
-            <div class="row-amount">${formatCZK(sd*rt)}</div>
+            <div class="row-amount${amtCls}">${formatCZK(sd*rt)}${deltaHtml}</div>
           </div>`;
         if (pd > 0) html += `
-          <div class="budget-row" style="opacity:0.75;">
+          <div class="budget-row${cls}" style="opacity:0.75;">
             <div class="row-name" style="padding-left:12px;">${p.name || 'prep and wrap'}</div>
             <div class="row-detail">prep ${pd} dní</div>
             <div class="row-detail">${formatCZK(rt)}/den</div>
-            <div class="row-amount">${formatCZK(pd*rt)}</div>
+            <div class="row-amount${amtCls}">${formatCZK(pd*rt)}</div>
           </div>`;
       });
       html += `</div></div>`;
@@ -3307,14 +3349,18 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           <div class="section-body" id="transport-body">
       `;
       b.transport.items.forEach(row => {
+        const dk = window._revisionDiff?.['transport:' + row.name];
+        const cls = dk ? (dk.isNew ? ' rev-new' : ' rev-changed') : '';
+        const amtCls = dk ? (dk.isNew ? ' rev-amount-new' : ' rev-amount-changed') : '';
+        const amt = (row.days || 0) * (row.rate || 0);
+        const deltaHtml = dk && !dk.isNew ? `<span class="rev-delta" style="color:${dk.delta>0?'var(--danger)':'var(--success)'}">${dk.delta>0?'+':''}${formatCZK(dk.delta)}</span>` : '';
         html += `
-          <div class="budget-row">
+          <div class="budget-row${cls}">
             <div class="row-name">${row.name}</div>
             <div class="row-detail">${row.days} dní</div>
             <div class="row-detail">${formatCZK(row.rate)}/den</div>
-            <div class="row-amount">${formatCZK(row.total)}</div>
-          </div>
-        `;
+            <div class="row-amount${amtCls}">${formatCZK(amt)}${deltaHtml}</div>
+          </div>`;
       });
       html += `</div></div>`;
     }
@@ -3334,10 +3380,14 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       `;
       b.props.sections.forEach(section => {
         const sectionTotal = section.items.reduce((s, i) => s + (i.amount || 0), 0);
-        html += `<div class="budget-row" style="background:var(--surface2); border-top: 1px solid var(--border);">
+        const dk = window._revisionDiff?.['props:' + section.name];
+        const secCls = dk ? (dk.isNew ? ' rev-new' : ' rev-changed') : '';
+        const secAmtCls = dk ? (dk.isNew ? ' rev-amount-new' : ' rev-amount-changed') : '';
+        const deltaHtml = dk && !dk.isNew ? `<span class="rev-delta" style="color:${dk.delta>0?'var(--danger)':'var(--success)'}">${dk.delta>0?'+':''}${formatCZK(dk.delta)}</span>` : '';
+        html += `<div class="budget-row${secCls}" style="background:var(--surface2); border-top: 1px solid var(--border);">
           <div class="row-name" style="font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);">${section.name}</div>
           <div></div><div></div>
-          <div class="row-amount" style="color:var(--muted)">${formatCZK(sectionTotal)}</div>
+          <div class="row-amount${secAmtCls}" style="${!dk?'color:var(--muted)':''}">${formatCZK(sectionTotal)}${deltaHtml}</div>
         </div>`;
         section.items.forEach(item => {
           html += `
@@ -3346,8 +3396,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
               <div></div>
               <div class="row-note">${item.note || ''}</div>
               <div class="row-amount">${formatCZK(item.amount)}</div>
-            </div>
-          `;
+            </div>`;
         });
       });
       html += `</div></div>`;
@@ -3411,6 +3460,40 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
 
     // Store for export
     window._lastBudget = b;
+  }
+
+  function computeRevisionDiff(oldB, newB) {
+    if (!oldB || !newB) return {};
+    const diff = {};
+    const calcPerson = p => {
+      const sd = p.shoot_days ?? 0; const pd = p.prep_days ?? 0; const rt = p.rate || 0;
+      return { shoot: sd * rt, prep: pd * rt, total: (sd + pd) * rt, sd, pd, rt };
+    };
+    // Labour
+    (newB.labour?.team || []).forEach(p => {
+      const old = (oldB.labour?.team || []).find(o => o.role === p.role);
+      const n = calcPerson(p);
+      if (!old) { diff['labour:' + p.role] = { isNew: true, newAmt: n.total }; return; }
+      const o = calcPerson(old);
+      if (Math.abs(n.total - o.total) > 50) diff['labour:' + p.role] = { oldAmt: o.total, newAmt: n.total, delta: n.total - o.total };
+    });
+    // Transport
+    (newB.transport?.items || []).forEach(item => {
+      const old = (oldB.transport?.items || []).find(o => o.name === item.name);
+      const newAmt = (item.days || 0) * (item.rate || 0);
+      if (!old) { diff['transport:' + item.name] = { isNew: true, newAmt }; return; }
+      const oldAmt = (old.days || 0) * (old.rate || 0);
+      if (Math.abs(newAmt - oldAmt) > 50) diff['transport:' + item.name] = { oldAmt, newAmt, delta: newAmt - oldAmt };
+    });
+    // Props sections
+    (newB.props?.sections || []).forEach(sec => {
+      const newAmt = (sec.items || []).reduce((s, i) => s + (i.amount || 0), 0);
+      const old = (oldB.props?.sections || []).find(o => o.name === sec.name);
+      if (!old) { diff['props:' + sec.name] = { isNew: true, newAmt }; return; }
+      const oldAmt = (old.items || []).reduce((s, i) => s + (i.amount || 0), 0);
+      if (Math.abs(newAmt - oldAmt) > 50) diff['props:' + sec.name] = { oldAmt, newAmt, delta: newAmt - oldAmt };
+    });
+    return diff;
   }
 
   function toggleSection(id) {
@@ -3503,6 +3586,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       // Save as learned correction (summarized)
       addLearnedCorrection(savedNote.substring(0, 120));
 
+      window._revisionDiff = computeRevisionDiff(window._lastBudget, revised);
       window._lastBudgetName = projectName;
       renderBudget(revised, projectName);
 

@@ -813,7 +813,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.9</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v5.10</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2817,6 +2817,9 @@ document.addEventListener('DOMContentLoaded', () => {
       low: 'Low budget'
     };
 
+    // Learning context — uložené korekce, historická data, instrukce
+    const _learningCtx = getLearningContext();
+
     // Referenční kontext — přímo ze seed konstant (16 rozpočtů + 17 scriptů)
     let _refBudgetCtx = '';
     let _refScriptCtx = '';
@@ -2856,7 +2859,7 @@ ${outputMode==='approx'
   ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0. Vycházej z referenčních rozpočtů. props.total = součet všech setů.`
   : `MÓD: DETAILNÍ — pro každý set vygeneruj 3–5 konkrétních prop položek s reálnými cenami.`}
 KALIBRACE (historická podhodnocení): labour — navyš prep_days u členů týmu (zejména prop master a propman) tak aby výsledná suma dní×sazba odpovídala reálnému projektu; přibližně +150 000 Kč více dnů (NEPOUŽÍVEJ labour.total jako lump sum — vše musí být v prep_days jednotlivých lidí). Transport: přidej položky nebo navyš dny o ~+200 000 Kč celkem. Props: zvyš částky u setů o ~+300 000 Kč celkem.
-DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
+${_learningCtx ? _learningCtx + '\n' : ''}DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
 Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} — shoot_days i prep_days MUSÍ být reálná čísla >0.
 {"summary":"","labour":{"total":0,"team":[{"role":"Prop master","name":"","shoot_days":3,"prep_days":16,"rate":4900},{"role":"1. Propman","name":"","shoot_days":3,"prep_days":8,"rate":4500}]},"transport":{"total":0,"items":[{"name":"car prep","days":16,"rate":1700,"total":27200},{"name":"truck I","days":8,"rate":3800,"total":30400}]},"props":{"total":0,"sections":[{"name":"název setu","items":[{"name":"dekorace paušál","amount":50000}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`
     contentParts.push({ type: 'text', text: prompt });
@@ -3106,6 +3109,13 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
 
   function actualsBoxHtml(b) {
     const fmtK = n => Math.round((n||0)/1000);
+    const _labEst = (b.labour?.team || []).reduce((s, p) => {
+      const sd = p.shoot_days ?? (p.phase==='shoot' ? p.days : 0) ?? 0;
+      const pd = p.prep_days  ?? (p.phase!=='shoot' ? p.days : 0) ?? 0;
+      return s + (sd + pd) * (p.rate || 0);
+    }, 0);
+    const _trEst  = (b.transport?.items || []).reduce((s, i) => s + (i.days||0)*(i.rate||0), 0);
+    const _prEst  = (b.props?.sections || []).reduce((s, sec) => s + (sec.items||[]).reduce((ss,i)=>ss+(i.amount||0),0), 0);
     return `
       <div style="margin-top:12px; border:1px solid var(--border); background:var(--surface);">
         <div style="padding:10px 16px; background:var(--surface2); border-bottom:1px solid var(--border);
@@ -3120,21 +3130,21 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
             <div>
               <div style="font-size:9px;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Labour</div>
-              <input type="number" id="actualLabour" placeholder="${fmtK(b.labour?.total)}k"
+              <input type="number" id="actualLabour" placeholder="${fmtK(_labEst)}k"
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
                        font-family:'DM Mono',monospace;font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
                 onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
             <div>
               <div style="font-size:9px;color:var(--accent2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Transport</div>
-              <input type="number" id="actualTransport" placeholder="${fmtK(b.transport?.total)}k"
+              <input type="number" id="actualTransport" placeholder="${fmtK(_trEst)}k"
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
                        font-family:'DM Mono',monospace;font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
                 onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
             <div>
               <div style="font-size:9px;color:var(--text);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Props</div>
-              <input type="number" id="actualProps" placeholder="${fmtK(b.props?.total)}k"
+              <input type="number" id="actualProps" placeholder="${fmtK(_prEst)}k"
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
                        font-family:'DM Mono',monospace;font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
                 onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
@@ -3142,7 +3152,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           </div>
           <div style="font-size:9px;color:var(--muted);margin-bottom:8px;">Zadej hodnoty v Kč (celá čísla, bez mezer). Prázdné pole = přeskočit.</div>
           <div style="display:flex;gap:10px;align-items:center;">
-            <button onclick="saveActualFromForm(${JSON.stringify(b.labour?.total||0)},${JSON.stringify(b.transport?.total||0)},${JSON.stringify(b.props?.total||0)})" style="
+            <button onclick="saveActualFromForm(${_labEst},${_trEst},${_prEst})" style="
               flex:1;background:var(--surface2);border:1px solid var(--success);
               color:var(--success);font-family:'DM Mono',monospace;font-size:11px;
               letter-spacing:0.15em;text-transform:uppercase;padding:10px;

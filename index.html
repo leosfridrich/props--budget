@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.5.1</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.6</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2178,7 +2178,7 @@
     try { return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'); } catch(e){ return []; }
   }
 
-  let _historyBarOpen = true;
+  let _historyBarOpen = false;
   function toggleHistoryBar() {
     _historyBarOpen = !_historyBarOpen;
     document.getElementById('historyBarList').style.display = _historyBarOpen ? '' : 'none';
@@ -2196,10 +2196,27 @@
     document.getElementById('historyBarChevron').textContent = _historyBarOpen ? '▲' : '▼';
     const fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n||0));
     const currentId = window._lastHistoryId;
+    // Číslování verzí — počítáme od nejstaršího (history je newest-first)
+    const _vCount = {};
+    const _vNums = history.map(e => {
+      const k = (e.name||'').toLowerCase().trim();
+      _vCount[k] = (_vCount[k] || 0) + 1;
+      return _vCount[k];
+    });
+    // Přepočítáme — chceme v1=nejstarší, vN=nejnovější; history[0] je nejnovější
+    const _vTotal = {};
+    history.forEach(e => { const k=(e.name||'').toLowerCase().trim(); _vTotal[k]=(_vTotal[k]||0)+1; });
+    const _vSeen = {};
+    const _labels = history.map(e => {
+      const k = (e.name||'').toLowerCase().trim();
+      _vSeen[k] = (_vSeen[k] || 0) + 1;
+      const ver = _vTotal[k] - _vSeen[k] + 1;
+      return _vTotal[k] > 1 ? `v${ver}` : '';
+    });
     list.innerHTML = history.map((e,i) => `
       <div class="history-item${e.id===currentId?' active':''}" onclick="restoreFromHistory(${i})">
         <div style="flex:1; min-width:0;">
-          <div class="history-item-name">${e.name}</div>
+          <div class="history-item-name">${e.name}${_labels[i] ? ' <span style="opacity:0.5;font-size:10px;">'+_labels[i]+'</span>' : ''}</div>
           <div class="history-item-meta">${e.ts}</div>
         </div>
         <div class="history-item-total">${fmt(e.total)} Kč</div>
@@ -3087,7 +3104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v9.5.1';
+    const _APP_VER = 'v9.6';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

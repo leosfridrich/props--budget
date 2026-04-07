@@ -879,7 +879,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.2</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3751,6 +3751,12 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const projectName = window._lastBudgetName || 'Projekt';
     if (!b) return;
 
+    // Načti délky fází z input polí (aktuální hodnoty projektu)
+    const _rShoot = parseInt(document.getElementById('shootDays')?.value) || 0;
+    const _rPrep  = parseInt(document.getElementById('prepDays')?.value)  || 0;
+    const _rWrap  = parseInt(document.getElementById('wrapDays')?.value)  || 0;
+    const _maxDays = _rShoot + _rPrep + _rWrap;
+
     const btn = document.getElementById('reviseBtn');
     const status = document.getElementById('reviseStatus');
     btn.disabled = true;
@@ -3760,17 +3766,20 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const prompt = [
       'Jsi expert na filmové rekvizitní rozpočty. Dostal jsi hotový rozpočet a požadavek na opravu.',
       '',
+      'PARAMETRY PROJEKTU:',
+      `Shoot: ${_rShoot} dní | Prep: ${_rPrep} dní | Wrap/likvidace: ${_rWrap} dní | CELKEM: ${_maxDays} dní`,
+      '',
       'AKTUÁLNÍ ROZPOČET (JSON):',
       JSON.stringify(b, null, 2),
       '',
       'POŽADAVEK NA OPRAVU:',
       note,
       '',
-      'PRAVIDLA:',
+      'PRAVIDLA (ZÁVAZNÁ — porušení = chybný výstup):',
       '1. Uprav přesně to co požadavek říká. Zachovej celkovou strukturu JSON.',
-      '2. LABOUR: Změny prováděj POUZE úpravou shoot_days nebo prep_days u konkrétních lidí v labour.team[]. NIKDY nemeň pole "rate" (denní sazba zůstává pevná). Přidávej/odebírej osoby pokud je potřeba.',
-      '3. TRANSPORT: Změny prováděj POUZE úpravou počtu "days" u konkrétních vozidel v transport.items[]. NIKDY nemeň pole "rate" (sazba vozidla za den zůstává pevná). Přidávej/odebírej vozidla pokud je potřeba.',
-      '4. PROPS: Změny prováděj na konkrétních položkách v props.sections[].items[] — uprav amount nebo přidej/odeber položky. NIKDY neopravuj jen props.total.',
+      `2. LABOUR: Měň POUZE shoot_days a prep_days. NIKDY nemeň "rate". Max shoot_days = ${_rShoot}, max prep_days = ${_rPrep + _rWrap}, celkem shoot_days + prep_days ≤ ${_maxDays} na osobu. Potřebuješ-li více peněz → PŘIDEJ novou osobu do labour.team[], NENAVYŠUJ dny stávající osoby nad maximum.`,
+      `3. TRANSPORT: Měň POUZE "days". NIKDY nemeň "rate". Max days ≤ ${_maxDays} na vozidlo. Potřebuješ-li více peněz → PŘIDEJ nové vozidlo do transport.items[], NENAVYŠUJ dny nad ${_maxDays}.`,
+      '4. PROPS: Uprav amount u konkrétních položek v props.sections[].items[], nebo přidej/odeber položky.',
       '5. Pole labour.total, transport.total, props.total, subtotal, fee, total_base, grand_total nastav na 0 — jsou přepočítávány automaticky.',
       '6. Do pole "summary" přidej na začátek: "↺ Opraveno: ' + note.substring(0, 80) + '"',
       '',
@@ -3808,6 +3817,23 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('Neplatná odpověď');
       const revised = JSON.parse(jsonMatch[0]);
+
+      // ── Client-side ochrana — ořež dny na maximální limity projektu ──
+      if (_maxDays > 0) {
+        (revised.labour?.team || []).forEach(p => {
+          if (p.shoot_days > _rShoot) p.shoot_days = _rShoot;
+          if (p.prep_days  > _rPrep + _rWrap) p.prep_days = _rPrep + _rWrap;
+          // Zachovej rate z originálu (model ho nesmí měnit)
+          const orig = (b.labour?.team || []).find(o => (o.role||'').toLowerCase() === (p.role||'').toLowerCase());
+          if (orig) p.rate = orig.rate;
+        });
+        (revised.transport?.items || []).forEach(item => {
+          if (item.days > _maxDays) item.days = _maxDays;
+          // Zachovej rate z originálu
+          const orig = (b.transport?.items || []).find(o => (o.name||'').toLowerCase() === (item.name||'').toLowerCase());
+          if (orig) item.rate = orig.rate;
+        });
+      }
 
       // Clear note, save to learned, re-render
       const savedNote = note;

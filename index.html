@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.6</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.7</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2940,7 +2940,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v8.6';
+    const _APP_VER = 'v8.7';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3984,15 +3984,29 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     };
 
     // ── Detekce cílových částek v poznámce (props/labour/transport celkem X) ──
+    // Detekce cílové částky — hledá klíčové slovo + číslo kdekoliv v textu
     const _parseTarget = (text, keywords) => {
-      const kw = keywords.join('|');
-      const m = text.match(new RegExp(`(?:${kw})[^\\d]*(\\d[\\d\\s]*(?:[kKmM]|\\d{3})?)`, 'i'));
-      if (!m) return 0;
-      return parseKAmount(m[1].replace(/\s/g, '')) || 0;
+      for (const kw of keywords) {
+        // Klíčové slovo + volitelné mezery/znaky + číslo (s k/M)
+        const re = new RegExp(kw + '[^\\d]{0,10}([\\d][\\d\\s\\.]*[kKmM]?)', 'i');
+        const m = text.match(re);
+        if (m) {
+          const val = parseKAmount(m[1].replace(/\s/g, ''));
+          if (val > 0) return val;
+        }
+      }
+      return 0;
     };
-    const _targetProps     = _parseTarget(note, ['props celkem','props total','props za','props:','rekvizity celkem','rekvizity:']);
-    const _targetLabour    = _parseTarget(note, ['labour celkem','labour total','labour:','lidé celkem','pracovníci celkem']);
-    const _targetTransport = _parseTarget(note, ['transport celkem','transport total','transport:','doprava celkem','doprava:']);
+    const _targetProps     = _parseTarget(note, [
+      'props celkem','props total','props za','props:','props ',
+      'rekvizity celkem','rekvizity:','rekvizity ']);
+    const _targetLabour    = _parseTarget(note, [
+      'labour celkem','labour total','labour:','labour ',
+      'lidi celkem','lidi:','lidi ','lidé celkem','lidé:','lidé ',
+      'pracovníci celkem','pracovníci:','team celkem','team ']);
+    const _targetTransport = _parseTarget(note, [
+      'transport celkem','transport total','transport:','transport ',
+      'doprava celkem','doprava:','doprava ']);
 
     const _fmtR = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n));
     const _targetLines = [];
@@ -4106,6 +4120,44 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           (revised.transport?.items || []).forEach(item => {
             item.days = Math.max(1, Math.round(item.days * _scTr));
           });
+          // Korekce zaokrouhlovací chyby na prvním vozidle
+          const _newTr = (revised.transport?.items || []).reduce((s, i) => s + (i.days||0)*(i.rate||0), 0);
+          const _trDiff = _targetTransport - _newTr;
+          if (Math.abs(_trDiff) > 0 && revised.transport?.items?.[0]) {
+            const r = revised.transport.items[0].rate || 1;
+            revised.transport.items[0].days = Math.max(1, revised.transport.items[0].days + Math.round(_trDiff / r));
+          }
+        }
+      }
+
+      // Labour — proporcionální scaling prep_days na přesný cíl
+      if (_targetLabour > 0) {
+        const _calcLabour = team => (team || []).reduce((s, p) => {
+          const sd = (p.shoot_days || 0) * (p.rate || 0);
+          const pd = (p.prep_days  || 0) * (p.rate || 0);
+          return s + sd + pd;
+        }, 0);
+        const _actualLab = _calcLabour(revised.labour?.team);
+        if (_actualLab > 0 && Math.abs(_actualLab - _targetLabour) > 200) {
+          const _scLab = _targetLabour / _actualLab;
+          // Scalujeme prep_days — shoot_days necháme (jsou fixní dle natáčení)
+          const _maxPrep = _rPrep + _rWrap;
+          (revised.labour?.team || []).forEach(p => {
+            // Nejprve zkus škálovat prep_days
+            const newPrep = Math.max(1, Math.round((p.prep_days || 0) * _scLab));
+            p.prep_days = Math.min(newPrep, _maxPrep);
+            // Shoot_days ponech, ale clampuj
+            p.shoot_days = Math.min(p.shoot_days || 0, _rShoot);
+          });
+          // Jemná korekce — pokud stále nesedí, přidej/uber prep_days prvnímu
+          const _newLab = _calcLabour(revised.labour?.team);
+          const _labDiff = _targetLabour - _newLab;
+          if (Math.abs(_labDiff) > 200 && revised.labour?.team?.[0]) {
+            const r0 = revised.labour.team[0].rate || 1;
+            const adj = Math.round(_labDiff / r0);
+            revised.labour.team[0].prep_days = Math.max(1,
+              Math.min((revised.labour.team[0].prep_days || 0) + adj, _maxPrep));
+          }
         }
       }
 

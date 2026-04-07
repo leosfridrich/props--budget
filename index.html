@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.9</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.0</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3011,13 +3011,14 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v8.9';
+    const _APP_VER = 'v9.0';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
       if (_storedVer !== _APP_VER) {
-        // Nová verze → smaž uloženou form state (udrž jen API klíč + sazby + historii)
-        localStorage.removeItem(_FORM_STATE_KEY);
+        // Nová verze → obnov formulář (zachovej projekt + sety + script memory)
+        // NEMAŽ form state — fingerprint by nefungoval a agent by nerozpoznal script
+        restoreFormState();
         localStorage.setItem(_VER_KEY, _APP_VER);
       } else {
         // Stejná verze → obnov formulář z poslední session
@@ -3323,8 +3324,10 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
 
     const _transportAnchor = _tItems.reduce((s, v) => s + v.days * v.rate, 0);
     // Props: realistické částky dle zkušenosti z reálných rozpočtů
-    const _propsPerSet = { luxury: 160000, premium: 100000, standard: 65000, low: 28000 };
-    const _propsAnchor = Math.round(Math.max(activeSets,1) * (_propsPerSet[budgetLevel] || 65000));
+    // Props kotvy — dle reálných rozpočtů (commercial/fashion s reálnou dekorací)
+    // standard ~150k/set, premium ~220k/set, luxury ~350k/set (pronájem + nákup + výroba)
+    const _propsPerSet = { luxury: 350000, premium: 220000, standard: 150000, low: 55000 };
+    const _propsAnchor = Math.round(Math.max(activeSets,1) * (_propsPerSet[budgetLevel] || 150000));
     const _fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n));
 
     // Hero props — rozparsuji na jednotlivé položky pro prompt
@@ -3356,8 +3359,10 @@ CÍLOVÉ ČÁSTKY — ZÁVAZNÉ (odchylka max ±10 %, jinak je rozpočet špatn�
   Leading Propman: celkem ${_lpDays} dní (shoot_days=${shootDays}, prep_days=${_lpDays - shootDays})
   Propman 1: celkem ${_p1Days} dní (shoot_days=${shootDays}, prep_days=${_p1Days - shootDays})
   Ostatní lidé: rozlož do prep_days/shoot_days dle jejich rolí (max shoot_days=${shootDays}, max prep_days=${prepDays + wrapDays})
-- Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč → průměr ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč/set (bez hero props)
-  ZAKÁZÁNO v props: doprava, odvoz, montáž, asistence, pronájem vozidel, rozvoz — toto je již zahrnuto v Labour a Transport. Props = pouze cena rekvizit a dekorací.
+- Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč — TATO ČÁSTKA JE ZÁVAZNÁ, odchylka max ±5 %
+  Průměr na set: ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč (bez hero props). Každý set musí mít realisticky rozepsané položky které dohromady tuto částku naplní.
+  NIKDY negeneruj props pod ${_fmt(Math.round(_propsAnchor * 0.95))} Kč. Pokud nevíš čím doplnit, přidej: pronájem dekorací a doplňků, nákup dekorativních předmětů, styling a výběr materiálů.
+  ZAKÁZÁNO v props: doprava, odvoz, montáž, asistence, pronájem vozidel — toto patří do Labour/Transport.
 SET ŠABLONY — pokud set odpovídá typu, použij tyto položky (přizpůsob dle budget levelu, u každé kategorie počítej s více kusy na výběr kromě sofa):
 OBÝVACÍ POKOJ / LIVING ROOM (každá položka = pronájem/nákup více kusů na výběr):
   sofa (1 ks výběr) | 2–3× křeslo na výběr | 2–3× konferenční/coffee stolek | 1–2× koberec na výběr
@@ -3437,6 +3442,26 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       }
 
       hideThinking(interval);
+
+      // ── Client-side props enforcement — model nesmí podhodnotit kotvu ──
+      const _minProps = Math.round(_propsAnchor * 0.90); // tolerujeme -10 %
+      const _actualBudgetProps = (budget.props?.sections || []).reduce((s, sec) =>
+        s + (sec.items || []).reduce((ss, i) => ss + (i.amount || 0), 0), 0);
+      if (_actualBudgetProps > 0 && _actualBudgetProps < _minProps) {
+        const _propScale = (_propsAnchor + _heroAnchorAdd) / _actualBudgetProps;
+        (budget.props?.sections || []).forEach(sec => {
+          (sec.items || []).forEach(item => { item.amount = Math.round(item.amount * _propScale); });
+        });
+        // Korekce zaokrouhlení
+        const _afterScale = (budget.props?.sections || []).reduce((s, sec) =>
+          s + (sec.items || []).reduce((ss, i) => ss + (i.amount || 0), 0), 0);
+        const _propDiff = (_propsAnchor + _heroAnchorAdd) - _afterScale;
+        if (_propDiff !== 0 && budget.props?.sections?.[0]?.items?.[0]) {
+          budget.props.sections[0].items[0].amount = Math.max(0,
+            budget.props.sections[0].items[0].amount + _propDiff);
+        }
+      }
+
       window._revisionDiff = null;
       window._lastBudgetName = projectName;
       renderBudget(budget, projectName);

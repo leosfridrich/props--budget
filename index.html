@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.4</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.4.1</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3105,7 +3105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v9.4';
+    const _APP_VER = 'v9.4.1';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3491,7 +3491,7 @@ ${_heroItems.map((h,i) => `${i+1}. ${h}`).join('\n')}\nTato sekce musí být jak
     const _heroPricePerItem = { luxury: 8000, premium: 5000, standard: 2500, low: 1000 };
     const _heroAnchorAdd = _heroItems.length * (_heroPricePerItem[budgetLevel] || 2500);
 
-    const _scriptFP = buildScriptFingerprint();
+    const _scriptFP = [projectName, ...sets].join('|').substring(0, 80).replace(/\s+/g, '_');
     const prompt = `Rekvizitní rozpočet CZK. Sunprops.
 SCRIPT_ID: ${_scriptFP}
 PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%

@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.2</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -908,16 +908,16 @@
   <div class="panel-left">
 
     <!-- NOVÝ PROJEKT -->
-    <div style="padding:10px 16px 0 16px;">
+    <div style="padding:12px 16px 12px 16px; border-bottom:2px solid var(--border);">
       <button onclick="generateNewBudget()" style="
-        width:100%; background:transparent; border:1px solid var(--border);
-        color:var(--muted); font-family:'DM Mono',monospace; font-size:10px;
-        letter-spacing:0.18em; text-transform:uppercase; padding:9px 14px;
+        width:100%; background:rgba(200,169,110,0.12); border:1px solid var(--accent);
+        color:var(--accent); font-family:'DM Mono',monospace; font-size:10px;
+        letter-spacing:0.2em; text-transform:uppercase; padding:10px 14px;
         cursor:pointer; transition:all 0.2s; text-align:left; display:flex;
-        align-items:center; gap:8px;"
-        onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)';this.style.background='rgba(200,169,110,0.05)'"
-        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)';this.style.background='transparent'">
-        <span style="font-size:14px;line-height:1;">+</span> Nový projekt
+        align-items:center; gap:10px; font-weight:500;"
+        onmouseover="this.style.background='rgba(200,169,110,0.22)';this.style.boxShadow='0 0 0 1px var(--accent)'"
+        onmouseout="this.style.background='rgba(200,169,110,0.12)';this.style.boxShadow='none'">
+        <span style="font-size:16px;line-height:1;">+</span> Nový projekt
       </button>
     </div>
 
@@ -2292,20 +2292,23 @@
   }
 
   function generateNewBudget() {
-    // Vyčisti vstupní pole pro novou generaci
-    const clear = id => { const el = document.getElementById(id); if (el) el.value = ''; };
+    // Vyčisti všechna vstupní pole
+    const clear  = id => { const el = document.getElementById(id); if (el) el.value = ''; };
+    const reset0 = id => { const el = document.getElementById(id); if (el) el.value = '0'; };
     clear('projectName');
     clear('projectDesc');
     clear('heroProducts');
     clear('budgetCeiling');
-    // Vyčisti sety — ponech 1 prázdný řádek
-    const setRows = document.querySelectorAll('.set-row');
-    setRows.forEach((row, i) => {
-      const nm = row.querySelector('.set-name'); if (nm) nm.value = '';
-      if (i > 0) row.remove();
-    });
-    // Vyčisti revisionNote pokud existuje
+    reset0('shootDays');
+    reset0('prepDays');
+    reset0('wrapDays');
+    clear('shootCrewOverride');
     clear('revisionNote');
+    // Vyčisti všechny sety — smaž je a přidej jeden prázdný
+    document.getElementById('setsContainer').innerHTML = '';
+    setCounter = 0;
+    addSet('', 'reálná lokace');
+    updateCrewEstimate();
     // Smaž uloženou form state — nová generace = čistý start
     try { localStorage.removeItem(_FORM_STATE_KEY); } catch(e) {}
     // Reset window state
@@ -3055,7 +3058,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v9.2';
+    const _APP_VER = 'v9.3';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

@@ -879,7 +879,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.5</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.6</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3118,6 +3118,7 @@ CÍLOVÉ ČÁSTKY — ZÁVAZNÉ (odchylka max ±10 %, jinak je rozpočet špatn�
   Propman 1: celkem ${_p1Days} dní (shoot_days=${shootDays}, prep_days=${_p1Days - shootDays})
   Ostatní lidé: rozlož do prep_days/shoot_days dle jejich rolí (max shoot_days=${shootDays}, max prep_days=${prepDays + wrapDays})
 - Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč → průměr ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč/set (bez hero props)
+  ZAKÁZÁNO v props: doprava, odvoz, montáž, asistence, pronájem vozidel, rozvoz — toto je již zahrnuto v Labour a Transport. Props = pouze cena rekvizit a dekorací.
 TRANSPORT — POUŽIJ PŘESNĚ TATO VOZIDLA V TOMTO POŘADÍ (neměň name, days ani rate):
 ${_tItems.map(v => `  { "name":"${v.name}", "days":${v.days}, "rate":${v.rate}, "total":${v.days*v.rate} }`).join('\n')}
 Transport celkem: ${_fmt(_transportAnchor)} Kč. Kapacita dodávky a trucku = 2 lidi.

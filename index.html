@@ -876,7 +876,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v6.10</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.0</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2161,16 +2161,37 @@
   }
 
   function generateNewBudget() {
-    // Scrolluj vlevo na input panelu, focus na generate button
-    document.querySelector('.panel-left').scrollTo({ top: 0, behavior: 'smooth' });
+    // Vyčisti vstupní pole pro novou generaci
+    const clear = id => { const el = document.getElementById(id); if (el) el.value = ''; };
+    clear('projectName');
+    clear('projectDesc');
+    clear('heroProducts');
+    clear('budgetCeiling');
+    // Vyčisti sety — ponech 1 prázdný řádek
+    const setRows = document.querySelectorAll('.set-row');
+    setRows.forEach((row, i) => {
+      const nm = row.querySelector('.set-name'); if (nm) nm.value = '';
+      if (i > 0) row.remove();
+    });
+    // Vyčisti revisionNote pokud existuje
+    clear('revisionNote');
+    // Reset window state
+    window._lastBudget = null;
+    window._revisionDiff = null;
+    window._lastHistoryId = null;
+    // Skryj output, zobraz empty state
+    const out = document.getElementById('budgetOutput');
+    if (out) { out.innerHTML = ''; out.classList.remove('visible'); }
+    document.getElementById('emptyState').style.display = '';
+    // Scrolluj vlevo nahoru
+    const panelLeft = document.querySelector('.panel-left');
+    if (panelLeft) panelLeft.scrollTo({ top: 0, behavior: 'smooth' });
+    // Zvýrazni tlačítko generovat
     const btn = document.querySelector('.btn-generate');
     if (btn) {
       btn.style.boxShadow = '0 0 0 2px var(--accent)';
-      setTimeout(() => { btn.style.boxShadow = ''; }, 1200);
+      setTimeout(() => { btn.style.boxShadow = ''; }, 1500);
     }
-    const panelLeft = document.querySelector('.panel-left');
-    if (panelLeft) panelLeft.scrollTo({ top: 0, behavior: 'smooth' });
-    document.querySelector('.panels').scrollLeft = 0;
   }
 
   function scrollRightTop() {
@@ -3161,15 +3182,20 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
   function renderBudget(b, projectName) {
     window._lastBudget = b;
     window._lastBudgetName = projectName;
-    // Ulož do historie pouze při nové generaci (ne při obnově z historie)
-    if (!window._restoringFromHistory) {
-      saveBudgetHistory(b, projectName);
+    // Ulož do historie pouze při nové generaci (ne při obnově z historie a ne při revizi)
+    if (!window._restoringFromHistory && !window._revisingBudget) {
+      try { saveBudgetHistory(b, projectName); } catch(e) { console.warn('saveBudgetHistory error:', e); }
     }
     window._restoringFromHistory = false;
-    if (outputMode === 'approx') {
-      renderBudgetApprox(b, projectName);
-    } else {
-      renderBudgetDetailed(b, projectName);
+    // Renderuj — vždy, bez ohledu na historii
+    try {
+      if (outputMode === 'approx') {
+        renderBudgetApprox(b, projectName);
+      } else {
+        renderBudgetDetailed(b, projectName);
+      }
+    } catch(e) {
+      console.error('renderBudget error:', e);
     }
     // Po vyrenderování scrolluj na začátek výsledku
     requestAnimationFrame(() => scrollRightTo('budgetOutput'));
@@ -3790,12 +3816,23 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
 
       window._revisionDiff = computeRevisionDiff(window._lastBudget, revised);
       window._lastBudgetName = projectName;
+      window._revisingBudget = true;
       renderBudget(revised, projectName);
+      window._revisingBudget = false;
+      // Po revizi ulož do historie ručně (revize = nový záznam)
+      try { saveBudgetHistory(revised, projectName); } catch(e) {}
 
     } catch (e) {
-      status.textContent = '⚠ Chyba: ' + e.message;
-      btn.disabled = false;
-      btn.style.opacity = '1';
+      window._revisingBudget = false;
+      const errMsg = e.message || String(e);
+      console.error('reviseBudget error:', e);
+      // Zkus najít status v aktuálním DOM (po případném přerenderování)
+      const s = document.getElementById('reviseStatus');
+      if (s) s.textContent = '⚠ Chyba: ' + errMsg;
+      else alert('Chyba při opravě: ' + errMsg);
+    } finally {
+      const b2 = document.getElementById('reviseBtn');
+      if (b2) { b2.disabled = false; b2.style.opacity = '1'; }
     }
   }
 
@@ -4101,6 +4138,35 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     printBudgetDetailed();
   }
 
+  function _downloadHtmlAsPdf(html, filename) {
+    // Otevřeme skrytý iframe, necháme prohlížeč vyrenderovat a hned printujeme
+    // Pro Chrome/Edge: použijeme printjs-like approach přes nové okno s auto-print + download
+    const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    // Zkusíme print-to-pdf automaticky: otevřeme popup, printujeme, zavřeme
+    const win = window.open(url, '_blank', 'width=900,height=700');
+    if (!win) {
+      // Popup blokován — stáhni jako HTML a ukaž pokyn
+      a.href = url;
+      a.download = filename + '.html';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      alert('Popup blokován. Soubor stažen jako HTML — otevřete v prohlížeči a zvolte Tisk → Uložit jako PDF.');
+      return;
+    }
+    win.onload = () => {
+      setTimeout(() => {
+        win.focus();
+        win.print();
+        // Po printu zavřeme okno
+        win.onafterprint = () => { win.close(); URL.revokeObjectURL(url); };
+        // Fallback pro prohlížeče bez onafterprint
+        setTimeout(() => { try { win.close(); } catch(e){} URL.revokeObjectURL(url); }, 8000);
+      }, 600);
+    };
+  }
+
   function printBudgetApprox() {
     const b = window._lastBudget;
     if (!b) return;
@@ -4132,73 +4198,73 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const html = `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8">
 <title>${projectName} — Aproximativní rozpočet</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@300;400;500&display=swap');
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'DM Mono',monospace; font-size:10pt; color:#1a1a1a; background:white; }
-  .page { max-width:210mm; margin:0 auto; padding:14mm; }
-  .doc-header { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #1a1a1a; padding-bottom:10px; margin-bottom:18px; }
-  .doc-title { font-family:'DM Serif Display',serif; font-size:24pt; letter-spacing:-0.5px; }
-  .doc-sub { font-size:8pt; color:#888; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:4px; }
-  .doc-meta { text-align:right; font-size:8pt; color:#888; line-height:1.8; }
-  .badge { display:inline-block; background:#1a1a1a; color:white; font-size:8pt; letter-spacing:0.15em; text-transform:uppercase; padding:3px 10px; margin-bottom:12px; }
-  .agent-note { border-left:3px solid #c8a96e; padding:7px 12px; font-size:8.5pt; color:#444; margin-bottom:16px; line-height:1.6; background:#fafaf8; }
-  table { width:100%; border-collapse:collapse; margin-bottom:20px; }
-  .section-title { font-size:7.5pt; letter-spacing:0.2em; text-transform:uppercase; color:#888; border-bottom:1px solid #eee; padding-bottom:4px; margin-bottom:2px; margin-top:16px; }
-  .totals-block { border:1px solid #ddd; margin-top:20px; margin-bottom:8px; }
-  .totals-row { display:flex; justify-content:space-between; padding:7px 12px; border-bottom:1px solid #eee; font-size:9.5pt; }
-  .totals-row:last-child { border-bottom:none; }
-  .totals-row.highlight { background:white; font-weight:600; }
-  .totals-row.grand { background:white; color:#1a1a1a; padding:11px 12px; border-top:2px solid #1a1a1a; }
-  .totals-row.grand .lbl { font-family:'DM Serif Display',serif; font-size:13pt; }
-  .totals-row.grand .val { font-family:'DM Serif Display',serif; font-size:17pt; }
-  .totals-row .lbl { opacity:0.65; }
-  .doc-footer { margin-top:14px; border-top:1px solid #eee; padding-top:8px; font-size:7.5pt; color:#aaa; display:flex; justify-content:space-between; }
-  @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } .no-print { display:none !important; } }
+  body { font-family:'Helvetica Neue','Arial',sans-serif; font-size:9pt; color:#1a1a1a; background:white; }
+  .page { max-width:210mm; margin:0 auto; padding:12mm 14mm; }
+  /* Header */
+  .doc-title { font-family:'Arial',sans-serif; font-size:19pt; font-weight:bold; margin-bottom:2px; }
+  .doc-sub { font-size:8pt; color:#555; margin-bottom:10px; }
+  .doc-meta-row { display:flex; justify-content:space-between; font-size:8pt; color:#555; border-bottom:2px solid #1a1a1a; padding-bottom:8px; margin-bottom:14px; }
+  /* Agent note */
+  .agent-note { border-left:3px solid #c8a96e; padding:5px 10px; font-size:8pt; color:#444; margin-bottom:12px; line-height:1.5; background:#fafaf8; }
+  /* Section label */
+  .section-lbl { font-family:'Arial',sans-serif; font-size:8.5pt; font-weight:bold; background:#e0e0e0; padding:4px 6px; border:1.5px solid #999; border-bottom:none; margin-top:10px; }
+  /* Table MIU MIU style */
+  table { width:100%; border-collapse:collapse; margin-bottom:12px; font-size:8.5pt; }
+  th { background:#e0e0e0; font-family:'Arial',sans-serif; font-size:8pt; font-weight:bold; padding:4px 6px; border:1px solid #bbb; text-align:left; }
+  th.r { text-align:right; }
+  td { padding:3px 6px; border-left:1.5px solid #999; border-right:1.5px solid #999; border-bottom:1px solid #ccc; vertical-align:top; font-family:'Helvetica Neue Light','Helvetica Neue','Arial',sans-serif; font-size:8.5pt; }
+  td.r { text-align:right; white-space:nowrap; }
+  td.bold { font-weight:bold; }
+  tr.total-row td { border-top:1.5px solid #999; border-bottom:1.5px solid #999; font-weight:bold; background:#dcdcdc; }
+  /* Summary totals block */
+  .totals-table { width:100%; border-collapse:collapse; margin-top:12px; margin-bottom:8px; }
+  .totals-table td { padding:3px 8px; border:1px solid #ccc; font-size:8.5pt; }
+  .totals-table td.r { text-align:right; white-space:nowrap; }
+  .totals-table tr.highlight td { background:#dcdcdc; font-weight:bold; }
+  .totals-table tr.grand td { background:#1a1a1a; color:white; font-family:'Arial',sans-serif; font-size:10pt; font-weight:bold; border:2px solid #1a1a1a; padding:5px 8px; }
+  .totals-table tr.grand td.r { font-size:12pt; }
+  /* Footer */
+  .doc-footer { margin-top:10px; border-top:1px solid #ccc; padding-top:6px; font-size:7pt; color:#999; display:flex; justify-content:space-between; }
+  @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
 </style></head><body><div class="page">
-  <div class="no-print" style="text-align:right; margin-bottom:16px;">
-    <button onclick="window.print()" style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; background:#1a1a1a; color:white; border:none; padding:10px 20px; cursor:pointer;">⎙ Uložit jako PDF</button>
-    <button onclick="window.close()" style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.15em; background:transparent; color:#999; border:1px solid #ddd; padding:10px 20px; cursor:pointer; margin-left:8px;">Zavřít</button>
+  <div class="doc-title">${projectName}</div>
+  <div class="doc-sub">Rekvizitní výprava — Aproximativní odhad</div>
+  <div class="doc-meta-row">
+    <span>Props Budget Agent</span>
+    <span>${today} &nbsp;|&nbsp; Labour + Transport + Props + ${b.fee_pct || 7}% fee</span>
   </div>
-  <div class="doc-header">
-    <div>
-      <div class="doc-sub">Rekvizitní výprava — Aproximativní odhad</div>
-      <div class="doc-title">${projectName}</div>
-    </div>
-    <div class="doc-meta"><strong>Props Budget Agent</strong><br>${today}<br>Labour + Transport + Props + ${b.fee_pct || 7}% fee</div>
-  </div>
-  <div class="badge">≈ Aproximativní</div>
-  ${b.summary ? `<div class="agent-note"><strong>Agent:</strong> ${b.summary}</div>` : ''}
-  <div class="section-title">Sety — Dekorace</div>
+  ${b.summary ? `<div class="agent-note">${b.summary}</div>` : ''}
+  <div class="section-lbl">Props / Dekorace — Sety</div>
   <table>
     <thead><tr>
-      <th style="text-align:left; padding:5px 12px; font-size:7.5pt; letter-spacing:0.1em; text-transform:uppercase; color:#999; border-bottom:1px solid #eee; font-weight:400;">Set / Dekorace</th>
-      <th style="text-align:left; padding:5px 12px; font-size:7.5pt; color:#999; border-bottom:1px solid #eee; font-weight:400;"></th>
-      <th style="text-align:right; padding:5px 12px; font-size:7.5pt; letter-spacing:0.1em; text-transform:uppercase; color:#999; border-bottom:1px solid #eee; font-weight:400;">Odhad</th>
+      <th style="width:55%">Set / Dekorace</th>
+      <th></th>
+      <th class="r">Odhad (Kč)</th>
     </tr></thead>
     <tbody>${setsRows}
-      <tr><td colspan="2" style="font-weight:600; padding:8px 12px; border-top:1.5px solid #1a1a1a;">props total</td>
-      <td style="text-align:right; font-weight:600; padding:8px 12px; border-top:1.5px solid #1a1a1a; font-family:'DM Serif Display',serif; font-size:14pt;">${fmt(props)}</td></tr>
+      <tr class="total-row"><td colspan="2">Props celkem</td><td class="r">${fmt(props)} Kč</td></tr>
     </tbody>
   </table>
-  <div class="totals-block">
-    <div class="totals-row"><span class="lbl">Labour (odhad)</span><span class="val">${fmt(labour)}</span></div>
-    <div class="totals-row"><span class="lbl">Transport (odhad)</span><span class="val">${fmt(transport)}</span></div>
-    <div class="totals-row"><span class="lbl">Props / Dekorace</span><span class="val">${fmt(props)}</span></div>
-    <div class="totals-row highlight"><span class="lbl">Mezisoučet</span><span class="val">${fmt(base)}</span></div>
-    <div class="totals-row"><span class="lbl">Fee ${b.fee_pct || 7}%</span><span class="val">${fmt(fee)}</span></div>
-    <div class="totals-row highlight"><span class="lbl">Celkem bez přesčasů</span><span class="val">${fmt(total_base)}</span></div>
-    ${b.overtime_estimate ? `<div class="totals-row"><span class="lbl">+ Odhad přesčasů</span><span class="val">~${fmt(b.overtime_estimate)}</span></div>` : ''}
-    <div class="totals-row grand"><span class="lbl">KONEČNÝ ODHAD</span><span class="val">${fmt(grand)}</span></div>
-  </div>
+  <div class="section-lbl">Souhrn</div>
+  <table class="totals-table">
+    <tr><td>Labour (odhad)</td><td class="r">${fmt(labour)} Kč</td></tr>
+    <tr><td>Transport (odhad)</td><td class="r">${fmt(transport)} Kč</td></tr>
+    <tr><td>Props / Dekorace</td><td class="r">${fmt(props)} Kč</td></tr>
+    <tr class="highlight"><td>Mezisoučet</td><td class="r">${fmt(base)} Kč</td></tr>
+    <tr><td>Fee ${b.fee_pct || 7}%</td><td class="r">${fmt(fee)} Kč</td></tr>
+    <tr class="highlight"><td>Celkem bez přesčasů</td><td class="r">${fmt(total_base)} Kč</td></tr>
+    ${b.overtime_estimate ? `<tr><td>+ Odhad přesčasů</td><td class="r">~${fmt(b.overtime_estimate)} Kč</td></tr>` : ''}
+    <tr class="grand"><td>KONEČNÝ ODHAD</td><td class="r">${fmt(grand)} Kč</td></tr>
+  </table>
   <div class="doc-footer">
-    <span>Props Budget Agent — kalibrováno na 12 reálných rozpočtů</span>
+    <span>Props Budget Agent — kalibrováno na reálných rozpočtech</span>
     <span>Aproximativní odhad, nikoliv závazná nabídka</span>
   </div>
 </div></body></html>`;
 
-    const win = window.open('', '_blank');
-    win.document.write(html);
-    win.document.close();
+    const safeName = (document.getElementById('projectName').value || 'rozpocet').replace(/[^a-zA-Z0-9_\-]/g, '_');
+    _downloadHtmlAsPdf(html, safeName + '_approx');
   }
 
   function printBudgetDetailed() {
@@ -4221,233 +4287,146 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const total_base = base + fee;
     const grand = total_base + (b.overtime_estimate || 0) + (b.overcosts_estimate || 0);
 
-    // Labour rows — 2 řádky na osobu (shoot + prep)
+    // Labour rows — 2 řádky na osobu (shoot + prep), MIU MIU styl
+    const _nL = new Intl.NumberFormat('cs-CZ');
     let labourRows = (b.labour?.team || []).map(p => {
       const sd = p.shoot_days ?? (p.phase==='shoot'?p.days:0) ?? 0;
       const pd = p.prep_days  ?? (p.phase!=='shoot'?p.days:0) ?? 0;
       const rt = p.rate || 0;
-      const n = new Intl.NumberFormat('cs-CZ');
-      return `
-      <tr>
-        <td class="bold">${p.role || ''}</td>
-        <td class="phase">shoot</td>
-        <td class="num">${sd}</td>
-        <td class="num">${n.format(rt)}</td>
-        <td class="num">${n.format(sd*rt)}</td>
-      </tr>
-      <tr>
-        <td>${p.name || ''}</td>
-        <td class="phase">prep and wrap</td>
-        <td class="num">${pd}</td>
-        <td class="num">${n.format(rt)}</td>
-        <td class="num">${n.format(pd*rt)}</td>
-      </tr>`;
+      const shootRow = sd > 0 ? `<tr>
+        <td style="font-weight:bold">${p.role || ''}</td>
+        <td class="muted">shoot</td>
+        <td class="r">${sd}</td>
+        <td class="r">${_nL.format(rt)}</td>
+        <td class="r">${_nL.format(sd*rt)}</td>
+      </tr>` : '';
+      const prepRow = pd > 0 ? `<tr>
+        <td style="padding-left:10px;color:#555">${p.name || 'prep and wrap'}</td>
+        <td class="muted">prep</td>
+        <td class="r">${pd}</td>
+        <td class="r">${_nL.format(rt)}</td>
+        <td class="r">${_nL.format(pd*rt)}</td>
+      </tr>` : '';
+      return shootRow + prepRow;
     }).join('');
 
-    // Transport rows
+    // Transport rows — počítáme days*rate, ne i.total (může být 0 po revizi)
+    const _n = new Intl.NumberFormat('cs-CZ');
     let transportRows = (b.transport?.items || []).map(i => `
       <tr>
         <td colspan="2">${i.name}</td>
-        <td class="num">${i.days}</td>
-        <td class="num">${new Intl.NumberFormat('cs-CZ').format(i.rate)}</td>
-        <td class="num">${new Intl.NumberFormat('cs-CZ').format(i.total)}</td>
+        <td class="r">${i.days}</td>
+        <td class="r">${_n.format(i.rate)}</td>
+        <td class="r">${_n.format((i.days||0)*(i.rate||0))}</td>
       </tr>`).join('');
 
     // Props rows
     let propsRows = (b.props?.sections || []).map(sec => {
-      const secTotal = sec.items.reduce((s, i) => s + (i.amount || 0), 0);
-      const items = sec.items.map(item => `
+      const secTotal = (sec.items||[]).reduce((s, i) => s + (i.amount || 0), 0);
+      const items = (sec.items||[]).map(item => `
         <tr>
-          <td colspan="3" class="props-item">${item.name}</td>
-          <td class="num note">${item.note || ''}</td>
-          <td class="num">${new Intl.NumberFormat('cs-CZ').format(item.amount)}</td>
+          <td colspan="3" class="indent">${item.name}</td>
+          <td class="muted">${item.note || ''}</td>
+          <td class="r">${_n.format(item.amount)}</td>
         </tr>`).join('');
       return `
-        <tr class="section-header">
+        <tr class="sec-hdr">
           <td colspan="4">${sec.name}</td>
-          <td class="num">${new Intl.NumberFormat('cs-CZ').format(secTotal)}</td>
+          <td class="r">${_n.format(secTotal)}</td>
         </tr>${items}`;
     }).join('');
 
-    const html = `<!DOCTYPE html>
-<html lang="cs">
-<head>
-<meta charset="UTF-8">
-<title>${projectName} — Rozpočet</title>
+    const html = `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8">
+<title>${projectName} — Detailní rozpočet</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@300;400;500&display=swap');
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Mono', monospace; font-size: 10pt; color: #1a1a1a; background: white; }
-
-  .page { max-width: 210mm; margin: 0 auto; padding: 14mm 14mm 12mm; }
-
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Helvetica Neue','Arial',sans-serif; font-size:8.5pt; color:#1a1a1a; background:white; }
+  .page { max-width:210mm; margin:0 auto; padding:12mm 14mm; }
   /* Header */
-  .doc-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 18px; }
-  .doc-title { font-family: 'DM Serif Display', serif; font-size: 22pt; letter-spacing: -0.5px; line-height: 1; }
-  .doc-meta { text-align: right; font-size: 8pt; color: #555; line-height: 1.7; }
-  .doc-meta strong { color: #1a1a1a; font-size: 9pt; }
-
-  /* Summary bar */
-  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
-  .summary-box { border: 1px solid #ddd; padding: 9px 12px; }
-  .summary-box .lbl { font-size: 7.5pt; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 3px; }
-  .summary-box .val { font-family: 'DM Serif Display', serif; font-size: 14pt; color: #1a1a1a; }
-  .summary-box .pct { font-size: 8pt; color: #aaa; }
-
+  .doc-title { font-family:'Arial',sans-serif; font-size:19pt; font-weight:bold; margin-bottom:2px; }
+  .doc-sub { font-size:8pt; color:#555; margin-bottom:10px; }
+  .doc-meta-row { display:flex; justify-content:space-between; font-size:8pt; color:#555; border-bottom:2px solid #1a1a1a; padding-bottom:8px; margin-bottom:12px; }
   /* Agent note */
-  .agent-note { border-left: 3px solid #c8a96e; padding: 7px 12px; font-size: 8.5pt; color: #444; margin-bottom: 16px; line-height: 1.6; background: #fafaf8; }
-  .agent-note strong { color: #c8a96e; }
-
+  .agent-note { border-left:3px solid #c8a96e; padding:5px 10px; font-size:7.5pt; color:#444; margin-bottom:10px; line-height:1.4; background:#fafaf8; }
+  /* Summary boxes */
+  .summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:12px; }
+  .summary-box { border:1.5px solid #999; padding:5px 8px; }
+  .summary-box .lbl { font-size:7pt; text-transform:uppercase; color:#777; margin-bottom:2px; }
+  .summary-box .val { font-size:11pt; font-weight:bold; }
+  .summary-box .pct { font-size:7pt; color:#aaa; }
+  /* Section label */
+  .section-lbl { font-family:'Arial',sans-serif; font-size:8.5pt; font-weight:bold; background:#e0e0e0; padding:3px 6px; border:1.5px solid #999; border-bottom:none; margin-top:10px; }
   /* Tables */
-  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 9pt; }
-  .section-title { font-size: 7.5pt; letter-spacing: 0.2em; text-transform: uppercase; color: #888; border-bottom: 1px solid #eee; padding: 4px 0 4px; margin-bottom: 2px; margin-top: 16px; }
-  .section-title:first-child { margin-top: 0; }
-
-  th { text-align: left; font-size: 7.5pt; letter-spacing: 0.1em; text-transform: uppercase; color: #999; padding: 4px 6px; border-bottom: 1px solid #eee; font-weight: 400; }
-  th.num { text-align: right; }
-  td { padding: 4px 6px; border-bottom: 1px solid #f2f2f2; vertical-align: top; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  td.phase { color: #888; font-size: 8.5pt; }
-  td.note { color: #aaa; font-size: 8.5pt; }
-  td.bold { font-weight: 600; }
-  td.props-item { padding-left: 14px; color: #333; }
-
-  tr.section-header td { background: white; font-weight: 600; font-size: 8.5pt; padding: 5px 6px; letter-spacing: 0.05em; border-bottom: 1px solid #ddd; }
-  tr.total-row td { font-weight: 600; border-top: 1.5px solid #1a1a1a; border-bottom: none; padding-top: 6px; }
-  tr:last-child td { border-bottom: none; }
-
-  /* Totals block */
-  .totals-block { border: 1px solid #ddd; margin-top: 16px; margin-bottom: 8px; }
-  .totals-row { display: flex; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid #eee; font-size: 9pt; }
-  .totals-row:last-child { border-bottom: none; }
-  .totals-row.highlight { background: white; font-weight: 600; }
-  .totals-row.grand { background: white; color: #1a1a1a; padding: 10px 12px; border-top: 2px solid #1a1a1a; }
-  .totals-row.grand .lbl { font-family: 'DM Serif Display', serif; font-size: 12pt; font-weight: normal; }
-  .totals-row.grand .val { font-family: 'DM Serif Display', serif; font-size: 16pt; }
-  .totals-row .lbl { color: inherit; opacity: 0.7; }
-  .totals-row .val { font-variant-numeric: tabular-nums; }
-  .totals-row.highlight .lbl, .totals-row.highlight .val { opacity: 1; color: #1a1a1a; }
-
+  table { width:100%; border-collapse:collapse; margin-bottom:10px; font-size:8pt; }
+  th { background:#e0e0e0; font-family:'Arial',sans-serif; font-size:7.5pt; font-weight:bold; padding:3px 5px; border:1px solid #bbb; text-align:left; }
+  th.r { text-align:right; }
+  td { padding:2px 5px; border-left:1.5px solid #999; border-right:1.5px solid #999; border-bottom:1px solid #d0d0d0; vertical-align:top; }
+  td.r { text-align:right; white-space:nowrap; }
+  td.muted { color:#888; font-size:7.5pt; }
+  td.indent { padding-left:12px; color:#333; }
+  tr.sec-hdr td { background:#d5d5d5; font-weight:bold; font-size:7.5pt; border-top:1.5px solid #999; border-bottom:1px solid #aaa; }
+  tr.total-row td { background:#dcdcdc; font-weight:bold; border-top:1.5px solid #999; border-bottom:1.5px solid #999; }
+  /* Totals */
+  .section-lbl-totals { font-family:'Arial',sans-serif; font-size:8.5pt; font-weight:bold; background:#a7c0de; padding:3px 6px; border:1.5px solid #999; border-bottom:none; margin-top:10px; }
+  table.totals { border:1.5px solid #999; }
+  table.totals td { border:1px solid #ccc; padding:3px 7px; }
+  table.totals tr.highlight td { background:#dcdcdc; font-weight:bold; }
+  table.totals tr.grand td { background:#1a1a1a; color:white; font-weight:bold; font-size:10pt; padding:5px 7px; border:2px solid #1a1a1a; }
+  table.totals td.r { text-align:right; white-space:nowrap; }
   /* Footer */
-  .doc-footer { margin-top: 14px; border-top: 1px solid #eee; padding-top: 8px; font-size: 7.5pt; color: #aaa; display: flex; justify-content: space-between; }
-
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .page { padding: 10mm 12mm; }
-    .no-print { display: none !important; }
-  }
-</style>
-</head>
-<body>
-<div class="page">
-
-  <!-- PRINT BUTTON (hidden on print) -->
-  <div class="no-print" style="text-align:right; margin-bottom:16px;">
-    <button onclick="window.print()" style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; background:#1a1a1a; color:white; border:none; padding:10px 20px; cursor:pointer;">⎙ Uložit jako PDF</button>
-    <button onclick="window.close()" style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase; background:transparent; color:#999; border:1px solid #ddd; padding:10px 20px; cursor:pointer; margin-left:8px;">Zavřít</button>
+  .doc-footer { margin-top:10px; border-top:1px solid #ccc; padding-top:5px; font-size:7pt; color:#999; display:flex; justify-content:space-between; }
+  @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+</style></head><body><div class="page">
+  <div class="doc-title">${projectName}</div>
+  <div class="doc-sub">Rekvizitní výprava — Detailní rozpočet</div>
+  <div class="doc-meta-row">
+    <span>Props Budget Agent</span>
+    <span>${today} &nbsp;|&nbsp; Labour + Transport + Props + ${b.fee_pct || 7}% fee</span>
   </div>
-
-  <!-- DOC HEADER -->
-  <div class="doc-header">
-    <div>
-      <div style="font-size:7.5pt; letter-spacing:0.2em; text-transform:uppercase; color:#888; margin-bottom:4px;">${getLang().pdfSubtitle}</div>
-      <div class="doc-title">${projectName}</div>
-    </div>
-    <div class="doc-meta">
-      <strong>Props Budget Agent</strong><br>
-      ${getLang().budgetGenerated}: ${today}<br>
-      ${getLang().budgetMeta(b.fee_pct || 7)}
-    </div>
-  </div>
-
-  ${b.summary ? `<div class="agent-note"><strong>${getLang().agentLabel}:</strong> ${b.summary}</div>` : ''}
-
-  <!-- SUMMARY GRID -->
+  ${b.summary ? `<div class="agent-note">${b.summary}</div>` : ''}
   <div class="summary-grid">
-    <div class="summary-box">
-      <div class="lbl">Labour</div>
-      <div class="val">${fmt(labour)}</div>
-      <div class="pct">${Math.round(labour/base*100)} ${getLang().ofBase}</div>
-    </div>
-    <div class="summary-box">
-      <div class="lbl">Transport</div>
-      <div class="val">${fmt(transport)}</div>
-      <div class="pct">${Math.round(transport/base*100)} ${getLang().ofBase}</div>
-    </div>
-    <div class="summary-box">
-      <div class="lbl">Props</div>
-      <div class="val">${fmt(props)}</div>
-      <div class="pct">${Math.round(props/base*100)} ${getLang().ofBase}</div>
-    </div>
+    <div class="summary-box"><div class="lbl">Labour</div><div class="val">${fmt(labour)} Kč</div><div class="pct">${Math.round(labour/base*100)}% základu</div></div>
+    <div class="summary-box"><div class="lbl">Transport</div><div class="val">${fmt(transport)} Kč</div><div class="pct">${Math.round(transport/base*100)}% základu</div></div>
+    <div class="summary-box"><div class="lbl">Props</div><div class="val">${fmt(props)} Kč</div><div class="pct">${Math.round(props/base*100)}% základu</div></div>
   </div>
-
-  <!-- LABOUR -->
-  <div class="section-title">${getLang().labourSection}</div>
+  <div class="section-lbl">Labour</div>
   <table>
-    <thead><tr>
-      <th>${getLang().promptLang === "en" ? "Position / Name" : "Pozice / Jméno"}</th><th>${getLang().promptLang === "en" ? "Phase" : "Fáze"}</th>
-      <th class="num">${getLang().promptLang === "en" ? "Days" : "Dny"}</th><th class="num">${getLang().promptLang === "en" ? "Rate" : "Sazba"}</th><th class="num">${getLang().promptLang === "en" ? "Total" : "Celkem"}</th>
-    </tr></thead>
+    <thead><tr><th style="width:32%">Pozice</th><th>Fáze</th><th class="r">Dny</th><th class="r">Sazba (Kč)</th><th class="r">Celkem (Kč)</th></tr></thead>
     <tbody>${labourRows}
-      <tr class="total-row">
-        <td colspan="4"><strong>${getLang().pdfTotalLabour}</strong></td>
-        <td class="num"><strong>${fmt(labour)}</strong></td>
-      </tr>
+      <tr class="total-row"><td colspan="4">Labour celkem</td><td class="r">${fmt(labour)} Kč</td></tr>
     </tbody>
   </table>
-
-  <!-- TRANSPORT -->
-  <div class="section-title">${getLang().transportSection}</div>
+  <div class="section-lbl">Transport</div>
   <table>
-    <thead><tr>
-      <th colspan="2">Vozidlo</th>
-      <th class="num">Dny</th><th class="num">Sazba</th><th class="num">Celkem</th>
-    </tr></thead>
+    <thead><tr><th colspan="2">Vozidlo</th><th class="r">Dny</th><th class="r">Sazba (Kč)</th><th class="r">Celkem (Kč)</th></tr></thead>
     <tbody>${transportRows}
-      <tr class="total-row">
-        <td colspan="4"><strong>${getLang().pdfTotalTransport}</strong></td>
-        <td class="num"><strong>${fmt(transport)}</strong></td>
-      </tr>
+      <tr class="total-row"><td colspan="4">Transport celkem</td><td class="r">${fmt(transport)} Kč</td></tr>
     </tbody>
   </table>
-
-  <!-- PROPS -->
-  <div class="section-title">${getLang().propsSection}</div>
+  <div class="section-lbl">Props / Dekorace</div>
   <table>
-    <thead><tr>
-      <th colspan="3">Rekvizita</th><th>Poznámka</th><th class="num">Cena</th>
-    </tr></thead>
+    <thead><tr><th colspan="3">Rekvizita</th><th>Poznámka</th><th class="r">Cena (Kč)</th></tr></thead>
     <tbody>${propsRows}
-      <tr class="total-row">
-        <td colspan="4"><strong>${getLang().pdfTotalProps}</strong></td>
-        <td class="num"><strong>${fmt(props)}</strong></td>
-      </tr>
+      <tr class="total-row"><td colspan="4">Props celkem</td><td class="r">${fmt(props)} Kč</td></tr>
     </tbody>
   </table>
-
-  <!-- TOTALS -->
-  <div class="totals-block">
-    <div class="totals-row"><span class="lbl">${getLang().subtotalLabel}</span><span class="val">${fmt(base)}</span></div>
-    <div class="totals-row"><span class="lbl">Fee ${b.fee_pct || 7}%</span><span class="val">${fmt(fee)}</span></div>
-    <div class="totals-row highlight"><span class="lbl">Celkem bez přesčasů</span><span class="val">${fmt(total_base)}</span></div>
-    ${b.overtime_estimate ? `<div class="totals-row"><span class="lbl">${getLang().overtimeLabel}</span><span class="val">~${fmt(b.overtime_estimate)}</span></div>` : ''}
-    ${b.overcosts_estimate ? `<div class="totals-row"><span class="lbl">Odhad overcosts</span><span class="val">~${fmt(b.overcosts_estimate)}</span></div>` : ''}
-    <div class="totals-row grand"><span class="lbl">${getLang().grandLabel}</span><span class="val">${fmt(grand)}</span></div>
-  </div>
-
-  <!-- FOOTER -->
+  <div class="section-lbl-totals">Souhrn</div>
+  <table class="totals">
+    <tr><td>Mezisoučet</td><td class="r">${fmt(base)} Kč</td></tr>
+    <tr><td>Fee ${b.fee_pct || 7}%</td><td class="r">${fmt(fee)} Kč</td></tr>
+    <tr class="highlight"><td>Celkem bez přesčasů</td><td class="r">${fmt(total_base)} Kč</td></tr>
+    ${b.overtime_estimate ? `<tr><td>+ Odhad přesčasů</td><td class="r">~${fmt(b.overtime_estimate)} Kč</td></tr>` : ''}
+    ${b.overcosts_estimate ? `<tr><td>Odhad overcosts</td><td class="r">~${fmt(b.overcosts_estimate)} Kč</td></tr>` : ''}
+    <tr class="grand"><td>KONEČNÝ ODHAD</td><td class="r">${fmt(grand)} Kč</td></tr>
+  </table>
   <div class="doc-footer">
-    <span>${getLang().pdfFooterLeft}</span>
+    <span>Props Budget Agent — kalibrováno na reálných rozpočtech</span>
     <span>Odhad, nikoliv závazná nabídka</span>
   </div>
+</div></body></html>`;
 
-</div>
-</body>
-</html>`;
-
-    const win = window.open('', '_blank');
-    win.document.write(html);
-    win.document.close();
+    const safeName2 = (document.getElementById('projectName').value || 'rozpocet').replace(/[^a-zA-Z0-9_\-]/g, '_');
+    _downloadHtmlAsPdf(html, safeName2 + '_detailed');
   }
 
   // Print styles (fallback - not used for PDF anymore)

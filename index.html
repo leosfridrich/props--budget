@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.4.1</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1163,7 +1163,7 @@
       <div style="font-size:9px; color:var(--muted); margin-top:5px; opacity:0.7;">Rozpočty, scripty nebo rozpisy týmu pro zpřesnění budoucích odhadů</div>
     </div>
 
-    <div class="section-label" style="margin-top:24px;">Moje instrukce & naučené korekce</div>
+    <div class="section-label" style="margin-top:24px;">Moje instrukce</div>
     <div style="border:1px solid var(--border); background:var(--surface); margin-bottom:16px;">
 
       <!-- Manual instructions -->
@@ -1177,29 +1177,11 @@
         <div style="font-size:9px; color:var(--muted); margin-top:4px;">Ukládá se automaticky v prohlížeči.</div>
       </div>
 
-      <!-- Learned corrections -->
-      <div style="padding:10px 14px; border-bottom:1px solid var(--border);">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-          <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted);">Naučené z oprav</label>
-          <button onclick="clearLearned()" style="font-size:9px; color:var(--muted); background:none; border:none; cursor:pointer; letter-spacing:0.1em; text-transform:uppercase;"
-            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">Smazat vše</button>
-        </div>
-        <div id="learnedList" style="font-size:10px; color:var(--muted); line-height:1.8; min-height:20px;">
-          <span style="opacity:0.5;">Zatím žádné naučené korekce.</span>
-        </div>
-      </div>
+      <!-- Learned corrections — skryto -->
+      <div style="display:none;"><div id="learnedList"></div></div>
 
-      <!-- Actuals history -->
-      <div style="padding:10px 14px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-          <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--success);">Skutečné výsledky</label>
-          <button onclick="clearActuals()" style="font-size:9px; color:var(--muted); background:none; border:none; cursor:pointer; letter-spacing:0.1em; text-transform:uppercase;"
-            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">Smazat vše</button>
-        </div>
-        <div id="actualsList" style="font-size:10px; color:var(--muted); min-height:20px;">
-          <span style="opacity:0.5;">Zatím žádná data. Zadej skutečné výsledky po dokončení projektu.</span>
-        </div>
-      </div>
+      <!-- Actuals history — skryto -->
+      <div style="display:none;"><div id="actualsList"></div></div>
 
     </div>
 
@@ -3105,7 +3087,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v9.4.1';
+    const _APP_VER = 'v9.5';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3851,15 +3833,8 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const _trEst  = (b.transport?.items || []).reduce((s, i) => s + (i.days||0)*(i.rate||0), 0);
     const _prEst  = (b.props?.sections || []).reduce((s, sec) => s + (sec.items||[]).reduce((ss,i)=>ss+(i.amount||0),0), 0);
     return `
-      <div style="margin-top:12px; border:1px solid var(--border); background:var(--surface);">
-        <div style="padding:10px 16px; background:var(--surface2); border-bottom:1px solid var(--border);
-                    display:flex; align-items:center; gap:10px; cursor:pointer;"
-             onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
-          <div style="width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;"></div>
-          <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--success);">Zapsat skutečné výsledky projektu</div>
-          <div style="font-size:9px;color:var(--muted);margin-left:auto;">▾ po dokončení projektu</div>
-        </div>
-        <div style="padding:14px 16px; display:none;" id="actualsForm">
+      <div style="display:none;">
+        <div id="actualsForm">
           <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">Zadej skutečné konečné částky — aplikace je použije ke kalibraci budoucích odhadů.</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
             <div>

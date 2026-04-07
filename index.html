@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.7</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2912,13 +2912,84 @@
       </div>`).join('');
   }
 
+  // ─── SCRIPT MEMORY CARDS ───
+  const _SMEM_KEY = 'propsBudget_scriptMemory';
+
+  function getScriptMemory() {
+    try { return JSON.parse(localStorage.getItem(_SMEM_KEY) || '[]'); } catch(e) { return []; }
+  }
+
+  function saveScriptMemory(card) {
+    const mem = getScriptMemory();
+    // Přepíše existující kartu se stejným scriptId nebo přidá novou
+    const idx = mem.findIndex(c => c.scriptId === card.scriptId);
+    if (idx >= 0) {
+      // Merge — zachovej stará data, přidej nová
+      mem[idx] = { ...mem[idx], ...card, corrections: [...(mem[idx].corrections || []), ...(card.corrections || [])] };
+    } else {
+      if (mem.length >= 20) mem.shift();
+      mem.push(card);
+    }
+    try { localStorage.setItem(_SMEM_KEY, JSON.stringify(mem)); } catch(e) {}
+  }
+
+  // Fingerprint scriptu z aktuálního formuláře (název + sety + dny)
+  function buildScriptFingerprint() {
+    const name = (document.getElementById('projectName')?.value || '').trim().toLowerCase();
+    const sets = Array.from(document.querySelectorAll('.set-row'))
+      .map(r => (r.querySelector('.set-name')?.value || '').trim().toLowerCase())
+      .filter(Boolean).sort().join('|');
+    const shoot = document.getElementById('shootDays')?.value || '0';
+    const prep  = document.getElementById('prepDays')?.value  || '0';
+    return `${name}__${sets}__s${shoot}p${prep}`.replace(/[^\w|_]/g, '_').substring(0, 120);
+  }
+
+  // Uloží korekci do Script Memory Card aktuálního projektu
+  function saveRevisionToMemory(note, projectName) {
+    const fp = buildScriptFingerprint();
+    const sets = Array.from(document.querySelectorAll('.set-row'))
+      .map(r => ({
+        name: (r.querySelector('.set-name')?.value || '').trim(),
+        type: (r.querySelector('.set-type')?.value || '')
+      })).filter(s => s.name);
+    const card = {
+      scriptId:   fp,
+      projectName: projectName || '',
+      setCount:   sets.length,
+      sets:       sets.map(s => `${s.name} (${s.type})`),
+      shootDays:  parseInt(document.getElementById('shootDays')?.value) || 0,
+      prepDays:   parseInt(document.getElementById('prepDays')?.value)  || 0,
+      lastUpdate: new Date().toLocaleDateString('cs-CZ'),
+      corrections: [{ date: new Date().toLocaleDateString('cs-CZ'), note: note.substring(0, 200) }]
+    };
+    saveScriptMemory(card);
+  }
+
   function getLearningContext() {
     const instructions = (document.getElementById('userInstructions')?.value || '').trim();
     const learned = getLearnedCorrections();
     const actuals = getActuals();
+    const scriptMem = getScriptMemory();
     const parts = [];
+
     if (instructions) parts.push('TRVALÉ INSTRUKCE OD UŽIVATELE:\n' + instructions);
+
+    // Script Memory Cards — nejvyšší priorita pro opakované scripty
+    if (scriptMem.length) {
+      const cards = scriptMem.map(c => {
+        const corr = (c.corrections || []).map(x => `    [${x.date}] ${x.note}`).join('\n');
+        return `  SCRIPT: "${c.projectName}" | ID: ${c.scriptId.substring(0,40)}
+  Sety (${c.setCount}): ${(c.sets||[]).join(', ')}
+  Dny: shoot=${c.shootDays} prep=${c.prepDays} | Poslední update: ${c.lastUpdate}
+  Uživatelem potvrzené opravy (ZÁVAZNÉ):\n${corr || '    (žádné opravy)'}`;
+      }).join('\n\n');
+      parts.push(`SCRIPT MEMORY CARDS — ZÁZNAMY O DŘÍVE ZPRACOVANÝCH PROJEKTECH:
+Pokud aktuální projekt odpovídá záznamu níže, MUSÍŠ použít potvrzená prostředí a korekce.
+${cards}`);
+    }
+
     if (learned.length) parts.push('NAUČENÉ KOREKCE Z PŘEDCHOZÍCH OPRAV (dodržuj):\n' + learned.map(l => '- ' + l).join('\n'));
+
     if (actuals.length) {
       const lines = actuals.map(a => {
         const labDiff = a.labour_est ? ` (odhad byl ${Math.round(a.labour_est/1000)}k, skutečnost ${Math.round(a.labour_actual/1000)}k)` : ` (skutečnost ${Math.round(a.labour_actual/1000)}k)`;
@@ -2940,7 +3011,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v8.7';
+    const _APP_VER = 'v8.8';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -2990,8 +3061,43 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   // ─── AGENT SYSTEM PROMPT ───
-  const _AGENT_SYSTEM = `Jsi specializovaný AI agent pro tvorbu odhadních rozpočtů filmových / reklamních / produkčních projektů na základě scénáře, storyboardu, briefu, rozpočtových podkladů a historických odhadů.
-Tvůj hlavní úkol není jen analyzovat aktuální vstup, ale také učit se z předchozích oprav uživatele a dlouhodobě zachovávat stejnou logiku rozhodování u opakovaně zpracovávaných stejných nebo velmi podobných scriptů.
+  const _AGENT_SYSTEM = `Jsi specializovaný AI agent pro tvorbu odhadních rozpočtů filmových, reklamních a produkčních projektů na základě scénáře, storyboardu, briefu, rozpočtových podkladů a historických odhadů.
+
+HLAVNÍ PRINCIP FUNGOVÁNÍ:
+Při každém novém zpracování děláš dvě věci zároveň:
+1. Analyzuješ aktuální script samostatně.
+2. Porovnáváš ho s dříve zpracovanými scripty a jejich opravami v kontextu SCRIPT MEMORY CARDS.
+Pokud zjistíš, že jde o stejný script, jeho revizi nebo script se stejnou strukturou scén, prostředí a produkční logikou, MUSÍŠ upřednostnit dříve potvrzenou správnou interpretaci před novou automatickou analýzou.
+
+DETEKCE IDENTITY SCRIPTU:
+Před generováním porovnej aktuální script s SCRIPT MEMORY CARDS v learning kontextu podle: názvu projektu, názvů scén, pořadí scén, prostředí, postav, klíčových rekvizit, celkové struktury.
+Výsledek: A=jednoznačně stejný script | B=velmi pravděpodobně stejný | C=jiný script.
+Pokud A nebo B: převezmi potvrzená prostředí, potvrzenou logiku rozpočtu a potvrzené korekce.
+
+IDENTIFIKACE PROSTŘEDÍ:
+Prostředí identifikuj PRODUKČNĚ — ne literárně. Za odlišné prostředí považuj prostor s alespoň jedním z: jiná lokace, jiný typ prostředí, jiná produkční příprava, jiná logistika, jiné dekorace, jiný svícení/setup, jiný exteriér/interiér.
+Povinná kontrola: pokud bylo u stejného scriptu potvrzeno N prostředí, tento počet NELZE snížit bez nové explicitní změny scriptu.
+
+UČENÍ Z OPRAV:
+Každá oprava uživatele = prioritní pravda pro budoucí zpracování stejného scriptu.
+Pokud uživatel potvrdil 4 prostředí → při dalších bězích téhož scriptu vždy 4 prostředí. Nikdy nesmíš vracet nižší počet potvrzený uživatelem.
+
+HIERARCHIE PRAVDY (sestupně):
+1. Výslovná oprava uživatele pro konkrétní script
+2. Dříve potvrzená interpretace stejného scriptu (SCRIPT MEMORY CARDS)
+3. Historické rozpočty obdobných projektů
+4. Aktuální automatická analýza scriptu
+5. Obecné odhady
+
+HARD RULE:
+Pokud rozpoznáš stejný nebo velmi podobný script jako v předchozích bězích, MUSÍŠ převzít uživatelem potvrzenou správnou interpretaci. U stejného scriptu se nesmí opakovat stejná chyba v identifikaci prostředí. Historicky potvrzená verze má vždy přednost před novou automatickou analýzou.
+
+ZAKÁZÁNO:
+- Ignorovat předchozí opravy stejného scriptu
+- Vracet nižší počet prostředí než uživatel dříve potvrdil
+- Tvářit se, že každý běh je nový bez ohledu na historii
+- Upřednostnit nejistou novou analýzu před dříve potvrzenou správnou verzí
+
 Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachovej konzistentní strukturu JSON výstupu.`;
 
   // ─── ABORT CONTROLLER ───
@@ -3233,7 +3339,9 @@ ${_heroItems.map((h,i) => `${i+1}. ${h}`).join('\n')}\nTato sekce musí být jak
     const _heroPricePerItem = { luxury: 8000, premium: 5000, standard: 2500, low: 1000 };
     const _heroAnchorAdd = _heroItems.length * (_heroPricePerItem[budgetLevel] || 2500);
 
+    const _scriptFP = buildScriptFingerprint();
     const prompt = `Rekvizitní rozpočet CZK. Sunprops.
+SCRIPT_ID: ${_scriptFP}
 PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%
 ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
 ${sets.map((s,i)=>`${i+1}.${s}`).join('|')}
@@ -4169,6 +4277,8 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
 
       // Save as learned correction (summarized)
       addLearnedCorrection(savedNote.substring(0, 120));
+      // Uloží korekci do Script Memory Card — agent ji použije při dalším zpracování stejného scriptu
+      saveRevisionToMemory(savedNote, projectName);
 
       _rpFinish(true);
       window._revisionDiff = computeRevisionDiff(window._lastBudget, revised);

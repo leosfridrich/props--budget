@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PROPS BUDGET — Rekvizitní Výprava</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap');
 
@@ -879,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.8</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.9</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -4226,32 +4227,55 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
   }
 
   function _downloadHtmlAsPdf(html, filename) {
-    // Otevřeme skrytý iframe, necháme prohlížeč vyrenderovat a hned printujeme
-    // Pro Chrome/Edge: použijeme printjs-like approach přes nové okno s auto-print + download
-    const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    // Zkusíme print-to-pdf automaticky: otevřeme popup, printujeme, zavřeme
-    const win = window.open(url, '_blank', 'width=900,height=700');
-    if (!win) {
-      // Popup blokován — stáhni jako HTML a ukaž pokyn
-      a.href = url;
-      a.download = filename + '.html';
-      a.click();
+    // Tlačítko — loading state
+    const btn = document.querySelector('[onclick="printBudget()"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Generuji…'; }
+
+    const restore = () => { if (btn) { btn.disabled = false; btn.textContent = '⎙ PDF'; } };
+
+    // Parsujeme HTML šablonu — extrahujeme CSS + obsah body
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    let cssText = '';
+    doc.querySelectorAll('style').forEach(s => { cssText += s.textContent + '\n'; });
+
+    // Dočasný <style> v hlavičce stránky
+    const tempStyle = document.createElement('style');
+    tempStyle.textContent = cssText;
+    document.head.appendChild(tempStyle);
+
+    // Off-screen kontejner s obsahem body
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;z-index:-1;';
+    container.innerHTML = doc.body.innerHTML;
+    document.body.appendChild(container);
+
+    const cleanup = () => {
+      try { document.head.removeChild(tempStyle); } catch(e) {}
+      try { document.body.removeChild(container); } catch(e) {}
+      restore();
+    };
+
+    if (typeof html2pdf === 'undefined') {
+      // Fallback — library se nenačetla
+      cleanup();
+      const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename + '.html'; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-      alert('Popup blokován. Soubor stažen jako HTML — otevřete v prohlížeči a zvolte Tisk → Uložit jako PDF.');
+      alert('PDF knihovna není dostupná. Soubor stažen jako HTML.');
       return;
     }
-    win.onload = () => {
-      setTimeout(() => {
-        win.focus();
-        win.print();
-        // Po printu zavřeme okno
-        win.onafterprint = () => { win.close(); URL.revokeObjectURL(url); };
-        // Fallback pro prohlížeče bez onafterprint
-        setTimeout(() => { try { win.close(); } catch(e){} URL.revokeObjectURL(url); }, 8000);
-      }, 600);
-    };
+
+    html2pdf().set({
+      margin: [10, 14, 10, 14],
+      filename: filename + '.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false, letterRendering: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(container).save().then(cleanup).catch(cleanup);
   }
 
   function printBudgetApprox() {

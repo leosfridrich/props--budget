@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.1</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.2</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -906,6 +906,20 @@
 
   <!-- LEFT: INPUT PANEL -->
   <div class="panel-left">
+
+    <!-- NOVÝ PROJEKT -->
+    <div style="padding:10px 16px 0 16px;">
+      <button onclick="generateNewBudget()" style="
+        width:100%; background:transparent; border:1px solid var(--border);
+        color:var(--muted); font-family:'DM Mono',monospace; font-size:10px;
+        letter-spacing:0.18em; text-transform:uppercase; padding:9px 14px;
+        cursor:pointer; transition:all 0.2s; text-align:left; display:flex;
+        align-items:center; gap:8px;"
+        onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)';this.style.background='rgba(200,169,110,0.05)'"
+        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)';this.style.background='transparent'">
+        <span style="font-size:14px;line-height:1;">+</span> Nový projekt
+      </button>
+    </div>
 
     <!-- API KEY -->
     <div class="api-section">
@@ -3041,7 +3055,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v9.1';
+    const _APP_VER = 'v9.2';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

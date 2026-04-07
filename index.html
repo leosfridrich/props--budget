@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.4</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1955,6 +1955,7 @@
         model: 'claude-sonnet-4-5',
         max_tokens: 1024,
         temperature: 0,
+        system: _AGENT_SYSTEM,
         messages: [{ role: 'user', content: contentParts }]
       });
 
@@ -2939,7 +2940,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v8.4';
+    const _APP_VER = 'v8.5';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -2987,6 +2988,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   })();
+
+  // ─── AGENT SYSTEM PROMPT ───
+  const _AGENT_SYSTEM = `Jsi specializovaný AI agent pro tvorbu odhadních rozpočtů filmových / reklamních / produkčních projektů na základě scénáře, storyboardu, briefu, rozpočtových podkladů a historických odhadů.
+Tvůj hlavní úkol není jen analyzovat aktuální vstup, ale také učit se z předchozích oprav uživatele a dlouhodobě zachovávat stejnou logiku rozhodování u opakovaně zpracovávaných stejných nebo velmi podobných scriptů.
+Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachovej konzistentní strukturu JSON výstupu.`;
 
   // ─── ABORT CONTROLLER ───
   let _abortController = null;
@@ -3266,7 +3272,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     let _timedOut = false;
 
     try {
-      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000, temperature: 0, messages });
+      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000, temperature: 0, system: _AGENT_SYSTEM, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
 
@@ -4005,6 +4011,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         model: 'claude-sonnet-4-5',
         max_tokens: 4000,
         temperature: 0,
+        system: _AGENT_SYSTEM,
         messages: [{ role: 'user', content: prompt }]
       });
 

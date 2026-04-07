@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.2</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2938,8 +2938,21 @@ document.addEventListener('DOMContentLoaded', () => {
     initRefDocs();
     renderExtraRefList();
     renderHistoryBar();
-    // Obnov formulář z poslední session
-    restoreFormState();
+    // ── Detekce nové verze — při nasazení vyčisti formulář ──
+    const _APP_VER = 'v8.3';
+    const _VER_KEY = 'propsBudget_appVersion';
+    try {
+      const _storedVer = localStorage.getItem(_VER_KEY);
+      if (_storedVer !== _APP_VER) {
+        // Nová verze → smaž uloženou form state (udrž jen API klíč + sazby + historii)
+        localStorage.removeItem(_FORM_STATE_KEY);
+        localStorage.setItem(_VER_KEY, _APP_VER);
+      } else {
+        // Stejná verze → obnov formulář z poslední session
+        restoreFormState();
+      }
+    } catch(e) { restoreFormState(); }
+
     // Auto-save při každé změně v levém panelu
     const _panelLeft = document.querySelector('.panel-left');
     if (_panelLeft) {

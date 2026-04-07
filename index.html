@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.8</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.9</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3011,7 +3011,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v8.8';
+    const _APP_VER = 'v8.9';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4238,32 +4238,41 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         }
       }
 
-      // Labour — proporcionální scaling prep_days na přesný cíl
+      // Labour — přesné dorovnání na cílovou částku
       if (_targetLabour > 0) {
-        const _calcLabour = team => (team || []).reduce((s, p) => {
-          const sd = (p.shoot_days || 0) * (p.rate || 0);
-          const pd = (p.prep_days  || 0) * (p.rate || 0);
-          return s + sd + pd;
-        }, 0);
-        const _actualLab = _calcLabour(revised.labour?.team);
+        const _calcLab = team => (team || []).reduce((s, p) =>
+          s + ((p.shoot_days||0) + (p.prep_days||0)) * (p.rate||0), 0);
+
+        const _actualLab = _calcLab(revised.labour?.team);
         if (_actualLab > 0 && Math.abs(_actualLab - _targetLabour) > 200) {
+          const _maxPrep  = _rPrep + _rWrap;
+          const _maxShoot = _rShoot;
+
+          // Strategie: škáluj CELKOVÉ dny každého člověka (prep+shoot proporcionálně)
+          // Zachovej poměr prep:shoot u každého člověka
           const _scLab = _targetLabour / _actualLab;
-          // Scalujeme prep_days — shoot_days necháme (jsou fixní dle natáčení)
-          const _maxPrep = _rPrep + _rWrap;
           (revised.labour?.team || []).forEach(p => {
-            // Nejprve zkus škálovat prep_days
-            const newPrep = Math.max(1, Math.round((p.prep_days || 0) * _scLab));
-            p.prep_days = Math.min(newPrep, _maxPrep);
-            // Shoot_days ponech, ale clampuj
-            p.shoot_days = Math.min(p.shoot_days || 0, _rShoot);
+            const origShoot = Math.min(p.shoot_days || 0, _maxShoot);
+            const origPrep  = Math.min(p.prep_days  || 0, _maxPrep);
+            const origTotal = origShoot + origPrep;
+            if (origTotal === 0) return;
+            // Nový celkový počet dní po škálování
+            const newTotal  = Math.max(1, Math.round(origTotal * _scLab));
+            // Zachovej poměr shoot:prep, clampuj na maxima
+            const shootFrac = origShoot / origTotal;
+            const newShoot  = Math.min(Math.max(1, Math.round(newTotal * shootFrac)), _maxShoot);
+            const newPrep   = Math.min(Math.max(0, newTotal - newShoot), _maxPrep);
+            p.shoot_days = newShoot;
+            p.prep_days  = newPrep;
           });
-          // Jemná korekce — pokud stále nesedí, přidej/uber prep_days prvnímu
-          const _newLab = _calcLabour(revised.labour?.team);
+
+          // Dorovnej zaokrouhlovací rozdíl na prep_days prvního člena
+          const _newLab  = _calcLab(revised.labour?.team);
           const _labDiff = _targetLabour - _newLab;
-          if (Math.abs(_labDiff) > 200 && revised.labour?.team?.[0]) {
-            const r0 = revised.labour.team[0].rate || 1;
+          if (Math.abs(_labDiff) > 0 && revised.labour?.team?.[0]) {
+            const r0  = revised.labour.team[0].rate || 1;
             const adj = Math.round(_labDiff / r0);
-            revised.labour.team[0].prep_days = Math.max(1,
+            revised.labour.team[0].prep_days = Math.max(0,
               Math.min((revised.labour.team[0].prep_days || 0) + adj, _maxPrep));
           }
         }
@@ -4624,20 +4633,23 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     tempStyle.textContent = cssText;
     document.head.appendChild(tempStyle);
 
-    // Kontejner — musí být v DOM a renderovaný (opacity:0, ne off-screen)
-    // html2canvas nedokáže zachytit element s z-index:-1 nebo left:-9999px
+    // OPRAVA: opacity:0 způsobuje prázdné PDF — html2canvas renderuje průhledný element
+    // Řešení: loading overlay zakryje obrazovku, container je VIDITELNÝ (z-index pod overlaym)
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(14,14,14,0.93);z-index:999999;display:flex;align-items:center;justify-content:center;pointer-events:all;';
+    overlay.innerHTML = '<div style="color:#e8e0d0;font-family:\'DM Mono\',monospace;font-size:12px;letter-spacing:0.18em;text-align:center;text-transform:uppercase;"><div style="margin-bottom:8px;">⏳ Generuji PDF</div><div style="font-size:9px;opacity:0.45;letter-spacing:0.1em;">může trvat 5–15 sekund</div></div>';
+    document.body.appendChild(overlay);
+
+    // Container VIDITELNÝ — html2canvas ho zachytí správně; overlay ho zakryje pro uživatele
     const container = document.createElement('div');
-    container.style.cssText = [
-      'position:fixed', 'top:0', 'left:0', 'width:794px',
-      'background:white', 'opacity:0', 'pointer-events:none',
-      'z-index:99999', 'overflow:visible'
-    ].join(';');
+    container.style.cssText = 'position:fixed;top:0;left:0;width:794px;background:white;z-index:99998;pointer-events:none;';
     container.innerHTML = doc.body.innerHTML;
     document.body.appendChild(container);
 
     const cleanup = () => {
       try { document.head.removeChild(tempStyle); } catch(e) {}
       try { document.body.removeChild(container); } catch(e) {}
+      try { document.body.removeChild(overlay); } catch(e) {}
       restore();
     };
 
@@ -4652,7 +4664,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       return;
     }
 
-    // Krátký delay — prohlížeč musí dokončit layout před html2canvas
+    // Delay — prohlížeč musí dokončit layout před html2canvas
     setTimeout(() => {
       html2pdf().set({
         margin: [10, 14, 10, 14],
@@ -4661,14 +4673,15 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         html2canvas: {
           scale: 2, useCORS: true, allowTaint: true,
           logging: false, letterRendering: true,
-          scrollX: 0, scrollY: 0
+          scrollX: 0, scrollY: 0,
+          backgroundColor: '#ffffff'
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       }).from(container).save().then(cleanup).catch(err => {
         console.error('html2pdf error:', err);
         cleanup();
       });
-    }, 150);
+    }, 200);
   }
 
   function printBudgetApprox() {

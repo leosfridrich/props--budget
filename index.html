@@ -876,7 +876,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.0</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.1</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1763,6 +1763,8 @@
     const thinkingBar = document.getElementById('thinkingBar');
     const stepsEl = document.getElementById('thinkingSteps');
     thinkingBar.classList.add('visible');
+    // Dvojitý rAF — čeká na render, pak scrolluje na vrch pravého panelu
+    requestAnimationFrame(() => requestAnimationFrame(() => scrollRightTop()));
     document.getElementById('thinkingLabel').innerHTML =
       'Sonnet analyzuje script<span style="flex:1;height:1px;background:var(--border);display:inline-block;margin-left:10px;vertical-align:middle;"></span>';
     const stopBtn = document.getElementById('stopAnalysisBtn');
@@ -2918,11 +2920,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     _abortController = new AbortController();
     const interval = showThinking();
-    // Scrolluj na pravý panel ihned po spuštění generování
-    requestAnimationFrame(() => {
-      document.getElementById('thinkingBar').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      scrollRightTop();
-    });
+    // Scrolluj na pravý panel — dvojitý rAF zajistí render před scrollem
+    requestAnimationFrame(() => requestAnimationFrame(() => scrollRightTop()));
 
     // Gather inputs
     const projectName = document.getElementById('projectName').value || 'Nový projekt';
@@ -3055,14 +3054,18 @@ document.addEventListener('DOMContentLoaded', () => {
       fullJobCrew * (prepDays * _avgPrepRate + shootDays * _avgShootRate) +
       Math.max(_shootCrew - fullJobCrew, 0) * shootDays * rates.propmanShoot
     );
-    // Transport: 1 auto celý prep + 1 kamion na shoot + extra kamion za každé 2 sety
+    // Transport: auto + kamion(y) na prep, kamiony na shoot
+    // Reálně: 1 auto prep + 1 kamion prep (od 2.týdne) + 1-N kamionů shoot
     const _truckCount = Math.max(1, Math.ceil(Math.max(activeSets,1) / 2));
+    const _prepTrucks = Math.max(1, _truckCount - 1); // kamiony i během prepu
     const _transportAnchor = Math.round(
-      prepDays * rates.car + shootDays * _truckCount * rates.truck
+      prepDays * rates.car +                           // prep auto
+      prepDays * _prepTrucks * rates.truck * 0.6 +    // prep kamion(y) — cca 60 % dní
+      shootDays * _truckCount * rates.truck            // shoot kamiony
     );
-    // Props: částka na set podle úrovně rozpočtu
-    const _propsPerSet = { luxury: 110000, premium: 70000, standard: 40000, low: 18000 };
-    const _propsAnchor = Math.round(Math.max(activeSets,1) * (_propsPerSet[budgetLevel] || 40000));
+    // Props: realistické částky dle zkušenosti z reálných rozpočtů
+    const _propsPerSet = { luxury: 160000, premium: 100000, standard: 65000, low: 28000 };
+    const _propsAnchor = Math.round(Math.max(activeSets,1) * (_propsPerSet[budgetLevel] || 65000));
     const _fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n));
 
     // Hero props — rozparsuji na jednotlivé položky pro prompt
@@ -3086,10 +3089,10 @@ JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
 ${outputMode==='approx'
   ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0.`
   : `MÓD: DETAILNÍ — pro každý set vygeneruj 3–5 konkrétních prop položek s reálnými cenami.`}${_heroSection}
-CÍLOVÉ ČÁSTKY (vypočtené z parametrů projektu — drž se jich, odchylka max ±15 %):
+CÍLOVÉ ČÁSTKY — ZÁVAZNÉ (odchylka max ±10 %, jinak je rozpočet špatně):
 - Labour celkem: ${_fmt(_labourAnchor)} Kč → rozlož do prep_days/shoot_days u ${fullJobCrew}+ členů týmu; NEPOUŽÍVEJ labour.total jako lump sum
-- Transport celkem: ${_fmt(_transportAnchor)} Kč → auto prep ${prepDays}d, ${_truckCount}× kamion shoot ${shootDays}d, doplň dle setů
-- Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč → ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč/set + hero props
+- Transport celkem: ${_fmt(_transportAnchor)} Kč → auto prep ${prepDays}d + ${_prepTrucks}× kamion prep (60 % dní) + ${_truckCount}× kamion shoot ${shootDays}d
+- Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč → průměr ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč/set (bez hero props)
 ${_learningCtx ? _learningCtx + '\n' : ''}DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
 Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} — shoot_days i prep_days MUSÍ být reálná čísla >0.
 {"summary":"","labour":{"total":0,"team":[{"role":"Prop master","name":"","shoot_days":3,"prep_days":16,"rate":4900},{"role":"1. Propman","name":"","shoot_days":3,"prep_days":8,"rate":4500}]},"transport":{"total":0,"items":[{"name":"car prep","days":16,"rate":1700,"total":27200},{"name":"truck I","days":8,"rate":3800,"total":30400}]},"props":{"total":0,"sections":[{"name":"Hero props","items":[{"name":"hero item","amount":5000}]},{"name":"název setu","items":[{"name":"dekorace paušál","amount":50000}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`

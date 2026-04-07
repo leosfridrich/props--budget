@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.9</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.10</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2314,7 +2314,7 @@
     // Based on real timing: ~15-30s for budget generation
     // Steps get progressively longer (labour fast, props slow)
     const startTime = Date.now();
-    const estimatedMs = 20000; // 20s — bar jde rychle, pak zpomalí
+    const estimatedMs = 50000; // 50s estimate — bar dojde ~85% za 50s, API může trvat až 120s
 
     let pct = 0;
     let stepCurrent = 0;
@@ -3173,14 +3173,14 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       // AbortSignal.timeout() — nativní, nefouká ho Safari timer throttling ani dimnutí displeje
       // Safari 16.4+ (iPhone/iPad iOS 16+, macOS Ventura+) ho podporuje
       if (typeof AbortSignal.timeout === 'function') {
-        const _ts = AbortSignal.timeout(52000);
+        const _ts = AbortSignal.timeout(120000);
         _ts.addEventListener('abort', () => { _timedOut = true; _budgetCtrl.abort(); }, { once: true });
       } else {
         // Fallback 1s tick chain pro starší Safari
         let _ticks = 0;
         const _tick = () => {
           if (_budgetCtrl.signal.aborted) return;
-          if (++_ticks >= 52) { _timedOut = true; _budgetCtrl.abort(); }
+          if (++_ticks >= 120) { _timedOut = true; _budgetCtrl.abort(); }
           else setTimeout(_tick, 1000);
         };
         setTimeout(_tick, 1000);
@@ -3229,7 +3229,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       hideThinking(interval);
       const isAbort = err.name === 'AbortError' || err.name === 'TimeoutError';
       if (isAbort) {
-        showError(_timedOut ? 'Timeout 52s — zkus znovu.' : 'Generování zastaveno.');
+        showError(_timedOut ? 'Timeout 2 min — zkus znovu.' : 'Generování zastaveno.');
       } else {
         showError('Chyba: ' + err.message);
       }
@@ -3858,14 +3858,14 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('x-api-key', apiKey);
         xhr.setRequestHeader('anthropic-version', '2023-06-01');
-        xhr.timeout = 55000;
+        xhr.timeout = 120000;
         xhr.onload = () => {
           try {
             const json = JSON.parse(xhr.responseText);
             xhr.status === 200 ? resolve(json) : reject(new Error(json.error?.message || `API chyba ${xhr.status}`));
           } catch(e) { reject(new Error('Chyba parsování.')); }
         };
-        xhr.ontimeout = () => reject(new Error('Timeout 55s.'));
+        xhr.ontimeout = () => reject(new Error('Timeout 2 min.'));
         xhr.onerror   = () => reject(new Error('Síťová chyba.'));
         xhr.send(_revBody);
       });

@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.11</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.0</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -982,7 +982,7 @@
 
     <div class="form-group">
       <label>Popis projektu / poznámky k scriptu</label>
-      <textarea id="projectDesc" placeholder="Popište projekt — prostředí, náladu, speciální rekvizity, hero produkty, náročné elementy (moving chairs, 3D print, hero products, water scenes, atd.)…"></textarea>
+      <textarea id="projectDesc" placeholder=""></textarea>
     </div>
 
     <div class="section-label">SET — Dekorace</div>
@@ -1073,12 +1073,12 @@
 
     <div class="form-group">
       <label>Hero produkty / výroba modeláři</label>
-      <input type="text" id="heroProducts" placeholder="např. 3x sněžítko (3D print), 1x model auta, custom logo…" />
+      <input type="text" id="heroProducts" placeholder="" />
     </div>
 
     <div class="form-group">
       <label>Budget ceiling — max. rozpočet klienta (volitelné)</label>
-      <input type="number" id="budgetCeiling" placeholder="napr. 2000000 — pokud víte" min="0" />
+      <input type="text" id="budgetCeiling" placeholder="" />
     </div>
 
     <div class="section-label">Sazby (dle vašich dat)</div>
@@ -1155,7 +1155,7 @@
       <!-- Manual instructions -->
       <div style="padding:10px 14px; border-bottom:1px solid var(--border);">
         <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:6px;">Trvalé instrukce</label>
-        <textarea id="userInstructions" placeholder="Napiš trvalá pravidla pro agenta — např. &#10;• Na 3 shoot dny vždy min 4 lidi na shoot&#10;• Props vždy převážně půjčovna&#10;• Prop master sazba 4 900/den"
+        <textarea id="userInstructions" placeholder=""
           style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
                  font-family:'DM Mono',monospace; font-size:11px; padding:8px 10px; outline:none;
                  resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;"
@@ -1675,7 +1675,7 @@
     div.dataset.id = id;
     div.style.cssText = 'display:grid; grid-template-columns:1fr 130px 28px; gap:6px; align-items:center;';
     div.innerHTML = `
-      <input type="text" class="set-name" placeholder="název setu / dekorace…" value="${name}"
+      <input type="text" class="set-name" placeholder="" value="${name}"
         style="background:var(--surface); border:1px solid var(--border); color:var(--text);
                font-family:'DM Mono',monospace; font-size:12px; padding:8px 10px; outline:none;
                transition:border-color 0.2s;"
@@ -2958,7 +2958,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const _manualShoot = parseInt(document.getElementById('shootCrewOverride').value);
     let _shootCrew = Math.min(Math.max(Math.round(fullJobCrew + _extras), activeSets >= 3 ? 12 : 6), 25);
     if (_manualShoot > 0) _shootCrew = _manualShoot;
-    const budgetCeiling = document.getElementById('budgetCeiling').value;
+    const budgetCeiling = parseKAmount(document.getElementById('budgetCeiling').value) || document.getElementById('budgetCeiling').value;
     const desc = document.getElementById('projectDesc').value;
 
     // Collect sets
@@ -3430,6 +3430,15 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
             </button>
             <div id="reviseStatus" style="font-size:10px;color:var(--muted);"></div>
           </div>
+          <div id="reviseProgressWrap" style="display:none; margin-top:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">
+              <div style="flex:1; height:2px; background:var(--border); border-radius:2px; overflow:hidden;">
+                <div id="reviseProgressBar" style="height:100%; width:0%; background:var(--accent); transition:width 0.4s ease;"></div>
+              </div>
+              <div id="reviseProgressPct" style="font-size:10px; color:var(--accent); font-family:'DM Mono',monospace; min-width:28px; text-align:right;">0%</div>
+            </div>
+            <div id="reviseProgressEta" style="font-size:9px; color:var(--muted); text-align:right; letter-spacing:0.05em;"></div>
+          </div>
         </div>
       </div>
       ${actualsBoxHtml(b)}
@@ -3462,27 +3471,27 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
             <div>
               <div style="font-size:9px;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Labour</div>
-              <input type="number" id="actualLabour" placeholder="${fmtK(_labEst)}k"
+              <input type="text" id="actualLabour" placeholder=""
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
                        font-family:'DM Mono',monospace;font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
                 onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
             <div>
               <div style="font-size:9px;color:var(--accent2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Transport</div>
-              <input type="number" id="actualTransport" placeholder="${fmtK(_trEst)}k"
+              <input type="text" id="actualTransport" placeholder=""
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
                        font-family:'DM Mono',monospace;font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
                 onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
             <div>
               <div style="font-size:9px;color:var(--text);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Props</div>
-              <input type="number" id="actualProps" placeholder="${fmtK(_prEst)}k"
+              <input type="text" id="actualProps" placeholder=""
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
                        font-family:'DM Mono',monospace;font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
                 onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
           </div>
-          <div style="font-size:9px;color:var(--muted);margin-bottom:8px;">Zadej hodnoty v Kč (celá čísla, bez mezer). Prázdné pole = přeskočit.</div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:8px;">Hodnoty v Kč nebo zkráceně — např. <strong style="color:var(--accent)">800k</strong> = 800 000. Prázdné pole = přeskočit.</div>
           <div style="display:flex;gap:10px;align-items:center;">
             <button onclick="saveActualFromForm(${_labEst},${_trEst},${_prEst})" style="
               flex:1;background:var(--surface2);border:1px solid var(--success);
@@ -3499,10 +3508,21 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       </div>`;
   }
 
+  // Parsuje "800k" → 800000, "1.5M" → 1500000, "2 000 000" → 2000000
+  function parseKAmount(val) {
+    if (!val || !String(val).trim()) return NaN;
+    const s = String(val).trim().replace(/\s/g, '').replace(',', '.');
+    const m = s.match(/^([\d.]+)\s*([kKmM]?)$/);
+    if (!m) return parseFloat(s.replace(/[^\d.]/g, '')) || NaN;
+    const num = parseFloat(m[1]);
+    const mult = m[2].toLowerCase() === 'k' ? 1000 : m[2].toLowerCase() === 'm' ? 1000000 : 1;
+    return Math.round(num * mult);
+  }
+
   function saveActualFromForm(labEst, trEst, prEst) {
-    const labVal = parseFloat(document.getElementById('actualLabour').value);
-    const trVal  = parseFloat(document.getElementById('actualTransport').value);
-    const prVal  = parseFloat(document.getElementById('actualProps').value);
+    const labVal = parseKAmount(document.getElementById('actualLabour').value);
+    const trVal  = parseKAmount(document.getElementById('actualTransport').value);
+    const prVal  = parseKAmount(document.getElementById('actualProps').value);
     if (!labVal && !trVal && !prVal) {
       document.getElementById('actualsStatus').textContent = '⚠ Zadej alespoň jednu hodnotu';
       return;
@@ -3725,6 +3745,15 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
             </button>
             <div id="reviseStatus" style="font-size:10px;color:var(--muted);"></div>
           </div>
+          <div id="reviseProgressWrap" style="display:none; margin-top:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">
+              <div style="flex:1; height:2px; background:var(--border); border-radius:2px; overflow:hidden;">
+                <div id="reviseProgressBar" style="height:100%; width:0%; background:var(--accent); transition:width 0.4s ease;"></div>
+              </div>
+              <div id="reviseProgressPct" style="font-size:10px; color:var(--accent); font-family:'DM Mono',monospace; min-width:28px; text-align:right;">0%</div>
+            </div>
+            <div id="reviseProgressEta" style="font-size:9px; color:var(--muted); text-align:right; letter-spacing:0.05em;"></div>
+          </div>
         </div>
       </div>
       ${actualsBoxHtml(b)}
@@ -3819,7 +3848,32 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const status = document.getElementById('reviseStatus');
     btn.disabled = true;
     btn.style.opacity = '0.5';
-    status.textContent = '⏳ Opravuji…';
+    status.textContent = '';
+
+    // ── Revision progress bar ──
+    const _rpWrap = document.getElementById('reviseProgressWrap');
+    const _rpBar  = document.getElementById('reviseProgressBar');
+    const _rpPct  = document.getElementById('reviseProgressPct');
+    const _rpEta  = document.getElementById('reviseProgressEta');
+    if (_rpWrap) _rpWrap.style.display = 'block';
+    const _rpStart = Date.now();
+    const _rpEst   = 45000; // 45s odhad
+    const _rpInterval = setInterval(() => {
+      const elapsed = Date.now() - _rpStart;
+      const ratio = elapsed / _rpEst;
+      const pct = Math.min(Math.round(96 * (1 - Math.exp(-2.2 * ratio))), 96);
+      if (_rpBar)  _rpBar.style.width  = pct + '%';
+      if (_rpPct)  _rpPct.textContent  = pct + '%';
+      if (_rpEta)  _rpEta.textContent  = `${Math.round(elapsed/1000)}s — aplikuji opravy…`;
+    }, 250);
+
+    const _rpFinish = (ok) => {
+      clearInterval(_rpInterval);
+      if (_rpBar)  _rpBar.style.width  = '100%';
+      if (_rpPct)  _rpPct.textContent  = '100%';
+      if (_rpEta)  _rpEta.textContent  = ok ? '✓ Hotovo' : '';
+      setTimeout(() => { if (_rpWrap) _rpWrap.style.display = 'none'; }, 2000);
+    };
 
     const prompt = [
       'Jsi expert na filmové rekvizitní rozpočty. Dostal jsi hotový rozpočet a požadavek na opravu.',
@@ -3902,6 +3956,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       // Save as learned correction (summarized)
       addLearnedCorrection(savedNote.substring(0, 120));
 
+      _rpFinish(true);
       window._revisionDiff = computeRevisionDiff(window._lastBudget, revised);
       window._lastBudgetName = projectName;
       window._revisingBudget = true;
@@ -3911,10 +3966,10 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       try { saveBudgetHistory(revised, projectName); } catch(e) {}
 
     } catch (e) {
+      _rpFinish(false);
       window._revisingBudget = false;
       const errMsg = e.message || String(e);
       console.error('reviseBudget error:', e);
-      // Zkus najít status v aktuálním DOM (po případném přerenderování)
       const s = document.getElementById('reviseStatus');
       if (s) s.textContent = '⚠ Chyba: ' + errMsg;
       else alert('Chyba při opravě: ' + errMsg);

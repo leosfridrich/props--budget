@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.3</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2968,11 +2968,14 @@
 
   function saveScriptMemory(card) {
     const mem = getScriptMemory();
-    // Přepíše existující kartu se stejným scriptId nebo přidá novou
     const idx = mem.findIndex(c => c.scriptId === card.scriptId);
     if (idx >= 0) {
-      // Merge — zachovej stará data, přidej nová
-      mem[idx] = { ...mem[idx], ...card, corrections: [...(mem[idx].corrections || []), ...(card.corrections || [])] };
+      // Merge — aktualizuj sety a přidej korekce
+      mem[idx] = {
+        ...mem[idx], ...card,
+        sets: card.sets?.length ? card.sets : mem[idx].sets,
+        corrections: [...(mem[idx].corrections || []), ...(card.corrections || [])]
+      };
     } else {
       if (mem.length >= 20) mem.shift();
       mem.push(card);
@@ -2980,36 +2983,69 @@
     try { localStorage.setItem(_SMEM_KEY, JSON.stringify(mem)); } catch(e) {}
   }
 
-  // Fingerprint scriptu z aktuálního formuláře (název + sety + dny)
-  function buildScriptFingerprint() {
-    const name = (document.getElementById('projectName')?.value || '').trim().toLowerCase();
-    const sets = Array.from(document.querySelectorAll('.set-row'))
-      .map(r => (r.querySelector('.set-name')?.value || '').trim().toLowerCase())
-      .filter(Boolean).sort().join('|');
-    const shoot = document.getElementById('shootDays')?.value || '0';
-    const prep  = document.getElementById('prepDays')?.value  || '0';
-    return `${name}__${sets}__s${shoot}p${prep}`.replace(/[^\w|_]/g, '_').substring(0, 120);
+  // Klíč projektu — jen název (lowercase, normalizovaný) — stačí pro matching
+  function buildProjectKey(name) {
+    return (name || '').trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '_').substring(0, 60);
   }
 
-  // Uloží korekci do Script Memory Card aktuálního projektu
-  function saveRevisionToMemory(note, projectName) {
-    const fp = buildScriptFingerprint();
-    const sets = Array.from(document.querySelectorAll('.set-row'))
+  // Fuzzy match — najde existující memory kartu dle názvu projektu
+  function findMemoryCard(projectName) {
+    const mem = getScriptMemory();
+    if (!mem.length) return null;
+    const key = buildProjectKey(projectName);
+    if (!key) return null;
+    // Exact match
+    let card = mem.find(c => buildProjectKey(c.projectName) === key);
+    if (card) return card;
+    // Partial match — jedno obsahuje druhé
+    card = mem.find(c => {
+      const ck = buildProjectKey(c.projectName);
+      return ck && (key.includes(ck) || ck.includes(key));
+    });
+    return card || null;
+  }
+
+  // Získá sety z formuláře
+  function getCurrentSets() {
+    return Array.from(document.querySelectorAll('.set-row'))
       .map(r => ({
         name: (r.querySelector('.set-name')?.value || '').trim(),
-        type: (r.querySelector('.set-type')?.value || '')
+        type: (r.querySelector('.set-type')?.value || 'reálná lokace')
       })).filter(s => s.name);
+  }
+
+  // Uloží aktuální stav projektu do memory (volá se po generaci i po revizi)
+  function saveProjectToMemory(projectName, corrections) {
+    const key = buildProjectKey(projectName);
+    if (!key) return;
+    const sets = getCurrentSets();
     const card = {
-      scriptId:   fp,
+      scriptId:    key,
       projectName: projectName || '',
-      setCount:   sets.length,
-      sets:       sets.map(s => `${s.name} (${s.type})`),
-      shootDays:  parseInt(document.getElementById('shootDays')?.value) || 0,
-      prepDays:   parseInt(document.getElementById('prepDays')?.value)  || 0,
-      lastUpdate: new Date().toLocaleDateString('cs-CZ'),
-      corrections: [{ date: new Date().toLocaleDateString('cs-CZ'), note: note.substring(0, 200) }]
+      setCount:    sets.length,
+      sets:        sets.map(s => `${s.name} (${s.type})`),
+      setsRaw:     sets,
+      shootDays:   parseInt(document.getElementById('shootDays')?.value) || 0,
+      prepDays:    parseInt(document.getElementById('prepDays')?.value)  || 0,
+      lastUpdate:  new Date().toLocaleDateString('cs-CZ'),
+      corrections: corrections ? [{ date: new Date().toLocaleDateString('cs-CZ'), note: (corrections).substring(0, 250) }] : []
     };
     saveScriptMemory(card);
+  }
+
+  // Aplikuje sety z memory karty do formuláře — MERGE (přidá chybějící, nepřepíše existující)
+  function applyMemoryCardSets(card) {
+    if (!card?.setsRaw?.length) return;
+    const existingNames = getCurrentSets().map(s => s.name.toLowerCase());
+    let added = 0;
+    card.setsRaw.forEach(s => {
+      if (!existingNames.includes(s.name.toLowerCase())) {
+        addSet(s.name, s.type || 'reálná lokace');
+        added++;
+      }
+    });
+    if (added > 0) updateCrewEstimate();
+    return added;
   }
 
   function getLearningContext() {
@@ -3017,34 +3053,45 @@
     const learned = getLearnedCorrections();
     const actuals = getActuals();
     const scriptMem = getScriptMemory();
+    const projectName = document.getElementById('projectName')?.value || '';
     const parts = [];
 
     if (instructions) parts.push('TRVALÉ INSTRUKCE OD UŽIVATELE:\n' + instructions);
 
-    // Script Memory Cards — nejvyšší priorita pro opakované scripty
-    if (scriptMem.length) {
-      const cards = scriptMem.map(c => {
-        const corr = (c.corrections || []).map(x => `    [${x.date}] ${x.note}`).join('\n');
-        return `  SCRIPT: "${c.projectName}" | ID: ${c.scriptId.substring(0,40)}
-  Sety (${c.setCount}): ${(c.sets||[]).join(', ')}
-  Dny: shoot=${c.shootDays} prep=${c.prepDays} | Poslední update: ${c.lastUpdate}
-  Uživatelem potvrzené opravy (ZÁVAZNÉ):\n${corr || '    (žádné opravy)'}`;
-      }).join('\n\n');
-      parts.push(`SCRIPT MEMORY CARDS — ZÁZNAMY O DŘÍVE ZPRACOVANÝCH PROJEKTECH:
-Pokud aktuální projekt odpovídá záznamu níže, MUSÍŠ použít potvrzená prostředí a korekce.
-${cards}`);
+    // Najdi kartu aktuálního projektu — pokud existuje, dej ji jako PRVNÍ a nejvýraznější
+    const currentCard = findMemoryCard(projectName);
+    if (currentCard) {
+      const corr = (currentCard.corrections || []).map(x => `  ⚠ [${x.date}] ${x.note}`).join('\n');
+      parts.push(`⚑ ROZPOZNANÝ PROJEKT — POUŽIJ TATO DATA ZÁVAZNĚ:
+Projekt: "${currentCard.projectName}" — byl již dříve zpracován a upraven uživatelem.
+POTVRZENÁ PROSTŘEDÍ (${currentCard.setCount} setů — PŘESNĚ TATO, žádná jiná nevynechávej):
+${(currentCard.sets || []).map((s,i) => `  ${i+1}. ${s}`).join('\n')}
+Dny: shoot=${currentCard.shootDays} prep=${currentCard.prepDays}
+UŽIVATELEM POTVRZENÉ OPRAVY — ZÁVAZNÉ (nesmíš je ignorovat ani opakovat chyby):
+${corr || '  (projekt byl uložen bez specifických oprav)'}
+HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výše uvedených ${currentCard.setCount} prostředí.`);
+    }
+
+    // Ostatní memory cards jako kontext
+    const otherCards = scriptMem.filter(c => c.scriptId !== currentCard?.scriptId);
+    if (otherCards.length) {
+      const cards = otherCards.map(c => {
+        const corr = (c.corrections || []).slice(-3).map(x => `    [${x.date}] ${x.note}`).join('\n');
+        return `  "${c.projectName}" | ${c.setCount} setů: ${(c.sets||[]).join(', ')} | ${c.lastUpdate}${corr ? '\n' + corr : ''}`;
+      }).join('\n');
+      parts.push(`OSTATNÍ DŘÍVĚJŠÍ PROJEKTY (kontext):\n${cards}`);
     }
 
     if (learned.length) parts.push('NAUČENÉ KOREKCE Z PŘEDCHOZÍCH OPRAV (dodržuj):\n' + learned.map(l => '- ' + l).join('\n'));
 
     if (actuals.length) {
       const lines = actuals.map(a => {
-        const labDiff = a.labour_est ? ` (odhad byl ${Math.round(a.labour_est/1000)}k, skutečnost ${Math.round(a.labour_actual/1000)}k)` : ` (skutečnost ${Math.round(a.labour_actual/1000)}k)`;
+        const labDiff = a.labour_est ? ` (odhad ${Math.round(a.labour_est/1000)}k → skut. ${Math.round(a.labour_actual/1000)}k)` : ` (${Math.round(a.labour_actual/1000)}k)`;
         const trDiff  = a.transport_est ? ` (odhad ${Math.round(a.transport_est/1000)}k → skut. ${Math.round(a.transport_actual/1000)}k)` : ` (${Math.round(a.transport_actual/1000)}k)`;
         const prDiff  = a.props_est ? ` (odhad ${Math.round(a.props_est/1000)}k → skut. ${Math.round(a.props_actual/1000)}k)` : ` (${Math.round(a.props_actual/1000)}k)`;
         return `- "${a.project||'projekt'}" ${a.sets||'?'} setů, ${a.shoot_days||'?'}d shoot: labour${labDiff}, transport${trDiff}, props${prDiff}`;
       });
-      parts.push('HISTORICKÁ DATA Z DOKONČENÝCH PROJEKTŮ (skutečné výsledky — kalibruj podle nich):\n' + lines.join('\n'));
+      parts.push('HISTORICKÁ DATA Z DOKONČENÝCH PROJEKTŮ:\n' + lines.join('\n'));
     }
     return parts.join('\n\n');
   }
@@ -3058,7 +3105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v9.3';
+    const _APP_VER = 'v9.4';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3079,6 +3126,61 @@ document.addEventListener('DOMContentLoaded', () => {
       _panelLeft.addEventListener('input', saveFormState);
       _panelLeft.addEventListener('change', saveFormState);
     }
+
+    // Při zadání názvu projektu — automaticky načti sety z memory karty
+    const _pnInput = document.getElementById('projectName');
+    if (_pnInput) {
+      let _pnTimer = null;
+      _pnInput.addEventListener('input', () => {
+        clearTimeout(_pnTimer);
+        _pnTimer = setTimeout(() => {
+          const name = _pnInput.value.trim();
+          if (!name) return;
+          const card = findMemoryCard(name);
+          if (!card?.setsRaw?.length) return;
+          const currentSets = getCurrentSets();
+          // Aplikuj pouze pokud formulář nemá ještě žádné sety nebo je to nový projekt
+          if (currentSets.length === 0 || (currentSets.length === 1 && !currentSets[0].name)) {
+            document.getElementById('setsContainer').innerHTML = '';
+            setCounter = 0;
+            card.setsRaw.forEach(s => addSet(s.name, s.type));
+            updateCrewEstimate();
+            // Vizuální indikace
+            _pnInput.style.borderColor = 'var(--success)';
+            setTimeout(() => { _pnInput.style.borderColor = ''; }, 2000);
+          }
+        }, 700);
+      });
+    }
+
+    // Importuj existující historii generací do script memory (retroaktivně)
+    try {
+      const hist = JSON.parse(localStorage.getItem('propsBudget_history') || '[]');
+      hist.forEach(entry => {
+        if (!entry.projectName) return;
+        const key = buildProjectKey(entry.projectName);
+        if (!key) return;
+        const existing = getScriptMemory().find(c => c.scriptId === key);
+        if (existing) return; // Už existuje — nepřepisuj
+        // Vytvoř memory kartu z historie
+        const b = entry.budget;
+        if (!b) return;
+        const histSets = (b.props?.sections || [])
+          .filter(s => s.name && s.name.toLowerCase() !== 'hero props')
+          .map(s => ({ name: s.name, type: 'reálná lokace' }));
+        if (!histSets.length) return;
+        saveScriptMemory({
+          scriptId:    key,
+          projectName: entry.projectName,
+          setCount:    histSets.length,
+          sets:        histSets.map(s => `${s.name} (${s.type})`),
+          setsRaw:     histSets,
+          shootDays:   0, prepDays: 0,
+          lastUpdate:  entry.ts || '',
+          corrections: []
+        });
+      });
+    } catch(e) {}
   });
   // Also init immediately (in case DOMContentLoaded already fired)
   loadInstructions();
@@ -3508,6 +3610,9 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
             budget.props.sections[0].items[0].amount + _propDiff);
         }
       }
+
+      // Ulož aktuální stav projektu do script memory (bez korekce — jen snapshot)
+      try { saveProjectToMemory(projectName, null); } catch(e) {}
 
       window._revisionDiff = null;
       window._lastBudgetName = projectName;
@@ -4359,7 +4464,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       // Save as learned correction (summarized)
       addLearnedCorrection(savedNote.substring(0, 120));
       // Uloží korekci do Script Memory Card — agent ji použije při dalším zpracování stejného scriptu
-      saveRevisionToMemory(savedNote, projectName);
+      saveProjectToMemory(projectName, savedNote);
 
       _rpFinish(true);
       window._revisionDiff = computeRevisionDiff(window._lastBudget, revised);

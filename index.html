@@ -879,7 +879,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.6</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.7</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3119,6 +3119,15 @@ CÍLOVÉ ČÁSTKY — ZÁVAZNÉ (odchylka max ±10 %, jinak je rozpočet špatn�
   Ostatní lidé: rozlož do prep_days/shoot_days dle jejich rolí (max shoot_days=${shootDays}, max prep_days=${prepDays + wrapDays})
 - Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč → průměr ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč/set (bez hero props)
   ZAKÁZÁNO v props: doprava, odvoz, montáž, asistence, pronájem vozidel, rozvoz — toto je již zahrnuto v Labour a Transport. Props = pouze cena rekvizit a dekorací.
+SET ŠABLONY — pokud set odpovídá typu, použij tyto položky (přizpůsob dle budget levelu, u každé kategorie počítej s více kusy na výběr kromě sofa):
+OBÝVACÍ POKOJ / LIVING ROOM (každá položka = pronájem/nákup více kusů na výběr):
+  sofa (1 ks výběr) | 2–3× křeslo na výběr | 2–3× konferenční/coffee stolek | 1–2× koberec na výběr
+  záclony + závěsy (šití + uchycení zvlášť) | 3–5× polštářky + přehozy + plédy | 3–5× obraz/dekorace na stěnu
+  1–2× komoda/sideboard | 1× knihovna/police | 1× konzole/credenza | 2–3× lampa stojací
+  3–5× lampička/stolní lampa | 1–2× zrcadlo velké | 3–5× velké kytky + květináče | 3–5× menší kytky
+  svíčky + svícny | vázy | hodiny | drobné zařizovací předměty (tácy, dekorace, knihy, drobnosti)
+  vypínače + zásuvky (kryty) — pokud jiný styl než místní | jídelní stůl + 4–6× židle (pokud je jídelní zóna)
+  Ceny dle budget levelu (standard): sofa 12–18k, křesla 4–6k/ks, konf.stolky 4–8k, koberec 8–12k, závěsy 15–22k+šití 4–8k, polštáře+přehozy 3–5k, obrazy 3–6k, komoda 6–10k, lampy 3–5k/ks, lampičky 1.5–3k/ks, kytky velké 4–6k, drobné 7–12k
 TRANSPORT — POUŽIJ PŘESNĚ TATO VOZIDLA V TOMTO POŘADÍ (neměň name, days ani rate):
 ${_tItems.map(v => `  { "name":"${v.name}", "days":${v.days}, "rate":${v.rate}, "total":${v.days*v.rate} }`).join('\n')}
 Transport celkem: ${_fmt(_transportAnchor)} Kč. Kapacita dodávky a trucku = 2 lidi.

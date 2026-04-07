@@ -12,7 +12,7 @@ module.exports = async function handler(req, res) {
   if (!apiKey) return res.status(400).json({ error: { message: 'Missing API key' } });
 
   try {
-    // Race: celá operace (fetch + čtení těla) musí skončit do 52s
+    // Race: celá operace musí skončit do 110s (Vercel maxDuration 120s)
     const result = await Promise.race([
       (async () => {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
         return { status: response.status, data };
       })(),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 52000)
+        setTimeout(() => reject(new Error('TIMEOUT')), 110000)
       )
     ]);
 
@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     const isTimeout = err.message === 'TIMEOUT';
     return res.status(504).json({
-      error: { message: isTimeout ? 'Timeout 52s — zkus znovu.' : err.message }
+      error: { message: isTimeout ? 'Timeout — zkus znovu.' : err.message }
     });
   }
 };

@@ -5,16 +5,16 @@
   ],
   "functions": {
     "api/chat.js": {
-      "maxDuration": 60
+      "maxDuration": 120
     },
     "api/upload.js": {
-      "maxDuration": 60
+      "maxDuration": 120
     },
     "api/analyze.js": {
-      "maxDuration": 60
+      "maxDuration": 120
     },
     "api/stream.js": {
-      "maxDuration": 60
+      "maxDuration": 120
     }
   }
 }

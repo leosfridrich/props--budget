@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.0</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.1</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1557,21 +1557,51 @@
   // Zpracuje odpovědi ve formátu ```json {...} ```, nebo holý JSON, nebo JSON zahrabaný v textu
   function parseJsonFromLLM(raw) {
     if (!raw) throw new Error('Prázdná odpověď');
-    // Strategie 1: extrahuj obsah z ```json ... ``` nebo ``` ... ```
-    const cbMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+
+    // Pomocná funkce — zkus opravit useknutý JSON doplněním závorek
+    const tryRepair = (s) => {
+      let t = s.trim();
+      // Odstraň trailing čárku před EOF
+      t = t.replace(/,\s*$/, '');
+      // Spočítej nevyvážené závorky a doplň je
+      let opens = 0, arrOpens = 0;
+      let inStr = false, escape = false;
+      for (const c of t) {
+        if (escape) { escape = false; continue; }
+        if (c === '\\' && inStr) { escape = true; continue; }
+        if (c === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (c === '{') opens++;
+        else if (c === '}') opens--;
+        else if (c === '[') arrOpens++;
+        else if (c === ']') arrOpens--;
+      }
+      while (arrOpens-- > 0) t += ']';
+      while (opens-- > 0) t += '}';
+      return JSON.parse(t);
+    };
+
+    // Strategie 1: code block ```json ... ``` (s nebo bez zavíracích ```)
+    const cbMatch = raw.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/i);
     if (cbMatch) {
-      try { return JSON.parse(cbMatch[1].trim()); } catch(e) {}
+      try { return tryRepair(cbMatch[1]); } catch(e) {}
     }
-    // Strategie 2: najdi první { a poslední } (greedy)
-    const objMatch = raw.match(/\{[\s\S]*\}/);
-    if (objMatch) {
-      try { return JSON.parse(objMatch[0]); } catch(e) {}
+
+    // Strategie 2: najdi od prvního { do konce (greedy — i useknutý)
+    const braceStart = raw.indexOf('{');
+    if (braceStart >= 0) {
+      // Zkus celý zbytek od {
+      try { return tryRepair(raw.slice(braceStart)); } catch(e) {}
+      // Zkus greedy match { ... }
+      const objMatch = raw.match(/\{[\s\S]*\}/);
+      if (objMatch) { try { return JSON.parse(objMatch[0]); } catch(e) {} }
     }
-    // Strategie 3: odstraň markdown fencing a zkus celý text
+
+    // Strategie 3: odstraň markdown fencing
     const stripped = raw.replace(/```[\w]*\n?/g, '').replace(/```/g, '').trim();
-    try { return JSON.parse(stripped); } catch(e) {}
-    // Nic nefungovalo
-    throw new Error('Nelze parsovat JSON. Začátek odpovědi: ' + raw.substring(0, 200));
+    try { return tryRepair(stripped); } catch(e) {}
+
+    throw new Error('Nelze parsovat JSON. Začátek: ' + raw.substring(0, 200));
   }
 
   // ─── CREW ESTIMATOR ───
@@ -3011,7 +3041,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v9.0';
+    const _APP_VER = 'v9.1';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3385,7 +3415,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     let _timedOut = false;
 
     try {
-      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000, temperature: 0, system: _AGENT_SYSTEM, messages });
+      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 8000, temperature: 0, system: _AGENT_SYSTEM, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
 
@@ -4178,7 +4208,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     try {
       const _revBody = JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 4000,
+        max_tokens: 8000,
         temperature: 0,
         system: _AGENT_SYSTEM,
         messages: [{ role: 'user', content: prompt }]

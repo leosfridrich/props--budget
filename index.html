@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.1</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.2</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1553,6 +1553,26 @@
 
   function getLang() { return LANG[currentLang]; }
 
+  // ─── ROBUST JSON PARSER ───
+  // Zpracuje odpovědi ve formátu ```json {...} ```, nebo holý JSON, nebo JSON zahrabaný v textu
+  function parseJsonFromLLM(raw) {
+    if (!raw) throw new Error('Prázdná odpověď');
+    // Strategie 1: extrahuj obsah z ```json ... ``` nebo ``` ... ```
+    const cbMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (cbMatch) {
+      try { return JSON.parse(cbMatch[1].trim()); } catch(e) {}
+    }
+    // Strategie 2: najdi první { a poslední } (greedy)
+    const objMatch = raw.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      try { return JSON.parse(objMatch[0]); } catch(e) {}
+    }
+    // Strategie 3: odstraň markdown fencing a zkus celý text
+    const stripped = raw.replace(/```[\w]*\n?/g, '').replace(/```/g, '').trim();
+    try { return JSON.parse(stripped); } catch(e) {}
+    // Nic nefungovalo
+    throw new Error('Nelze parsovat JSON. Začátek odpovědi: ' + raw.substring(0, 200));
+  }
 
   // ─── CREW ESTIMATOR ───
   // Based on real calibration data:
@@ -1973,12 +1993,11 @@
         if (progressEta) progressEta.textContent = '';
       }, 800);
 
-      // Extract JSON — handle markdown fences and surrounding text
+      // Extract JSON — robustní parser
       let parsed;
-      const cleaned = raw.replace(/```json|```/gi, '').trim();
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('Odpověď neobsahuje JSON. Odpověď: ' + raw.substring(0, 300));
-      parsed = JSON.parse(jsonMatch[0]);
+      try { parsed = parseJsonFromLLM(raw); } catch(e) {
+        throw new Error('Odpověď neobsahuje JSON. ' + raw.substring(0, 200));
+      }
       if (!Array.isArray(parsed.sets)) throw new Error('JSON neobsahuje pole "sets".');
 
       // Normalize type values (model sometimes uses different values)
@@ -3285,9 +3304,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       document.getElementById('progressEta').textContent = 'parsuju JSON…';
       let budget;
       try {
-        const clean = rawText.replace(/```json|```/gi, '').trim();
-        const match = clean.match(/\{[\s\S]*\}/);
-        budget = JSON.parse(match ? match[0] : clean);
+        budget = parseJsonFromLLM(rawText);
       } catch (e) {
         throw new Error('Chyba parsování. Odpověď: ' + rawText.substring(0, 300));
       }
@@ -3997,10 +4014,10 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       });
 
       const raw = (data.content?.map(c => c.text || '') ?? []).join('').trim() || '';
-      const cleaned = raw.replace(/```json|```/gi, '').trim();
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('Neplatná odpověď');
-      const revised = JSON.parse(jsonMatch[0]);
+      let revised;
+      try { revised = parseJsonFromLLM(raw); } catch(e) {
+        throw new Error('Chyba parsování revize: ' + raw.substring(0, 150));
+      }
 
       // ── Client-side ochrana — ořež dny na maximální limity projektu ──
       if (_maxDays > 0) {

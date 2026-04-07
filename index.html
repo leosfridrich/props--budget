@@ -879,7 +879,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.7</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3055,7 +3055,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fullJobCrew * (prepDays * _avgPrepRate + shootDays * _avgShootRate) +
       Math.max(_shootCrew - fullJobCrew, 0) * shootDays * rates.propmanShoot
     );
-    // ─── TRANSPORT — pevná struktura vozidel ───
+    // ─── TRANSPORT — struktura podle reálných rozpočtů ───
     const _totalDays   = prepDays + shootDays + wrapDays;
     const _isBigJob    = activeSets >= 3 || fullJobCrew >= 4 || _shootCrew >= 8;
     const _bigRate     = rates.bigTruck || Math.round(rates.truck * 1.8);
@@ -3065,24 +3065,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const _lpDays      = _totalDays - 1;          // Leading Propman: -1
     const _p1Days      = _totalDays - 2;          // Propman 1: -2
 
-    // Transport položky:
+    // ── Osobní auta ──
+    // 1 auto na každé 2 lidi v core týmu (každý člen týmu potřebuje dopravu)
+    // car prep = PM: všechny dny; car2 = LP (lpDays); car3 = Propman1+2; car4 = jen u big job
     const _tItems = [];
-    // 1) Osobní vůz — PM + LP + Propman, všechny dny projektu
-    _tItems.push({ name: 'Osobní vůz (PM + LP + Propman)', days: _totalDays,           rate: rates.car });
-    // 2) Pick-up — vždy: 4d prep + shoot + wrap
-    _tItems.push({ name: 'Pick-up',                         days: 4 + shootDays + wrapDays, rate: rates.car });
-    // 3) Dodávka I — vždy: 4d prep + shoot + wrap
-    _tItems.push({ name: 'Dodávka I',                       days: 4 + shootDays + wrapDays, rate: rates.truck });
-    // 4) Dodávka II — velký job: 4d prep + shoot + wrap
-    if (_isBigJob) _tItems.push({ name: 'Dodávka II',       days: 4 + shootDays + wrapDays, rate: rates.truck });
-    // 5) Dodávka III — velký job: jen shoot + wrap
-    if (_isBigJob) _tItems.push({ name: 'Dodávka III',      days: shootDays + wrapDays,     rate: rates.truck });
-    // 6) Truck for set — vždy jen natáčecí dny
-    _tItems.push({ name: 'Truck for set',                   days: shootDays,                rate: rates.truck });
-    // 7) Velký truck I — vždy: 2d prep + shoot + wrap
-    _tItems.push({ name: 'Velký truck I',                   days: 2 + shootDays + wrapDays, rate: _bigRate });
-    // 8) Velký truck II — velký job: 2d prep + shoot + wrap
-    if (_isBigJob) _tItems.push({ name: 'Velký truck II',   days: 2 + shootDays + wrapDays, rate: _bigRate });
+    _tItems.push({ name: 'car prep',      days: _pmDays,        rate: rates.car }); // PM
+    _tItems.push({ name: 'car 2 prep',    days: _lpDays,        rate: rates.car }); // LP
+    if (fullJobCrew >= 3)
+      _tItems.push({ name: 'car 3 prep',  days: _p1Days,        rate: rates.car }); // Propman 1+2
+    if (_isBigJob)
+      _tItems.push({ name: 'car 4 prep',  days: Math.max(shootDays + wrapDays + 5, Math.round(_totalDays * 0.6)), rate: rates.car }); // extra crew
+
+    // ── Pick-up ── (sazba = car rate, ne truck)
+    // 4d prep + shoot + wrap
+    _tItems.push({ name: 'pick up',       days: 4 + shootDays + wrapDays,  rate: rates.car });
+
+    // ── Dodávky (small trucks) ──
+    // Truck I: 4d prep + shoot + wrap
+    _tItems.push({ name: 'truck I',       days: 4 + shootDays + wrapDays,  rate: rates.truck });
+    // Truck for set: jen shoot dny
+    _tItems.push({ name: 'truck for set', days: shootDays,                  rate: rates.truck });
+    // Truck II: velký job — shoot + wrap
+    if (_isBigJob)
+      _tItems.push({ name: 'truck II',    days: shootDays + wrapDays,       rate: rates.truck });
+
+    // ── Velké trucky ──
+    // Big truck I: 2d prep + shoot + wrap
+    _tItems.push({ name: 'big truck 7,5t',    days: 2 + shootDays + wrapDays, rate: _bigRate });
+    // Big truck II: velký job — shoot + wrap + 1d prep
+    if (_isBigJob)
+      _tItems.push({ name: 'big truck 7,5t II', days: 1 + shootDays + wrapDays, rate: _bigRate });
+    // Workshop truck: velký job — shoot dny + 2d prep
+    if (_isBigJob)
+      _tItems.push({ name: 'truck as workshop', days: 2 + shootDays,            rate: _bigRate });
+
+    // ── Zahraniční trasy — POUZE pokud jsou zahraniční sety ──
+    if (abroadSets > 0) {
+      _tItems.push({ name: 'cesta zahraničí (km)', days: abroadSets, rate: Math.round(rates.truck * 1.05) });
+    }
 
     const _transportAnchor = _tItems.reduce((s, v) => s + v.days * v.rate, 0);
     // Props: realistické částky dle zkušenosti z reálných rozpočtů

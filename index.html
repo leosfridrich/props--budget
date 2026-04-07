@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.5</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.6</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2940,7 +2940,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v8.5';
+    const _APP_VER = 'v8.6';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3983,6 +3983,23 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       setTimeout(() => { if (_rpWrap) _rpWrap.style.display = 'none'; }, 2000);
     };
 
+    // ── Detekce cílových částek v poznámce (props/labour/transport celkem X) ──
+    const _parseTarget = (text, keywords) => {
+      const kw = keywords.join('|');
+      const m = text.match(new RegExp(`(?:${kw})[^\\d]*(\\d[\\d\\s]*(?:[kKmM]|\\d{3})?)`, 'i'));
+      if (!m) return 0;
+      return parseKAmount(m[1].replace(/\s/g, '')) || 0;
+    };
+    const _targetProps     = _parseTarget(note, ['props celkem','props total','props za','props:','rekvizity celkem','rekvizity:']);
+    const _targetLabour    = _parseTarget(note, ['labour celkem','labour total','labour:','lidé celkem','pracovníci celkem']);
+    const _targetTransport = _parseTarget(note, ['transport celkem','transport total','transport:','doprava celkem','doprava:']);
+
+    const _fmtR = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n));
+    const _targetLines = [];
+    if (_targetProps     > 0) _targetLines.push(`   • Props celkem = PŘESNĚ ${_fmtR(_targetProps)} Kč — rozlož tuto částku proporcionálně mezi sekce/položky`);
+    if (_targetLabour    > 0) _targetLines.push(`   • Labour celkem = PŘESNĚ ${_fmtR(_targetLabour)} Kč — uprav shoot_days/prep_days u členů týmu`);
+    if (_targetTransport > 0) _targetLines.push(`   • Transport celkem = PŘESNĚ ${_fmtR(_targetTransport)} Kč — uprav days u vozidel`);
+
     const prompt = [
       'Jsi expert na filmové rekvizitní rozpočty. Dostal jsi hotový rozpočet a požadavek na opravu.',
       '',
@@ -4002,6 +4019,11 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       '4. PROPS: Uprav amount u konkrétních položek v props.sections[].items[], nebo přidej/odeber položky.',
       '5. Pole labour.total, transport.total, props.total, subtotal, fee, total_base, grand_total nastav na 0 — jsou přepočítávány automaticky.',
       '6. Do pole "summary" přidej na začátek: "↺ Opraveno: ' + note.substring(0, 80) + '"',
+      ...(_targetLines.length > 0 ? [
+        '',
+        'CÍLOVÉ ČÁSTKY — ZÁVAZNÉ (nastav items/days tak aby součet vyšel PŘESNĚ):',
+        ..._targetLines
+      ] : []),
       '',
       'Vrať POUZE validní JSON ve stejném formátu jako vstupní rozpočet, bez jakéhokoliv dalšího textu.'
     ].join('\n');
@@ -4054,6 +4076,37 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           const orig = (b.transport?.items || []).find(o => (o.name||'').toLowerCase() === (item.name||'').toLowerCase());
           if (orig) item.rate = orig.rate;
         });
+      }
+
+      // ── Client-side přesné dorovnání cílových částek ──
+      // Props — proporcionální scaling všech amount na přesný cíl
+      if (_targetProps > 0) {
+        const _actualProps = (revised.props?.sections || []).reduce((s, sec) =>
+          s + (sec.items || []).reduce((ss, i) => ss + (i.amount || 0), 0), 0);
+        if (_actualProps > 0 && Math.abs(_actualProps - _targetProps) > 200) {
+          const _scale = _targetProps / _actualProps;
+          (revised.props?.sections || []).forEach(sec => {
+            (sec.items || []).forEach(item => { item.amount = Math.round(item.amount * _scale); });
+          });
+          // Korekce zaokrouhlovací chyby — přidej zbytek do první položky první sekce
+          const _newTotal = (revised.props?.sections || []).reduce((s, sec) =>
+            s + (sec.items || []).reduce((ss, i) => ss + (i.amount || 0), 0), 0);
+          const _diff = _targetProps - _newTotal;
+          if (_diff !== 0 && revised.props?.sections?.[0]?.items?.[0]) {
+            revised.props.sections[0].items[0].amount += _diff;
+          }
+        }
+      }
+
+      // Transport — proporcionální scaling days na přesný cíl
+      if (_targetTransport > 0) {
+        const _actualTr = (revised.transport?.items || []).reduce((s, i) => s + (i.days || 0) * (i.rate || 0), 0);
+        if (_actualTr > 0 && Math.abs(_actualTr - _targetTransport) > 200) {
+          const _scTr = _targetTransport / _actualTr;
+          (revised.transport?.items || []).forEach(item => {
+            item.days = Math.max(1, Math.round(item.days * _scTr));
+          });
+        }
       }
 
       // Clear note, save to learned, re-render

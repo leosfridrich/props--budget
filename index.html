@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.3</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2939,7 +2939,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v8.3';
+    const _APP_VER = 'v8.4';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4402,9 +4402,14 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     tempStyle.textContent = cssText;
     document.head.appendChild(tempStyle);
 
-    // Off-screen kontejner s obsahem body
+    // Kontejner — musí být v DOM a renderovaný (opacity:0, ne off-screen)
+    // html2canvas nedokáže zachytit element s z-index:-1 nebo left:-9999px
     const container = document.createElement('div');
-    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;z-index:-1;';
+    container.style.cssText = [
+      'position:fixed', 'top:0', 'left:0', 'width:794px',
+      'background:white', 'opacity:0', 'pointer-events:none',
+      'z-index:99999', 'overflow:visible'
+    ].join(';');
     container.innerHTML = doc.body.innerHTML;
     document.body.appendChild(container);
 
@@ -4415,7 +4420,6 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     };
 
     if (typeof html2pdf === 'undefined') {
-      // Fallback — library se nenačetla
       cleanup();
       const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -4426,13 +4430,23 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       return;
     }
 
-    html2pdf().set({
-      margin: [10, 14, 10, 14],
-      filename: filename + '.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false, letterRendering: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }).from(container).save().then(cleanup).catch(cleanup);
+    // Krátký delay — prohlížeč musí dokončit layout před html2canvas
+    setTimeout(() => {
+      html2pdf().set({
+        margin: [10, 14, 10, 14],
+        filename: filename + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2, useCORS: true, allowTaint: true,
+          logging: false, letterRendering: true,
+          scrollX: 0, scrollY: 0
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(container).save().then(cleanup).catch(err => {
+        console.error('html2pdf error:', err);
+        cleanup();
+      });
+    }, 150);
   }
 
   function printBudgetApprox() {

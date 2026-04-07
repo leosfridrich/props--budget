@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.0</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v8.1</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -1993,10 +1993,16 @@
         type: typeMap[s.type?.toLowerCase()] || s.type || 'reálná lokace'
       }));
 
-      // ── Fill sets on left panel ──
-      document.getElementById('setsContainer').innerHTML = '';
-      setCounter = 0;
-      parsed.sets.forEach(s => addSet(s.name || 'Set', s.type));
+      // ── Fill sets on left panel — MERGE (nemazat ručně přidané/upravené sety) ──
+      const _existingSetNames = Array.from(document.querySelectorAll('.set-row'))
+        .map(r => (r.querySelector('.set-name')?.value || '').trim().toLowerCase())
+        .filter(Boolean);
+      // Přidej pouze sety které uživatel ještě nemá
+      const _newFromAnalysis = (parsed.sets || []).filter(s => {
+        const n = (s.name || '').trim().toLowerCase();
+        return n && !_existingSetNames.includes(n);
+      });
+      _newFromAnalysis.forEach(s => addSet(s.name || 'Set', s.type));
       updateCrewEstimate();
 
       // ── Build right panel analysis view ──
@@ -2165,6 +2171,62 @@
     renderHistoryBar();
   }
 
+  // ─── FORM STATE PERSISTENCE ───
+  const _FORM_STATE_KEY = 'propsBudget_formState';
+  let _formSaveTimer = null;
+
+  function saveFormState() {
+    clearTimeout(_formSaveTimer);
+    _formSaveTimer = setTimeout(() => {
+      try {
+        const g = id => document.getElementById(id)?.value || '';
+        const state = {
+          projectName:  g('projectName'),
+          projectDesc:  g('projectDesc'),
+          heroProducts: g('heroProducts'),
+          budgetCeiling:g('budgetCeiling'),
+          shootDays:    g('shootDays'),
+          prepDays:     g('prepDays'),
+          wrapDays:     g('wrapDays'),
+          projectType:  g('projectType'),
+          budgetLevel:  g('budgetLevel'),
+          propsSource:  g('propsSource'),
+          sets: Array.from(document.querySelectorAll('.set-row')).map(r => ({
+            name: r.querySelector('.set-name')?.value || '',
+            type: r.querySelector('.set-type')?.value || 'reálná lokace'
+          }))
+        };
+        localStorage.setItem(_FORM_STATE_KEY, JSON.stringify(state));
+      } catch(e) {}
+    }, 600);
+  }
+
+  function restoreFormState() {
+    try {
+      const raw = localStorage.getItem(_FORM_STATE_KEY);
+      if (!raw) return false;
+      const s = JSON.parse(raw);
+      const sv = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+      sv('projectName',   s.projectName);
+      sv('projectDesc',   s.projectDesc);
+      sv('heroProducts',  s.heroProducts);
+      sv('budgetCeiling', s.budgetCeiling);
+      sv('shootDays',     s.shootDays);
+      sv('prepDays',      s.prepDays);
+      sv('wrapDays',      s.wrapDays);
+      sv('projectType',   s.projectType);
+      sv('budgetLevel',   s.budgetLevel);
+      sv('propsSource',   s.propsSource);
+      if (s.sets?.length) {
+        document.getElementById('setsContainer').innerHTML = '';
+        setCounter = 0;
+        s.sets.forEach(set => set.name && addSet(set.name, set.type));
+        updateCrewEstimate();
+      }
+      return true;
+    } catch(e) { return false; }
+  }
+
   function generateNewBudget() {
     // Vyčisti vstupní pole pro novou generaci
     const clear = id => { const el = document.getElementById(id); if (el) el.value = ''; };
@@ -2180,6 +2242,8 @@
     });
     // Vyčisti revisionNote pokud existuje
     clear('revisionNote');
+    // Smaž uloženou form state — nová generace = čistý start
+    try { localStorage.removeItem(_FORM_STATE_KEY); } catch(e) {}
     // Reset window state
     window._lastBudget = null;
     window._revisionDiff = null;
@@ -2855,6 +2919,14 @@ document.addEventListener('DOMContentLoaded', () => {
     initRefDocs();
     renderExtraRefList();
     renderHistoryBar();
+    // Obnov formulář z poslední session
+    restoreFormState();
+    // Auto-save při každé změně v levém panelu
+    const _panelLeft = document.querySelector('.panel-left');
+    if (_panelLeft) {
+      _panelLeft.addEventListener('input', saveFormState);
+      _panelLeft.addEventListener('change', saveFormState);
+    }
   });
   // Also init immediately (in case DOMContentLoaded already fired)
   loadInstructions();

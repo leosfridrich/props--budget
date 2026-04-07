@@ -879,7 +879,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.4</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v7.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -3055,34 +3055,36 @@ document.addEventListener('DOMContentLoaded', () => {
       fullJobCrew * (prepDays * _avgPrepRate + shootDays * _avgShootRate) +
       Math.max(_shootCrew - fullJobCrew, 0) * shootDays * rates.propmanShoot
     );
-    // ─── TRANSPORT — konkrétní vozidla podle logiky projektu ───
-    // Kapacita: dodávka/big truck = 2 lidi
-    // Osobní vůz: PM + LP + Propman — všechny dny (prep+shoot+wrap)
-    // Dodávka (small truck): shoot + wrap + 4 dny před shoot
-    // Big truck: 2 dny před shoot + shoot + wrap
-    // Větší job (3+ sety nebo 4+ lidi core): 2 dodávky místo 1
-    const _isBigJob = activeSets >= 3 || fullJobCrew >= 4 || _shootCrew >= 8;
-    const _carDays        = prepDays + shootDays + wrapDays;          // osobák — všechny dny
-    const _smallTruckDays = 4 + shootDays + wrapDays;                 // dodávka: 4d prep + shoot + wrap
-    const _bigTruckDays   = 2 + shootDays + wrapDays;                 // velký truck: 2d prep + shoot + wrap
-    const _smallTruckCount = _isBigJob ? 2 : 1;
+    // ─── TRANSPORT — pevná struktura vozidel ───
+    const _totalDays   = prepDays + shootDays + wrapDays;
+    const _isBigJob    = activeSets >= 3 || fullJobCrew >= 4 || _shootCrew >= 8;
+    const _bigRate     = rates.bigTruck || Math.round(rates.truck * 1.8);
 
-    // Kolik dalších aut — pro lidi nad PM+LP+Propman (kapacita osobáku = 5)
-    // Extra crew v terénních dnech (shoot) → potřeba dalšího auta pokud > 5 lidí na shoot
-    const _extraCarCount = Math.max(0, Math.ceil((_shootCrew - 5) / 5));
+    // Dny pro labour (hlavní trio):
+    const _pmDays      = _totalDays;              // Prop Master: všechny dny
+    const _lpDays      = _totalDays - 1;          // Leading Propman: -1
+    const _p1Days      = _totalDays - 2;          // Propman 1: -2
 
-    // Sestavíme transport items pro prompt
+    // Transport položky:
     const _tItems = [];
-    _tItems.push({ name: 'Osobní vůz (PM + propman)',  days: _carDays,        rate: rates.car   });
-    if (_extraCarCount > 0)
-      _tItems.push({ name: 'Osobní vůz II (extra crew)', days: shootDays + wrapDays, rate: rates.car });
-    for (let _ti = 0; _ti < _smallTruckCount; _ti++)
-      _tItems.push({ name: _ti === 0 ? 'Dodávka I' : 'Dodávka II', days: _smallTruckDays, rate: rates.truck });
-    _tItems.push({ name: 'Velký truck', days: _bigTruckDays, rate: rates.bigTruck || rates.truck * 1.8 });
+    // 1) Osobní vůz — PM + LP + Propman, všechny dny projektu
+    _tItems.push({ name: 'Osobní vůz (PM + LP + Propman)', days: _totalDays,           rate: rates.car });
+    // 2) Pick-up — vždy: 4d prep + shoot + wrap
+    _tItems.push({ name: 'Pick-up',                         days: 4 + shootDays + wrapDays, rate: rates.car });
+    // 3) Dodávka I — vždy: 4d prep + shoot + wrap
+    _tItems.push({ name: 'Dodávka I',                       days: 4 + shootDays + wrapDays, rate: rates.truck });
+    // 4) Dodávka II — velký job: 4d prep + shoot + wrap
+    if (_isBigJob) _tItems.push({ name: 'Dodávka II',       days: 4 + shootDays + wrapDays, rate: rates.truck });
+    // 5) Dodávka III — velký job: jen shoot + wrap
+    if (_isBigJob) _tItems.push({ name: 'Dodávka III',      days: shootDays + wrapDays,     rate: rates.truck });
+    // 6) Truck for set — vždy jen natáčecí dny
+    _tItems.push({ name: 'Truck for set',                   days: shootDays,                rate: rates.truck });
+    // 7) Velký truck I — vždy: 2d prep + shoot + wrap
+    _tItems.push({ name: 'Velký truck I',                   days: 2 + shootDays + wrapDays, rate: _bigRate });
+    // 8) Velký truck II — velký job: 2d prep + shoot + wrap
+    if (_isBigJob) _tItems.push({ name: 'Velký truck II',   days: 2 + shootDays + wrapDays, rate: _bigRate });
 
     const _transportAnchor = _tItems.reduce((s, v) => s + v.days * v.rate, 0);
-    const _truckCount = _smallTruckCount; // pro zpětnou kompatibilitu
-    const _prepTrucks = _smallTruckCount;
     // Props: realistické částky dle zkušenosti z reálných rozpočtů
     const _propsPerSet = { luxury: 160000, premium: 100000, standard: 65000, low: 28000 };
     const _propsAnchor = Math.round(Math.max(activeSets,1) * (_propsPerSet[budgetLevel] || 65000));
@@ -3110,11 +3112,15 @@ ${outputMode==='approx'
   ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0.`
   : `MÓD: DETAILNÍ — pro každý set vygeneruj 3–5 konkrétních prop položek s reálnými cenami.`}${_heroSection}
 CÍLOVÉ ČÁSTKY — ZÁVAZNÉ (odchylka max ±10 %, jinak je rozpočet špatně):
-- Labour celkem: ${_fmt(_labourAnchor)} Kč → rozlož do prep_days/shoot_days u ${fullJobCrew}+ členů týmu; NEPOUŽÍVEJ labour.total jako lump sum
+- Labour celkem: ${_fmt(_labourAnchor)} Kč → POVINNÉ DNY PRO HLAVNÍ TRIO (shoot_days=${shootDays}, prep_days=zbytek):
+  Prop Master: celkem ${_pmDays} dní (shoot_days=${shootDays}, prep_days=${_pmDays - shootDays})
+  Leading Propman: celkem ${_lpDays} dní (shoot_days=${shootDays}, prep_days=${_lpDays - shootDays})
+  Propman 1: celkem ${_p1Days} dní (shoot_days=${shootDays}, prep_days=${_p1Days - shootDays})
+  Ostatní lidé: rozlož do prep_days/shoot_days dle jejich rolí (max shoot_days=${shootDays}, max prep_days=${prepDays + wrapDays})
 - Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč → průměr ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč/set (bez hero props)
-TRANSPORT — POUŽIJ PŘESNĚ TATO VOZIDLA (neměň names, days ani rate, celkem ${_fmt(_transportAnchor)} Kč):
+TRANSPORT — POUŽIJ PŘESNĚ TATO VOZIDLA V TOMTO POŘADÍ (neměň name, days ani rate):
 ${_tItems.map(v => `  { "name":"${v.name}", "days":${v.days}, "rate":${v.rate}, "total":${v.days*v.rate} }`).join('\n')}
-Logika: osobák=PM+LP+propman všechny dny; dodávka=shoot+wrap+4d prep (kapacita 2 lidi); velký truck=2d prep+shoot+wrap (kapacita 2 lidi)
+Transport celkem: ${_fmt(_transportAnchor)} Kč. Kapacita dodávky a trucku = 2 lidi.
 ${_learningCtx ? _learningCtx + '\n' : ''}DŮLEŽITÉ: Odpověz POUZE čistým JSON objektem. Bez markdown, bez \`\`\`json, bez jakéhokoliv textu před nebo po JSONu.
 Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} — shoot_days i prep_days MUSÍ být reálná čísla >0.
 {"summary":"","labour":{"total":0,"team":[{"role":"Prop master","name":"","shoot_days":3,"prep_days":16,"rate":4900},{"role":"1. Propman","name":"","shoot_days":3,"prep_days":8,"rate":4500}]},"transport":{"total":0,"items":[{"name":"car prep","days":16,"rate":1700,"total":27200},{"name":"truck I","days":8,"rate":3800,"total":30400}]},"props":{"total":0,"sections":[{"name":"Hero props","items":[{"name":"hero item","amount":5000}]},{"name":"název setu","items":[{"name":"dekorace paušál","amount":50000}]}]},"subtotal":0,"fee":0,"fee_pct":${rates.fee},"total_base":0,"grand_total":0}`

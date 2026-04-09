@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.7</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -2308,6 +2308,10 @@
     setCounter = 0;
     addSet('', 'reálná lokace');
     updateCrewEstimate();
+    // Smaž nahrané soubory (script, storyboard…)
+    uploadedFiles.length = 0;
+    fileList.innerHTML = '';
+    fileInput.value = '';
     // Smaž uloženou form state — nová generace = čistý start
     try { localStorage.removeItem(_FORM_STATE_KEY); } catch(e) {}
     // Reset window state
@@ -3104,7 +3108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderExtraRefList();
     renderHistoryBar();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v9.7';
+    const _APP_VER = 'v9.8';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

@@ -880,7 +880,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.8</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.9</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -930,6 +930,32 @@
           style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:4px 8px;cursor:pointer;font-size:13px;border-radius:2px;flex-shrink:0;">👁</button>
       </div>
       <p id="apiKeyStatus">Klíč se ukládá do prohlížeče.</p>
+    </div>
+
+    <!-- WORKSPACE -->
+    <div class="section-label" style="margin-top:0;">Týmový workspace</div>
+    <div style="border:1px solid var(--border);background:var(--surface);margin-bottom:16px;padding:10px 14px;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+        <input type="text" id="workspaceCode" placeholder="tým-kód (např. sunprops)"
+          style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);
+                 font-family:'DM Mono',monospace;font-size:11px;padding:7px 10px;outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter')connectWorkspace()"/>
+        <button onclick="connectWorkspace()" id="wsConnectBtn"
+          style="background:var(--surface2);border:1px solid var(--border);color:var(--text);
+                 font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
+                 padding:7px 12px;cursor:pointer;white-space:nowrap;transition:all 0.15s;"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">Připojit</button>
+        <button onclick="pushWorkspace()" id="wsSyncBtn" title="Synchronizovat nyní"
+          style="display:none;background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+                 font-family:'DM Mono',monospace;font-size:13px;padding:7px 10px;cursor:pointer;transition:all 0.15s;"
+          onmouseover="this.style.borderColor='var(--success)';this.style.color='var(--success)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↻</button>
+      </div>
+      <div id="wsStatus" style="font-size:9px;color:var(--muted);letter-spacing:0.08em;">
+        Sdílej data s týmem — všichni se stejným kódem sdílí memory a projekty.
+      </div>
     </div>
 
     <div class="section-label">Projekt</div>
@@ -2852,6 +2878,7 @@
   function saveInstructions() {
     const val = document.getElementById('userInstructions').value;
     try { localStorage.setItem(LS_INSTRUCTIONS, val); } catch(e) {}
+    autoSyncPush();
   }
 
   function loadInstructions() {
@@ -2877,6 +2904,7 @@
     learned.push(note);
     try { localStorage.setItem(LS_LEARNED, JSON.stringify(learned)); } catch(e) {}
     renderLearnedList();
+    autoSyncPush();
   }
 
   function clearLearned() {
@@ -2984,6 +3012,7 @@
       mem.push(card);
     }
     try { localStorage.setItem(_SMEM_KEY, JSON.stringify(mem)); } catch(e) {}
+    autoSyncPush();
   }
 
   // Klíč projektu — jen název (lowercase, normalizovaný) — stačí pro matching
@@ -3099,6 +3128,177 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
     return parts.join('\n\n');
   }
 
+  // ─── PROJEKT KNOWLEDGE BASE — učení ze skutečných výsledků ───
+  const LS_PROJECTS_DB = 'propsBudget_projectsDB';
+
+  function getProjectsDB() {
+    try { return JSON.parse(localStorage.getItem(LS_PROJECTS_DB) || '[]'); } catch(e) { return []; }
+  }
+  function saveProjectsDB(arr) {
+    try { localStorage.setItem(LS_PROJECTS_DB, JSON.stringify(arr)); } catch(e) {}
+  }
+  function addProjectToKnowledgeBase(entry) {
+    const db = getProjectsDB();
+    // Deduplicate — stejný projekt+datum
+    const key = (entry.projectName||'') + '|' + (entry.date||'');
+    const idx = db.findIndex(p => (p.projectName||'')+'|'+(p.date||'') === key);
+    if (idx >= 0) db[idx] = entry; else db.unshift(entry);
+    if (db.length > 50) db.length = 50;
+    saveProjectsDB(db);
+    autoSyncPush();
+  }
+
+  // ─── WORKSPACE — sdílení dat s týmem přes Vercel Blob ───
+  const LS_WORKSPACE = 'propsBudget_workspace';
+  let _wsCode = '';
+  let _wsSyncTimer = null;
+  let _wsLastSync = null;
+
+  function getWorkspaceCode() {
+    return (document.getElementById('workspaceCode')?.value || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  }
+
+  function setWsStatus(msg, color) {
+    const el = document.getElementById('wsStatus');
+    if (el) { el.textContent = msg; el.style.color = color || 'var(--muted)'; }
+  }
+
+  async function connectWorkspace() {
+    const code = getWorkspaceCode();
+    if (code.length < 2) { setWsStatus('⚠ Kód musí mít alespoň 2 znaky', 'var(--danger)'); return; }
+    _wsCode = code;
+    try { localStorage.setItem(LS_WORKSPACE, code); } catch(e) {}
+    setWsStatus('Připojuji…', 'var(--muted)');
+    const ok = await pullWorkspace();
+    if (ok !== false) {
+      document.getElementById('wsSyncBtn').style.display = '';
+      setWsStatus('✓ Připojeno — ' + code, 'var(--success)');
+    }
+  }
+
+  async function pullWorkspace() {
+    const code = _wsCode || getWorkspaceCode();
+    if (!code) return;
+    try {
+      const r = await fetch('/api/memory?workspace=' + encodeURIComponent(code));
+      if (!r.ok) { setWsStatus('⚠ Chyba připojení', 'var(--danger)'); return false; }
+      const remote = await r.json();
+      if (!remote.exists) {
+        // Workspace neexistuje — push lokálních dat
+        await pushWorkspace(true);
+        return true;
+      }
+      // Merge scriptMemory — remote karty přijmeme přes saveScriptMemory (merge logika)
+      if (Array.isArray(remote.scriptMemory)) {
+        remote.scriptMemory.forEach(card => { try { saveScriptMemory(card); } catch(e) {} });
+      }
+      // Instructions — remote vyhrává pokud jsou novější (nebo local prázdné)
+      if (remote.instructions) {
+        const localInstr = (document.getElementById('userInstructions')?.value || '').trim();
+        if (!localInstr) {
+          try { localStorage.setItem(LS_INSTRUCTIONS, remote.instructions); } catch(e) {}
+          loadInstructions();
+        }
+      }
+      // Learned — merge union
+      if (Array.isArray(remote.learned) && remote.learned.length) {
+        const localL = getLearnedCorrections();
+        const merged = [...new Set([...remote.learned, ...localL])].slice(0, 20);
+        try { localStorage.setItem(LS_LEARNED, JSON.stringify(merged)); } catch(e) {}
+        renderLearnedList();
+      }
+      // Projects DB — merge
+      if (Array.isArray(remote.projects) && remote.projects.length) {
+        const localDB = getProjectsDB();
+        const allKeys = new Set(localDB.map(p => (p.projectName||'')+'|'+(p.date||'')));
+        remote.projects.forEach(p => {
+          const k = (p.projectName||'')+'|'+(p.date||'');
+          if (!allKeys.has(k)) { localDB.unshift(p); allKeys.add(k); }
+        });
+        if (localDB.length > 50) localDB.length = 50;
+        saveProjectsDB(localDB);
+      }
+      _wsLastSync = remote.lastSync;
+      const ts = remote.lastSync ? new Date(remote.lastSync).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'}) : '';
+      setWsStatus('✓ Synced ' + (ts ? '@ '+ts : ''), 'var(--success)');
+      return true;
+    } catch(e) {
+      setWsStatus('⚠ Chyba: ' + e.message, 'var(--danger)');
+      return false;
+    }
+  }
+
+  async function pushWorkspace(silent) {
+    const code = _wsCode || getWorkspaceCode();
+    if (!code) return;
+    if (!silent) setWsStatus('Ukládám…', 'var(--muted)');
+    try {
+      const payload = {
+        scriptMemory: getScriptMemory(),
+        instructions: (document.getElementById('userInstructions')?.value || '').trim(),
+        learned: getLearnedCorrections(),
+        projects: getProjectsDB(),
+      };
+      const r = await fetch('/api/memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace: code, data: payload }),
+      });
+      if (!r.ok) { if (!silent) setWsStatus('⚠ Chyba uložení', 'var(--danger)'); return; }
+      const res = await r.json();
+      const ts = res.lastSync ? new Date(res.lastSync).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'}) : '';
+      setWsStatus('✓ Synced @ ' + ts, 'var(--success)');
+    } catch(e) {
+      if (!silent) setWsStatus('⚠ ' + e.message, 'var(--danger)');
+    }
+  }
+
+  function autoSyncPush() {
+    if (!_wsCode) return;
+    clearTimeout(_wsSyncTimer);
+    _wsSyncTimer = setTimeout(() => pushWorkspace(true), 3000);
+  }
+
+  function initWorkspace() {
+    try {
+      const saved = localStorage.getItem(LS_WORKSPACE);
+      if (!saved) return;
+      const el = document.getElementById('workspaceCode');
+      if (el) el.value = saved;
+      _wsCode = saved;
+      document.getElementById('wsSyncBtn').style.display = '';
+      setWsStatus('Připojuji…', 'var(--muted)');
+      pullWorkspace();
+    } catch(e) {}
+  }
+
+  // ─── ROZŠÍŘENÍ getLearningContext o projekt databázi ───
+  const _origGetLearningContext = getLearningContext;
+  getLearningContext = function() {
+    let base = _origGetLearningContext();
+    const db = getProjectsDB();
+    if (!db.length) return base;
+    // Agregace — průměrné odchylky
+    const withActuals = db.filter(p => p.labourActual && p.labourEst);
+    let calibration = '';
+    if (withActuals.length >= 2) {
+      const avgLabErr = Math.round(withActuals.reduce((s,p)=>(s+(p.labourActual-p.labourEst)/p.labourEst),0)/withActuals.length*100);
+      const avgTrErr  = Math.round(withActuals.filter(p=>p.transportActual&&p.transportEst).reduce((s,p)=>(s+(p.transportActual-p.transportEst)/p.transportEst),0)/withActuals.length*100);
+      const avgPrErr  = Math.round(withActuals.filter(p=>p.propsActual&&p.propsEst).reduce((s,p)=>(s+(p.propsActual-p.propsEst)/p.propsEst),0)/withActuals.length*100);
+      const fmtErr = v => (v>0?'+':'')+v+'%';
+      calibration = `\nKALIBRACE (průměrná odchylka odhadu od skutečnosti, ${withActuals.length} projektů): labour ${fmtErr(avgLabErr)}, transport ${fmtErr(avgTrErr)}, props ${fmtErr(avgPrErr)}. Podle toho zkoriguj nový odhad.`;
+    }
+    const lines = db.slice(0, 10).map(p => {
+      const sets = (p.sets||[]).join(', ') || (p.setCount ? p.setCount+'× set' : '?');
+      const lab = p.labourActual ? `labour ${Math.round(p.labourActual/1000)}k` : (p.labourEst ? `~${Math.round(p.labourEst/1000)}k` : '');
+      const tr  = p.transportActual ? `transport ${Math.round(p.transportActual/1000)}k` : (p.transportEst ? `~${Math.round(p.transportEst/1000)}k` : '');
+      const pr  = p.propsActual ? `props ${Math.round(p.propsActual/1000)}k` : (p.propsEst ? `~${Math.round(p.propsEst/1000)}k` : '');
+      return `  • "${p.projectName}" [${p.projectType||'?'}, ${p.budgetLevel||'?'}, ${p.shootDays||'?'}d shoot] ${sets} → ${[lab,tr,pr].filter(Boolean).join(', ')}`;
+    });
+    const section = `PROJEKT DATABÁZE — VZTAHY A VZORY (${db.length} projektů, použij pro pochopení kontextu):${calibration}\n${lines.join('\n')}`;
+    return base ? base + '\n\n' + section : section;
+  };
+
   // Init on load
 document.addEventListener('DOMContentLoaded', () => {
     loadInstructions();
@@ -3107,8 +3307,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initRefDocs();
     renderExtraRefList();
     renderHistoryBar();
+    initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v9.8';
+    const _APP_VER = 'v9.9';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3924,18 +4125,35 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       return;
     }
     const projectName = document.getElementById('projectName').value || 'Projekt';
-    const sets = Array.from(document.querySelectorAll('.set-row')).filter(r => r.querySelector('.set-name').value.trim()).length;
+    const setRows = Array.from(document.querySelectorAll('.set-row')).filter(r => r.querySelector('.set-name').value.trim());
+    const sets = setRows.map(r => r.querySelector('.set-name').value.trim() + ' (' + r.querySelector('.set-type').value + ')');
     const shootDays = parseInt(document.getElementById('shootDays').value) || 0;
+    const prepDays  = parseInt(document.getElementById('prepDays').value) || 0;
+    // Uložit do starého actuals systému
     saveActual({
       date: new Date().toLocaleDateString('cs-CZ'),
       project: projectName,
-      sets, shoot_days: shootDays,
+      sets: sets.length, shoot_days: shootDays,
       labour_est: labEst, transport_est: trEst, props_est: prEst,
       labour_actual: labVal || labEst,
       transport_actual: trVal || trEst,
       props_actual: prVal || prEst
     });
-    document.getElementById('actualsStatus').textContent = '✓ Uloženo';
+    // Uložit do projekt knowledge base (pro učení a chápání souvislostí)
+    addProjectToKnowledgeBase({
+      date: new Date().toLocaleDateString('cs-CZ'),
+      projectName,
+      projectType: document.getElementById('projectType')?.value || '',
+      budgetLevel: document.getElementById('budgetLevel')?.value || '',
+      shootDays, prepDays,
+      setCount: sets.length,
+      sets,
+      labourEst: labEst, transportEst: trEst, propsEst: prEst,
+      labourActual: labVal || labEst,
+      transportActual: trVal || trEst,
+      propsActual: prVal || prEst,
+    });
+    document.getElementById('actualsStatus').textContent = '✓ Uloženo a přidáno do databáze';
     setTimeout(() => { const el = document.getElementById('actualsStatus'); if(el) el.textContent=''; }, 3000);
   }
 

@@ -1,11 +1,15 @@
 {
   "rewrites": [
     { "source": "/api/chat", "destination": "/api/chat" },
+    { "source": "/api/memory", "destination": "/api/memory" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "functions": {
     "api/chat.js": {
       "maxDuration": 120
+    },
+    "api/memory.js": {
+      "maxDuration": 15
     },
     "api/upload.js": {
       "maxDuration": 120

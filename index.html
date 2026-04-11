@@ -4,187 +4,229 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PROPS BUDGET — Rekvizitní Výprava</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap');
-
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #0e0e0e;
-    --surface: #161616;
-    --surface2: #1f1f1f;
-    --border: #2a2a2a;
-    --accent: #c8a96e;
-    --accent2: #7eb8c8;
-    --text: #e8e4dc;
-    --muted: #6b6560;
-    --danger: #c86e6e;
-    --success: #6ec891;
-    --btn-text: #0e0e0e;
+    --bg: #1C1C1E;
+    --surface: #2C2C2E;
+    --surface2: #3A3A3C;
+    --surface3: #48484A;
+    --border: rgba(255,255,255,0.07);
+    --border-mid: rgba(255,255,255,0.11);
+    --border-hi: rgba(255,255,255,0.16);
+    --accent: #C8A96E;
+    --accent-dark: #E8C98E;
+    --accent-dim: rgba(200,169,110,0.12);
+    --accent-glow: rgba(200,169,110,0.18);
+    --text: #F5F5F7;
+    --muted: #98989D;
+    --muted2: #636366;
+    --success: #30D158;
+    --danger: #FF453A;
+    --font: -apple-system, 'SF Pro Display', 'Inter', sans-serif;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
   }
 
+  /* Light mode — Apple-style */
   body.light {
-    --bg: #f5f4f0;
-    --surface: #ffffff;
-    --surface2: #eeece8;
-    --border: #d4d0c8;
-    --accent: #8a6b3a;
-    --accent2: #2e7d99;
-    --text: #1a1714;
-    --muted: #8a857e;
-    --danger: #b84040;
-    --success: #2e8a52;
-    --btn-text: #ffffff;
+    --bg: #F5F5F7;
+    --surface: #FFFFFF;
+    --surface2: #E8E8ED;
+    --surface3: #D8D8DD;
+    --border: rgba(0,0,0,0.06);
+    --border-mid: rgba(0,0,0,0.10);
+    --border-hi: rgba(0,0,0,0.16);
+    --accent: #8A6B3A;
+    --accent-dark: #A07840;
+    --accent-dim: rgba(138,107,58,0.10);
+    --accent-glow: rgba(138,107,58,0.15);
+    --text: #1C1C1E;
+    --muted: #6E6E73;
+    --muted2: #8E8E93;
+    --success: #28A745;
+    --danger: #D63031;
   }
 
-  body.light::before { opacity: 0; }
-  body.light header { background: rgba(245,244,240,0.95); }
-  body.light .btn-generate { color: var(--btn-text); }
+  body.light header { background: rgba(245,245,247,0.88); }
+  body.light .btn-generate { color: #FFFFFF; }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
+  html, body {
+    height: 100%;
+    font-family: var(--font);
     background: var(--bg);
     color: var(--text);
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }
 
-  /* Noise texture overlay */
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 999;
-    opacity: 0.4;
-  }
-
+  /* ── HEADER ─────────────────────────────────── */
   header {
     border-bottom: 1px solid var(--border);
-    padding: 24px 40px;
+    padding: 0 20px;
+    height: 56px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     position: sticky;
     top: 0;
-    background: rgba(14,14,14,0.95);
-    backdrop-filter: blur(12px);
+    background: rgba(28,28,30,0.82);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
     z-index: 100;
   }
 
   .logo {
-    font-family: 'DM Serif Display', serif;
-    font-size: 22px;
-    letter-spacing: -0.5px;
-    color: var(--accent);
-  }
-
-  .logo span {
-    font-style: italic;
-    color: var(--text);
-    font-size: 14px;
-    display: block;
-    font-family: 'DM Mono', monospace;
-    font-style: normal;
-    letter-spacing: 0.1em;
-    opacity: 0.5;
-    margin-top: 2px;
-  }
-
-  .header-badge {
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    color: var(--muted);
-    text-transform: uppercase;
-    border: 1px solid var(--border);
-    padding: 6px 12px;
-  }
-
-  .main {
-    display: grid;
-    grid-template-columns: 420px 1fr;
-    height: calc(100vh - 73px);
-    overflow: hidden;
-  }
-
-  /* LEFT PANEL */
-  .panel-left {
-    border-right: 1px solid var(--border);
-    padding: 32px;
-    overflow-y: auto;
-    height: 100%;
-  }
-
-  .section-label {
-    font-size: 9px;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 20px;
     display: flex;
     align-items: center;
     gap: 10px;
   }
 
-  .section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
+  .logo-icon {
+    width: 30px; height: 30px;
+    background: linear-gradient(145deg, #C8A96E 0%, #8A6840 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 2px 8px rgba(200,169,110,0.30), 0 0 0 1px rgba(200,169,110,0.15);
+    flex-shrink: 0;
   }
 
-  .form-group {
-    margin-bottom: 20px;
+  .logo-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.25px;
+    color: var(--text);
   }
+
+  .logo span {
+    /* legacy compat — hide subtitle */
+    display: none;
+  }
+
+  .header-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(200,169,110,0.20);
+    padding: 2px 7px;
+    border-radius: 20px;
+    letter-spacing: 0.1px;
+  }
+
+  /* ── LAYOUT ──────────────────────────────────── */
+  .main {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    height: calc(100vh - 56px);
+    overflow: hidden;
+  }
+
+  /* ── LEFT PANEL / SIDEBAR ────────────────────── */
+  .panel-left {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+    height: 100%;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+  }
+  .panel-left::-webkit-scrollbar { width: 3px; }
+  .panel-left::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+  /* Section labels */
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-top: 28px;
+    margin-bottom: 12px;
+    padding-left: 2px;
+    display: block;
+  }
+  .section-label:first-child { margin-top: 0; }
+  /* Remove the decorative line */
+  .section-label::after { display: none; }
+
+  /* Form groups */
+  .form-group { margin-bottom: 14px; }
 
   label {
     display: block;
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 500;
     color: var(--muted);
-    margin-bottom: 8px;
+    margin-bottom: 5px;
+    padding-left: 1px;
+    text-transform: none;
+    letter-spacing: normal;
   }
 
+  /* Inputs */
   input, select, textarea {
     width: 100%;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
+    height: 36px;
+    padding: 0 12px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-mid);
+    border-radius: var(--radius-sm);
+    font-family: var(--font);
     font-size: 13px;
-    padding: 10px 14px;
+    font-weight: 500;
+    color: var(--text);
     outline: none;
-    transition: border-color 0.2s;
+    transition: all 0.18s;
     -webkit-appearance: none;
     appearance: none;
+    caret-color: var(--accent);
   }
+  input::placeholder, textarea::placeholder { color: var(--muted2); }
 
+  input:hover, select:hover, textarea:hover {
+    border-color: var(--border-hi);
+    background: rgba(255,255,255,0.07);
+  }
   input:focus, select:focus, textarea:focus {
     border-color: var(--accent);
+    background: rgba(200,169,110,0.06);
+    box-shadow: 0 0 0 3px var(--accent-glow), 0 0 12px rgba(200,169,110,0.10);
   }
 
   select {
     cursor: pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b6560' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23636366' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 36px;
+    background-position: right 12px center;
+    padding-right: 32px;
+    color-scheme: dark;
   }
 
   textarea {
-    resize: vertical;
-    min-height: 120px;
-    line-height: 1.6;
+    height: auto;
+    min-height: 80px;
+    padding: 10px 12px;
+    resize: none;
+    line-height: 1.5;
   }
 
   .grid-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: 10px;
   }
 
   .grid-3 {
@@ -197,7 +239,7 @@
   .check-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
 
   .check-item {
@@ -206,85 +248,79 @@
     gap: 10px;
     cursor: pointer;
     padding: 8px 12px;
+    background: rgba(255,255,255,0.03);
     border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     transition: all 0.15s;
   }
-
-  .check-item:hover { border-color: var(--accent); }
+  .check-item:hover { border-color: var(--border-mid); }
   .check-item.active {
-    border-color: var(--accent);
-    background: rgba(200, 169, 110, 0.05);
+    border-color: rgba(200,169,110,0.30);
+    background: var(--accent-dim);
   }
-
   .check-item input[type="checkbox"] {
     width: 14px; height: 14px;
     accent-color: var(--accent);
     cursor: pointer;
     flex-shrink: 0;
   }
-
   .check-item span {
     font-size: 12px;
     color: var(--text);
-    opacity: 0.8;
+    opacity: 0.85;
   }
 
   /* Dropzone */
   .dropzone {
-    border: 1px dashed var(--border);
-    padding: 28px;
+    border: 1px dashed var(--border-mid);
+    border-radius: var(--radius-sm);
+    padding: 24px;
     text-align: center;
     cursor: pointer;
     transition: all 0.2s;
     position: relative;
   }
-
   .dropzone:hover, .dropzone.drag-over {
     border-color: var(--accent);
-    background: rgba(200,169,110,0.03);
+    background: var(--accent-dim);
   }
-
   .dropzone input[type="file"] {
     position: absolute; inset: 0;
     opacity: 0; cursor: pointer;
     width: 100%; height: 100%;
   }
-
   .dropzone-icon {
     font-size: 24px;
     margin-bottom: 10px;
-    opacity: 0;
+    opacity: 0.6;
   }
-
   .dropzone p {
     color: var(--muted);
     font-size: 11px;
     line-height: 1.6;
   }
-
   .dropzone p strong {
     color: var(--accent);
     font-weight: 500;
   }
 
   .file-list {
-    margin-top: 12px;
+    margin-top: 10px;
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
-
   .file-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
-    background: var(--surface);
+    padding: 7px 11px;
+    background: rgba(255,255,255,0.03);
     border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     font-size: 11px;
   }
-
-  .file-item .name { color: var(--accent2); }
+  .file-item .name { color: var(--accent-dark); }
   .file-item .remove {
     color: var(--muted);
     cursor: pointer;
@@ -297,33 +333,31 @@
   /* Rates table */
   .rates-table {
     border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
   }
-
   .rates-row {
     display: grid;
     grid-template-columns: 1fr 100px 100px;
     border-bottom: 1px solid var(--border);
     align-items: center;
   }
-
   .rates-row:last-child { border-bottom: none; }
-
-  .rates-row > * {
-    padding: 8px 12px;
-    font-size: 12px;
-  }
-
+  .rates-row > * { padding: 8px 12px; font-size: 12px; }
   .rates-row input {
     border: none;
     border-left: 1px solid var(--border);
+    border-radius: 0;
     text-align: right;
-    background: var(--surface);
+    background: rgba(255,255,255,0.03);
     padding: 8px 12px;
     font-size: 12px;
+    height: auto;
+    box-shadow: none;
   }
-
+  .rates-row input:focus { box-shadow: none; background: rgba(200,169,110,0.06); }
   .rates-header {
-    background: var(--surface2);
+    background: rgba(255,255,255,0.03);
     font-size: 9px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -333,39 +367,49 @@
   /* Generate button */
   .btn-generate {
     width: 100%;
-    background: var(--accent);
-    color: #0e0e0e;
+    height: 44px;
+    background: linear-gradient(145deg, #C8A96E 0%, #A8895E 100%);
     border: none;
-    padding: 16px;
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
+    border-radius: var(--radius-md);
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    color: #1C1C1E;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     transition: all 0.2s;
-    margin-top: 24px;
-    font-weight: 500;
+    margin-top: 20px;
+    box-shadow: 0 4px 16px rgba(200,169,110,0.30), 0 1px 4px rgba(200,169,110,0.20);
     position: relative;
     overflow: hidden;
+    letter-spacing: 0.1px;
   }
-
-  .btn-generate:hover { background: #d4b87a; }
-  .btn-generate:active { transform: scale(0.99); }
-  .btn-generate:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+  .btn-generate::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(145deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
   }
+  .btn-generate:hover::before { opacity: 1; }
+  .btn-generate:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 28px rgba(200,169,110,0.40), 0 2px 8px rgba(200,169,110,0.25);
+  }
+  .btn-generate:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(200,169,110,0.25); }
+  .btn-generate:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
   .btn-generate .spinner {
     display: none;
-    width: 14px; height: 14px;
+    width: 16px; height: 16px;
     border: 2px solid rgba(0,0,0,0.2);
-    border-top-color: #000;
+    border-top-color: #1C1C1E;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-    margin: 0 auto;
   }
-
   .btn-generate.loading .spinner { display: block; }
   .btn-generate.loading .btn-text { display: none; }
 
@@ -373,10 +417,15 @@
 
   /* RIGHT PANEL */
   .panel-right {
-    padding: 32px 40px;
+    background: var(--bg);
+    padding: 24px 28px;
     overflow-y: auto;
     height: 100%;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
   }
+  .panel-right::-webkit-scrollbar { width: 3px; }
+  .panel-right::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 
   /* Empty state */
   .empty-state {
@@ -390,19 +439,18 @@
     text-align: center;
     gap: 16px;
   }
-
   .empty-state .big-num {
-    font-family: 'DM Serif Display', serif;
-    font-size: 80px;
-    opacity: 0.06;
+    font-size: 72px;
+    opacity: 0.15;
     color: var(--accent);
     line-height: 1;
+    font-weight: 300;
   }
-
   .empty-state p {
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.8;
     max-width: 320px;
+    color: var(--muted);
   }
 
   /* Budget output */
@@ -410,7 +458,6 @@
     display: none;
     animation: fadeIn 0.4s ease;
   }
-
   .budget-output.visible { display: block; }
 
   @keyframes fadeIn {
@@ -418,70 +465,70 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
+  /* Budget header */
   .budget-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 32px;
-    padding-bottom: 24px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
     border-bottom: 1px solid var(--border);
   }
-
   .budget-title {
-    font-family: 'DM Serif Display', serif;
-    font-size: 28px;
+    font-size: 20px;
+    font-weight: 700;
     letter-spacing: -0.5px;
     color: var(--text);
     margin-bottom: 6px;
   }
-
   .budget-meta {
     font-size: 11px;
     color: var(--muted);
     line-height: 1.8;
   }
-
-  .budget-total-big {
-    text-align: right;
-  }
-
+  .budget-total-big { text-align: right; }
   .budget-total-big .label {
-    font-size: 9px;
-    letter-spacing: 0.2em;
+    font-size: 10px;
+    font-weight: 700;
     text-transform: uppercase;
-    color: var(--muted);
+    letter-spacing: 0.7px;
+    color: var(--muted2);
     margin-bottom: 4px;
   }
-
   .budget-total-big .amount {
-    font-family: 'DM Serif Display', serif;
     font-size: 36px;
-    color: var(--accent);
-    letter-spacing: -1px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    background: linear-gradient(135deg, #E8C98E, #C8A96E, #A8895E);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
   }
-
   .budget-total-big .currency {
     font-size: 14px;
     color: var(--muted);
     margin-left: 4px;
+    -webkit-text-fill-color: var(--muted);
   }
 
   /* Summary bars */
   .summary-bars {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 32px;
+    gap: 12px;
+    margin-bottom: 20px;
   }
-
   .summary-bar {
     background: var(--surface);
     border: 1px solid var(--border);
-    padding: 16px;
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
     position: relative;
     overflow: hidden;
+    transition: border-color 0.2s;
   }
-
+  .summary-bar:hover { border-color: var(--border-mid); }
   .summary-bar::after {
     content: '';
     position: absolute;
@@ -491,117 +538,122 @@
     width: var(--pct, 0%);
     transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
-
-  .summary-bar.transport::after { background: var(--accent2); }
+  .summary-bar.transport::after { background: #FF9F0A; }
   .summary-bar.props::after { background: var(--success); }
-
   .summary-bar .bar-label {
-    font-size: 9px;
-    letter-spacing: 0.15em;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
     text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 8px;
+    color: var(--muted2);
+    margin-bottom: 6px;
   }
-
   .summary-bar .bar-amount {
-    font-size: 18px;
-    font-family: 'DM Serif Display', serif;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
     color: var(--text);
-    margin-bottom: 4px;
+    margin-bottom: 3px;
   }
-
   .summary-bar .bar-pct {
     font-size: 11px;
     color: var(--muted);
   }
 
-  /* Section blocks */
+  /* Budget section cards */
   .budget-section {
-    margin-bottom: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .budget-section:hover { border-color: var(--border-mid); }
+  .budget-section::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,169,110,0.40), transparent);
   }
 
   .budget-section-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 16px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-bottom: none;
+    margin-bottom: 14px;
     cursor: pointer;
     user-select: none;
+    background: transparent;
+    border: none;
+    padding: 0;
   }
-
-  .budget-section-header:hover { background: #252525; }
 
   .section-title-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
-
   .section-dot {
     width: 8px; height: 8px;
     border-radius: 50%;
     background: var(--accent);
     flex-shrink: 0;
   }
-
-  .section-dot.transport { background: var(--accent2); }
+  .section-dot.transport { background: #FF9F0A; }
   .section-dot.props { background: var(--success); }
   .section-dot.fees { background: var(--danger); }
 
   .section-name {
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.1px;
+    color: var(--text);
   }
-
   .section-total {
-    font-family: 'DM Serif Display', serif;
-    font-size: 18px;
-    color: var(--accent);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--text);
   }
 
   .section-body {
-    border: 1px solid var(--border);
-    border-top: none;
     overflow: hidden;
   }
 
+  /* Budget rows */
   .budget-row {
     display: grid;
     grid-template-columns: 1fr auto auto auto;
     gap: 16px;
-    padding: 9px 16px;
-    border-bottom: 1px solid rgba(42,42,42,0.5);
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
     align-items: center;
     transition: background 0.1s;
   }
-
   .budget-row:hover { background: rgba(255,255,255,0.02); }
   .budget-row:last-child { border-bottom: none; }
 
   .row-name {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text);
-    opacity: 0.85;
   }
-
   .row-detail {
     font-size: 11px;
     color: var(--muted);
     text-align: right;
   }
-
   .row-amount {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text);
     text-align: right;
-    font-weight: 500;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
     min-width: 90px;
   }
-
   .row-note {
     font-size: 10px;
     color: var(--accent);
@@ -612,14 +664,14 @@
 
   /* Revision diff highlight */
   .budget-row.rev-changed {
-    border-left: 3px solid var(--accent2);
-    background: rgba(126,184,200,0.12);
+    border-left: 3px solid #0A84FF;
+    background: rgba(10,132,255,0.06);
   }
   .budget-row.rev-new {
     border-left: 3px solid var(--success);
-    background: rgba(110,200,145,0.12);
+    background: rgba(48,209,88,0.06);
   }
-  .rev-amount-changed { color: var(--accent2) !important; font-weight: 700 !important; }
+  .rev-amount-changed { color: #64B5FF !important; font-weight: 700 !important; }
   .rev-amount-new { color: var(--success) !important; font-weight: 700 !important; }
   .rev-delta {
     display: inline-block;
@@ -632,58 +684,90 @@
   /* Totals block */
   .totals-block {
     border: 1px solid var(--border);
-    margin-bottom: 28px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: 20px;
   }
-
   .totals-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px 16px;
     border-bottom: 1px solid var(--border);
-    font-size: 12px;
+    font-size: 13px;
   }
-
   .totals-row:last-child { border-bottom: none; }
-
-  .totals-row.highlight {
-    background: var(--surface2);
-  }
-
+  .totals-row.highlight { background: rgba(255,255,255,0.03); }
   .totals-row.grand {
     background: rgba(200,169,110,0.08);
-    border-top: 1px solid var(--accent);
+    border-top: 1px solid rgba(200,169,110,0.20);
   }
-
   .totals-row.grand .label {
-    font-family: 'DM Serif Display', serif;
-    font-size: 16px;
+    font-size: 14px;
+    font-weight: 600;
     color: var(--text);
   }
-
   .totals-row.grand .value {
-    font-family: 'DM Serif Display', serif;
     font-size: 22px;
-    color: var(--accent);
+    font-weight: 800;
+    letter-spacing: -0.8px;
+    background: linear-gradient(135deg, #E8C98E, #C8A96E, #A8895E);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
-
   .totals-row .label { color: var(--muted); }
   .totals-row .value { font-weight: 500; }
+
+  /* Tables inside budget sections */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead th {
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted2);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  thead th.r { text-align: right; }
+  tbody tr { transition: background 0.12s; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  tbody td {
+    padding: 8px 8px;
+    font-size: 13px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.r {
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  tr.total-row td {
+    background: rgba(255,255,255,0.04);
+    font-weight: 700;
+    border-top: 1px solid var(--border-mid);
+    border-bottom: none;
+  }
 
   /* AI thinking indicator */
   .thinking-bar {
     display: none;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
   }
-
   .thinking-bar.visible { display: block; }
-
   .thinking-steps {
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
-
   .thinking-step {
     display: flex;
     align-items: center;
@@ -693,175 +777,183 @@
     opacity: 0;
     animation: stepIn 0.3s ease forwards;
   }
-
   .thinking-step .step-dot {
     width: 6px; height: 6px;
     border-radius: 50%;
-    background: var(--border);
+    background: var(--border-mid);
     flex-shrink: 0;
     transition: background 0.3s;
   }
-
   .thinking-step.done .step-dot { background: var(--success); }
   .thinking-step.done { color: var(--text); opacity: 1; }
   .thinking-step.active .step-dot {
     background: var(--accent);
     animation: pulse 1s ease infinite;
   }
-
   .thinking-step.active { opacity: 1; color: var(--accent); }
 
   @keyframes pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.5); opacity: 0.5; }
   }
-
   @keyframes stepIn {
     from { opacity: 0; transform: translateX(-6px); }
     to { opacity: 1; transform: translateX(0); }
   }
 
-  /* Export button */
+  /* Export row */
   .export-row {
     display: flex;
-    gap: 12px;
-    margin-top: 24px;
+    gap: 10px;
+    margin-top: 20px;
     flex-wrap: wrap;
   }
-
   .btn-secondary {
     flex: 1;
     background: transparent;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-mid);
+    border-radius: var(--radius-sm);
     color: var(--text);
-    padding: 12px;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
+    padding: 9px 14px;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
   }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent-dark); background: var(--accent-dim); }
 
-  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-
+  /* Nový projekt / btn-new-gen */
   .btn-new-gen {
     width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    padding: 13px;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
+    background: transparent;
+    border: 1px solid var(--border-mid);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    height: 36px;
     cursor: pointer;
     transition: all 0.2s;
-    margin-top: 20px;
+    margin-top: 16px;
   }
-  .btn-new-gen:hover { background: var(--accent); color: #0e0e0e; }
+  .btn-new-gen:hover { border-color: var(--accent); color: var(--accent-dark); background: rgba(200,169,110,0.06); }
 
-  /* Historie generací */
+  /* History bar */
   .history-bar {
-    border: 1px solid var(--border);
     background: var(--surface);
-    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    overflow: hidden;
   }
   .history-bar-hdr {
-    padding: 10px 16px;
-    background: var(--surface2);
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
     border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 10px; cursor: pointer;
     user-select: none;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
   }
   .history-item {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 9px 16px;
-    border-bottom: 1px solid rgba(42,42,42,0.5);
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background 0.12s;
     gap: 10px;
   }
   .history-item:last-child { border-bottom: none; }
   .history-item:hover { background: rgba(200,169,110,0.06); }
-  .history-item.active { border-left: 3px solid var(--accent); }
-  .history-item-name { font-size: 12px; color: var(--text); flex: 1; }
+  .history-item.active {
+    border-left: 2px solid var(--accent);
+    background: var(--accent-dim);
+  }
+  .history-item-name { font-size: 12px; font-weight: 500; color: var(--text); flex: 1; }
   .history-item-meta { font-size: 10px; color: var(--muted); white-space: nowrap; }
-  .history-item-total { font-family: 'DM Serif Display', serif; font-size: 14px; color: var(--accent); white-space: nowrap; }
+  .history-item-total { font-size: 13px; font-weight: 600; color: var(--accent); white-space: nowrap; }
 
-  /* Notes area */
+  /* AI notes */
   .ai-notes {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
-    padding: 16px 20px;
-    margin-bottom: 28px;
-    font-size: 12px;
-    line-height: 1.8;
+    border-left: 2px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    line-height: 1.7;
     color: var(--text);
-    opacity: 0.85;
   }
+  .ai-notes strong { color: var(--accent); font-weight: 600; }
 
-  .ai-notes strong {
-    color: var(--accent);
-    font-weight: 500;
-  }
+  /* Scrollbar global */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
 
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border); }
-  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
-
-  /* API key input styling */
+  /* API section */
   .api-section {
-    background: var(--surface2);
+    background: rgba(255,255,255,0.03);
     border: 1px solid var(--border);
-    padding: 16px;
-    margin-bottom: 24px;
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    margin-bottom: 20px;
   }
-
   .api-section p {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--muted);
-    margin-top: 8px;
+    margin-top: 7px;
     line-height: 1.6;
   }
 
   /* Error state */
   .error-msg {
-    background: rgba(200,110,110,0.08);
-    border: 1px solid var(--danger);
-    padding: 14px 16px;
-    color: var(--danger);
+    background: rgba(255,69,58,0.08);
+    border: 1px solid rgba(255,69,58,0.18);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: #FF6B61;
     font-size: 12px;
     line-height: 1.6;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     display: none;
   }
-
   .error-msg.visible { display: block; }
 
   /* Language toggle */
   .lang-toggle {
     display: flex;
-    border: 1px solid var(--border);
+    gap: 2px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-mid);
+    border-radius: 8px;
+    padding: 2px;
     overflow: hidden;
   }
   .lang-btn {
     background: transparent;
     border: none;
     color: var(--muted);
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.15em;
-    padding: 6px 14px;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s;
   }
-  .lang-btn:first-child { border-right: 1px solid var(--border); }
-  .lang-btn.active { background: var(--accent); color: #0e0e0e; }
-  .lang-btn:not(.active):hover { color: var(--accent); }
+  .lang-btn.active {
+    background: var(--surface2);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .lang-btn:not(.active):hover { color: var(--text); }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -878,9 +970,9 @@
   <div class="logo">
     Props Budget
     <span>Rekvizitní Výprava — AI Odhad</span>
-    <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;opacity:1;
+    <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v9.9</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.0</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -892,7 +984,7 @@
     </div>
     <button id="themeBtn" onclick="toggleTheme()" title="Přepnout světlé/tmavé téma" style="
       background: none; border: 1px solid var(--border); color: var(--muted);
-      font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.1em;
+      font-family: var(--font); font-size: 11px; letter-spacing: 0.1em;
       padding: 6px 10px; cursor: pointer; transition: all 0.2s;
       display: flex; align-items: center; gap: 6px;
     " onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
@@ -911,7 +1003,7 @@
     <div style="padding:12px 16px 12px 16px; border-bottom:2px solid var(--border);">
       <button onclick="generateNewBudget()" style="
         width:100%; background:rgba(200,169,110,0.12); border:1px solid var(--accent);
-        color:var(--accent); font-family:'DM Mono',monospace; font-size:10px;
+        color:var(--accent); font-family:var(--font); font-size:10px;
         letter-spacing:0.2em; text-transform:uppercase; padding:10px 14px;
         cursor:pointer; transition:all 0.2s; text-align:left; display:flex;
         align-items:center; gap:10px; font-weight:500;"
@@ -936,20 +1028,20 @@
     <div class="section-label" style="margin-top:0;">Týmový workspace</div>
     <div style="border:1px solid var(--border);background:var(--surface);margin-bottom:16px;padding:10px 14px;">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-        <input type="text" id="workspaceCode" placeholder="tým-kód (např. sunprops)"
+        <input type="text" id="workspaceCode" placeholder=""
           style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);
-                 font-family:'DM Mono',monospace;font-size:11px;padding:7px 10px;outline:none;box-sizing:border-box;"
+                 font-family:var(--font);font-size:11px;padding:7px 10px;outline:none;box-sizing:border-box;"
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
           onkeydown="if(event.key==='Enter')connectWorkspace()"/>
         <button onclick="connectWorkspace()" id="wsConnectBtn"
           style="background:var(--surface2);border:1px solid var(--border);color:var(--text);
-                 font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
+                 font-family:var(--font);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
                  padding:7px 12px;cursor:pointer;white-space:nowrap;transition:all 0.15s;"
           onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">Připojit</button>
         <button onclick="pushWorkspace()" id="wsSyncBtn" title="Synchronizovat nyní"
           style="display:none;background:var(--surface2);border:1px solid var(--border);color:var(--muted);
-                 font-family:'DM Mono',monospace;font-size:13px;padding:7px 10px;cursor:pointer;transition:all 0.15s;"
+                 font-family:var(--font);font-size:13px;padding:7px 10px;cursor:pointer;transition:all 0.15s;"
           onmouseover="this.style.borderColor='var(--success)';this.style.color='var(--success)'"
           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↻</button>
       </div>
@@ -1012,7 +1104,7 @@
         <p><strong>Nahrát PDF nebo obrázky</strong><br>Storyboard, script, location notes<br>Max. 3 soubory — PDF nebo JPG/PNG</p>
         <button type="button" onclick="document.getElementById('fileInput').click()"
           style="margin-top:10px; background:var(--surface2); border:1px solid var(--border);
-                 color:var(--accent); font-family:'DM Mono',monospace; font-size:10px;
+                 color:var(--accent); font-family:var(--font); font-size:10px;
                  letter-spacing:0.12em; text-transform:uppercase; padding:7px 16px; cursor:pointer;">
           ↗ Vybrat soubory
         </button>
@@ -1042,7 +1134,7 @@
       <button type="button" onclick="addSet()" style="
         margin-top:10px; width:100%; background:transparent;
         border:1px dashed var(--border); color:var(--muted);
-        font-family:'DM Mono',monospace; font-size:11px;
+        font-family:var(--font); font-size:11px;
         letter-spacing:0.15em; text-transform:uppercase;
         padding:9px; cursor:pointer; transition:all 0.2s;
       " onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
@@ -1062,7 +1154,7 @@
           <div style="font-size:10px; color:var(--muted); letter-spacing:0.05em; line-height:1.5;" id="crewEstimateLabel">
             Odhadováno automaticky
           </div>
-          <div style="font-family:'DM Serif Display',serif; font-size:22px; color:var(--accent); white-space:nowrap;" id="crewEstimateValue">
+          <div style="font-family:var(--font); font-size:22px; color:var(--accent); white-space:nowrap;" id="crewEstimateValue">
             2 lidi
           </div>
         </div>
@@ -1080,7 +1172,7 @@
           <input type="number" id="fullJobCrew" value="" min="1" max="15"
             placeholder=""
             style="width:60px; background:var(--bg); border:1px solid var(--border);
-                   color:var(--accent); font-family:'DM Mono',monospace; font-size:13px;
+                   color:var(--accent); font-family:var(--font); font-size:13px;
                    padding:6px 10px; outline:none; text-align:center;"
             onfocus="this.style.borderColor='var(--accent)'"
             onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
@@ -1089,7 +1181,7 @@
           <input type="number" id="shootCrewOverride" value="" min="1" max="50"
             placeholder=""
             style="width:60px; background:var(--bg); border:1px solid var(--border);
-                   color:var(--accent2); font-family:'DM Mono',monospace; font-size:13px;
+                   color:var(--accent2); font-family:var(--font); font-size:13px;
                    padding:6px 10px; outline:none; text-align:center;"
             onfocus="this.style.borderColor='var(--accent2)'"
             onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
@@ -1181,7 +1273,7 @@
     <div class="section-label" style="margin-top:16px;">Další reference</div>
     <div style="border:1px solid var(--border); background:var(--surface); margin-bottom:16px; padding:10px 14px;">
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
-        <button onclick="document.getElementById('extraRefFile').click()" style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ Přidat soubor</button>
+        <button onclick="document.getElementById('extraRefFile').click()" style="font-family:var(--font); font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ Přidat soubor</button>
         <input type="file" id="extraRefFile" accept=".pdf,.txt,.csv,.xlsx,.xls,.ods,.jpg,.jpeg,.png,.webp" style="display:none" onchange="addExtraRef(this)">
         <span id="extraRefStatus" style="font-size:10px; color:var(--muted); flex:1;"></span>
       </div>
@@ -1197,7 +1289,7 @@
         <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:6px;">Trvalé instrukce</label>
         <textarea id="userInstructions" placeholder=""
           style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
-                 font-family:'DM Mono',monospace; font-size:11px; padding:8px 10px; outline:none;
+                 font-family:var(--font); font-size:11px; padding:8px 10px; outline:none;
                  resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;"
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'; saveInstructions()"></textarea>
         <div style="font-size:9px; color:var(--muted); margin-top:4px;">Ukládá se automaticky v prohlížeči.</div>
@@ -1215,13 +1307,13 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); margin-bottom:12px;">
       <button id="modeDetailed" onclick="setOutputMode('detailed')" style="
         background:var(--accent); color:#0e0e0e; border:none; border-right:1px solid rgba(0,0,0,0.15);
-        font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+        font-family:var(--font); font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
         padding:11px 8px; cursor:pointer; transition:all 0.15s; line-height:1.4;">
         ≡ Detailní<br><span style="font-size:9px;opacity:0.7;">položky + tým + doprava</span>
       </button>
       <button id="modeApprox" onclick="setOutputMode('approx')" style="
         background:transparent; color:var(--muted); border:none;
-        font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+        font-family:var(--font); font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
         padding:11px 8px; cursor:pointer; transition:all 0.15s; line-height:1.4;">
         ≈ Aproximativní<br><span style="font-size:9px;opacity:0.7;">sety + odhadní cena</span>
       </button>
@@ -1238,7 +1330,7 @@
     <button id="stopBtn" onclick="stopGeneration()" style="
       display:none; width:100%; margin-top:8px;
       background:transparent; border:1px solid var(--danger);
-      color:var(--danger); font-family:'DM Mono',monospace;
+      color:var(--danger); font-family:var(--font);
       font-size:12px; letter-spacing:0.15em; text-transform:uppercase;
       padding:11px; cursor:pointer; transition:all 0.2s;
     " onmouseover="this.style.background='rgba(200,110,110,0.08)'"
@@ -1254,7 +1346,7 @@
     <!-- Empty state -->
     <div class="empty-state" id="emptyState">
       <div class="big-num">₿</div>
-      <p style="font-family:'DM Serif Display',serif; font-size:18px; color: rgba(232,228,220,0.3);">Vyplňte parametry<br>a vygenerujte odhad</p>
+      <p style="font-family:var(--font); font-size:18px; color: rgba(232,228,220,0.3);">Vyplňte parametry<br>a vygenerujte odhad</p>
       <p>Agent analyzuje scény, prostředí a typ projektu.<br>Kalibrovaný na 14 reálných rozpočtů:<br>LEGO · Amazon · Etsy · Q7 · Miu Miu · Uber Eats · Telekom · G-Star · ČS · Xiaomi · Shutterfly · AB Zero · Hanácká · Dyson</p>
     </div>
 
@@ -1265,7 +1357,7 @@
       <!-- Progress bar -->
       <div style="margin-bottom:16px;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
-          <div id="progressPct" style="font-family:'DM Serif Display',serif; font-size:28px; color:var(--accent); line-height:1;">0%</div>
+          <div id="progressPct" style="font-family:var(--font); font-size:28px; color:var(--accent); line-height:1;">0%</div>
           <div id="progressEta" style="font-size:10px; color:var(--muted); letter-spacing:0.1em;"></div>
         </div>
         <div style="height:3px; background:var(--border); position:relative; overflow:hidden;">
@@ -1281,7 +1373,7 @@
       <div class="thinking-steps" id="thinkingSteps"></div>
       <button id="stopAnalysisBtn" onclick="stopAnalysis()"
         style="margin-top:14px; background:none; border:1px solid var(--danger); color:var(--danger);
-               font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+               font-family:var(--font); font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
                padding:7px 16px; cursor:pointer; display:none;">
         ✕ Zastavit analýzu
       </button>
@@ -1300,7 +1392,7 @@
         </div>
         <button onclick="confirmAndGenerate()" style="
           width:100%; background:var(--accent); color:#0e0e0e;
-          border:none; font-family:'DM Mono',monospace; font-size:12px;
+          border:none; font-family:var(--font); font-size:12px;
           letter-spacing:0.2em; text-transform:uppercase;
           padding:14px; cursor:pointer; font-weight:500; transition:all 0.2s;
         " onmouseover="this.style.background='#7a5a2a'"
@@ -1749,12 +1841,12 @@
     div.innerHTML = `
       <input type="text" class="set-name" placeholder="" value="${name}"
         style="background:var(--surface); border:1px solid var(--border); color:var(--text);
-               font-family:'DM Mono',monospace; font-size:12px; padding:8px 10px; outline:none;
+               font-family:var(--font); font-size:12px; padding:8px 10px; outline:none;
                transition:border-color 0.2s;"
         onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
       <select class="set-type"
         style="background:var(--surface); border:1px solid var(--border); color:var(--text);
-               font-family:'DM Mono',monospace; font-size:11px; padding:8px 8px; outline:none;
+               font-family:var(--font); font-size:11px; padding:8px 8px; outline:none;
                cursor:pointer; -webkit-appearance:none; appearance:none; text-align:center;">
         <option value="ateliér" ${type==='ateliér'?'selected':''}>Ateliér</option>
         <option value="reálná lokace" ${type==='reálná lokace'?'selected':''}>Reálná lokace</option>
@@ -3309,7 +3401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v9.9';
+    const _APP_VER = 'v10.0';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3890,7 +3982,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
             <div style="font-size:10px; color:var(--muted);">dressing</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-family:'DM Serif Display',serif; font-size:20px; color:${amtColor};">
+            <div style="font-family:var(--font); font-size:20px; color:${amtColor};">
               ${fmt(secTotal)} <span style="font-size:11px; color:var(--muted);">Kč</span>
             </div>
             ${deltaHtml}
@@ -4012,13 +4104,13 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         <div style="padding:14px 16px;">
           <textarea id="revisionNote" placeholder="Napiš co opravit — např. &quot;Lidí je moc, měli by být max 3 na celý prep&quot; nebo &quot;Přidej do obýváku ještě fotbálek 4000 Kč&quot;..."
             style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
-                   font-family:'DM Mono',monospace; font-size:12px; padding:10px 12px; outline:none;
+                   font-family:var(--font); font-size:12px; padding:10px 12px; outline:none;
                    resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;"
             onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
           <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
             <button onclick="reviseBudget()" id="reviseBtn" style="
               flex:1; background:var(--surface2); border:1px solid var(--border);
-              color:var(--text); font-family:'DM Mono',monospace; font-size:11px;
+              color:var(--text); font-family:var(--font); font-size:11px;
               letter-spacing:0.15em; text-transform:uppercase; padding:10px;
               cursor:pointer; transition:all 0.2s;"
               onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
@@ -4032,7 +4124,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
               <div style="flex:1; height:2px; background:var(--border); border-radius:2px; overflow:hidden;">
                 <div id="reviseProgressBar" style="height:100%; width:0%; background:var(--accent); transition:width 0.4s ease;"></div>
               </div>
-              <div id="reviseProgressPct" style="font-size:10px; color:var(--accent); font-family:'DM Mono',monospace; min-width:28px; text-align:right;">0%</div>
+              <div id="reviseProgressPct" style="font-size:10px; color:var(--accent); font-family:var(--font); min-width:28px; text-align:right;">0%</div>
             </div>
             <div id="reviseProgressEta" style="font-size:9px; color:var(--muted); text-align:right; letter-spacing:0.05em;"></div>
           </div>
@@ -4070,21 +4162,21 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
               <div style="font-size:9px;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Labour</div>
               <input type="text" id="actualLabour" placeholder=""
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
-                       font-family:'DM Mono',monospace;font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
+                       font-family:var(--font);font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
                 onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
             <div>
               <div style="font-size:9px;color:var(--accent2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Transport</div>
               <input type="text" id="actualTransport" placeholder=""
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
-                       font-family:'DM Mono',monospace;font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
+                       font-family:var(--font);font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
                 onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
             <div>
               <div style="font-size:9px;color:var(--text);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Props</div>
               <input type="text" id="actualProps" placeholder=""
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
-                       font-family:'DM Mono',monospace;font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
+                       font-family:var(--font);font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
                 onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
           </div>
@@ -4092,7 +4184,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           <div style="display:flex;gap:10px;align-items:center;">
             <button onclick="saveActualFromForm(${_labEst},${_trEst},${_prEst})" style="
               flex:1;background:var(--surface2);border:1px solid var(--success);
-              color:var(--success);font-family:'DM Mono',monospace;font-size:11px;
+              color:var(--success);font-family:var(--font);font-size:11px;
               letter-spacing:0.15em;text-transform:uppercase;padding:10px;
               cursor:pointer;transition:all 0.2s;"
               onmouseover="this.style.background='var(--success)';this.style.color='#0e0e0e'"
@@ -4344,13 +4436,13 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         <div style="padding:14px 16px;">
           <textarea id="revisionNote" placeholder="Napiš co opravit — např. &quot;Lidí je moc, měli by být max 3 na celý prep&quot; nebo &quot;Přidej do obýváku ještě fotbálek 4000 Kč&quot;..."
             style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
-                   font-family:'DM Mono',monospace; font-size:12px; padding:10px 12px; outline:none;
+                   font-family:var(--font); font-size:12px; padding:10px 12px; outline:none;
                    resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;"
             onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
           <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
             <button onclick="reviseBudget()" id="reviseBtn" style="
               flex:1; background:var(--surface2); border:1px solid var(--border);
-              color:var(--text); font-family:'DM Mono',monospace; font-size:11px;
+              color:var(--text); font-family:var(--font); font-size:11px;
               letter-spacing:0.15em; text-transform:uppercase; padding:10px;
               cursor:pointer; transition:all 0.2s;"
               onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
@@ -4364,7 +4456,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
               <div style="flex:1; height:2px; background:var(--border); border-radius:2px; overflow:hidden;">
                 <div id="reviseProgressBar" style="height:100%; width:0%; background:var(--accent); transition:width 0.4s ease;"></div>
               </div>
-              <div id="reviseProgressPct" style="font-size:10px; color:var(--accent); font-family:'DM Mono',monospace; min-width:28px; text-align:right;">0%</div>
+              <div id="reviseProgressPct" style="font-size:10px; color:var(--accent); font-family:var(--font); min-width:28px; text-align:right;">0%</div>
             </div>
             <div id="reviseProgressEta" style="font-size:9px; color:var(--muted); text-align:right; letter-spacing:0.05em;"></div>
           </div>
@@ -5020,7 +5112,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     // Overlay — informuje uživatele
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(14,14,14,0.93);z-index:999999;display:flex;align-items:center;justify-content:center;pointer-events:all;';
-    overlay.innerHTML = '<div style="color:#e8e0d0;font-family:\'DM Mono\',monospace;font-size:12px;letter-spacing:0.18em;text-align:center;text-transform:uppercase;"><div style="margin-bottom:8px;">⏳ Generuji PDF</div><div style="font-size:9px;opacity:0.45;letter-spacing:0.1em;">může trvat 5–15 sekund</div></div>';
+    overlay.innerHTML = '<div style="color:#e8e0d0;font-family:-apple-system,\'SF Pro Display\',\'Inter\',sans-serif;font-size:12px;letter-spacing:0.1em;text-align:center;text-transform:uppercase;"><div style="margin-bottom:8px;">⏳ Generuji PDF</div><div style="font-size:9px;opacity:0.45;">může trvat 5–15 sekund</div></div>';
     document.body.appendChild(overlay);
 
     const cleanup = () => {
@@ -5112,7 +5204,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       return `<tr>
         <td style="font-weight:600; padding:10px 12px; border-bottom:1px solid #eee;">${sec.name}</td>
         <td style="color:#888; padding:10px 12px; border-bottom:1px solid #eee; font-size:9pt;">dressing</td>
-        <td style="text-align:right; padding:10px 12px; border-bottom:1px solid #eee; font-family:'DM Serif Display',serif; font-size:14pt; white-space:nowrap;">${fmt(secTotal)}</td>
+        <td style="text-align:right; padding:10px 12px; border-bottom:1px solid #eee; font-family:var(--font); font-size:14pt; white-space:nowrap;">${fmt(secTotal)}</td>
       </tr>`;
     }).join('');
 

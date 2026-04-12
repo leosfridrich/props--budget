@@ -972,7 +972,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.3</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1214,6 +1214,54 @@
               onfocus="this.style.borderColor='var(--accent2)'"
               onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
               oninput="updateCrewEstimate()" />
+          </div>
+        </div>
+
+        <!-- 4: Set Dresser (volitelné) -->
+        <div id="setDresserCard" data-active="false"
+          style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); padding:11px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; transition:all 0.2s; user-select:none;"
+          onclick="toggleOptionalRole('setDresser')">
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div id="setDresserPill" style="width:28px; height:16px; background:var(--border-mid); border-radius:8px; position:relative; flex-shrink:0; transition:background 0.2s;">
+                <div id="setDresserDot" style="width:12px; height:12px; background:var(--muted2); border-radius:50%; position:absolute; top:2px; left:2px; transition:all 0.2s;"></div>
+              </div>
+              <div style="font-size:12px; font-weight:600; color:var(--text);">Set Dresser</div>
+              <span id="setDresserBadge" style="font-size:9px; color:var(--muted2); background:var(--surface2); border:1px solid var(--border); padding:1px 7px; border-radius:8px; letter-spacing:0.04em;">off</span>
+            </div>
+            <div style="font-size:10px; color:var(--muted); margin-top:3px; padding-left:36px;">shoot dny + 7 dní příprava · 7 000 Kč/os/den</div>
+          </div>
+          <div id="setDresserInput" style="display:none; align-items:center; gap:6px; flex-shrink:0;" onclick="event.stopPropagation()">
+            <input type="number" id="setDresserCount" value="1" min="1" max="8"
+              style="width:50px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--accent); font-family:var(--font); font-size:13px; padding:5px 8px; outline:none; text-align:center;"
+              onfocus="this.style.borderColor='var(--accent)'"
+              onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
+              oninput="updateCrewEstimate()" />
+            <span style="font-size:10px; color:var(--muted);">os.</span>
+          </div>
+        </div>
+
+        <!-- 5: Props Construction (volitelné) -->
+        <div id="propsConstCard" data-active="false"
+          style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); padding:11px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; transition:all 0.2s; user-select:none;"
+          onclick="toggleOptionalRole('propsConst')">
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div id="propsConstPill" style="width:28px; height:16px; background:var(--border-mid); border-radius:8px; position:relative; flex-shrink:0; transition:background 0.2s;">
+                <div id="propsConstDot" style="width:12px; height:12px; background:var(--muted2); border-radius:50%; position:absolute; top:2px; left:2px; transition:all 0.2s;"></div>
+              </div>
+              <div style="font-size:12px; font-weight:600; color:var(--text);">Props Construction</div>
+              <span id="propsConstBadge" style="font-size:9px; color:var(--muted2); background:var(--surface2); border:1px solid var(--border); padding:1px 7px; border-radius:8px; letter-spacing:0.04em;">off</span>
+            </div>
+            <div style="font-size:10px; color:var(--muted); margin-top:3px; padding-left:36px;">shoot dny · 5 000 Kč/os/den · + construction truck v dopravě</div>
+          </div>
+          <div id="propsConstInput" style="display:none; align-items:center; gap:6px; flex-shrink:0;" onclick="event.stopPropagation()">
+            <input type="number" id="propsConstCount" value="1" min="1" max="8"
+              style="width:50px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--accent); font-family:var(--font); font-size:13px; padding:5px 8px; outline:none; text-align:center;"
+              onfocus="this.style.borderColor='var(--accent)'"
+              onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
+              oninput="updateCrewEstimate()" />
+            <span style="font-size:10px; color:var(--muted);">os.</span>
           </div>
         </div>
 
@@ -1890,6 +1938,41 @@
       : `prep ~${corePrepEst}d`;
   }
 
+  // ─── OPTIONAL ROLE TOGGLE ───
+  function toggleOptionalRole(roleId) {
+    const card  = document.getElementById(roleId + 'Card');
+    const pill  = document.getElementById(roleId + 'Pill');
+    const dot   = document.getElementById(roleId + 'Dot');
+    const badge = document.getElementById(roleId + 'Badge');
+    const input = document.getElementById(roleId + 'Input');
+    const nowActive = card.dataset.active !== 'true';
+    card.dataset.active = nowActive.toString();
+    if (nowActive) {
+      card.style.borderColor = 'var(--accent)';
+      card.style.background  = 'rgba(200,169,110,0.05)';
+      pill.style.background  = 'var(--accent)';
+      dot.style.left         = '14px';
+      dot.style.background   = '#1C1C1E';
+      badge.textContent      = 'on';
+      badge.style.color      = 'var(--accent)';
+      badge.style.borderColor= 'var(--accent)';
+      badge.style.background = 'rgba(200,169,110,0.12)';
+      input.style.display    = 'flex';
+    } else {
+      card.style.borderColor = 'var(--border)';
+      card.style.background  = 'var(--surface)';
+      pill.style.background  = 'var(--border-mid)';
+      dot.style.left         = '2px';
+      dot.style.background   = 'var(--muted2)';
+      badge.textContent      = 'off';
+      badge.style.color      = 'var(--muted2)';
+      badge.style.borderColor= 'var(--border)';
+      badge.style.background = 'var(--surface2)';
+      input.style.display    = 'none';
+    }
+    updateCrewEstimate();
+  }
+
   // Wire crew estimator to relevant inputs
   ['shootDays', 'prepDays', 'propsSource'].forEach(id => {
     const el = document.getElementById(id);
@@ -2499,6 +2582,11 @@
     clear('buyerOverride');
     clear('fullJobCrew');
     clear('revisionNote');
+    // Reset optional roles
+    ['setDresser', 'propsConst'].forEach(r => {
+      const card = document.getElementById(r + 'Card');
+      if (card && card.dataset.active === 'true') toggleOptionalRole(r);
+    });
     // Vyčisti všechny sety — smaž je a přidej jeden prázdný
     document.getElementById('setsContainer').innerHTML = '';
     setCounter = 0;
@@ -3479,7 +3567,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v10.3';
+    const _APP_VER = 'v10.4';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3797,9 +3885,17 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const _avgPrepRate  = Math.round((rates.propMasterPrep + rates.leadingPropmanPrep + rates.propmanPrep) / 3);
     const _avgShootRate = Math.round((rates.propMasterShoot + rates.leadingPropmanShoot + rates.propmanShoot) / 3);
     // Labour: core tým × dny × průměrná sazba + shoot crew přesčasy
+    // Optional roles
+    const _setDresserActive = document.getElementById('setDresserCard')?.dataset.active === 'true';
+    const _setDresserCount  = _setDresserActive ? (parseInt(document.getElementById('setDresserCount').value) || 1) : 0;
+    const _propsConstActive = document.getElementById('propsConstCard')?.dataset.active === 'true';
+    const _propsConstCount  = _propsConstActive ? (parseInt(document.getElementById('propsConstCount').value) || 1) : 0;
+
     const _labourAnchor = Math.round(
       fullJobCrew * (prepDays * _avgPrepRate + shootDays * _avgShootRate) +
-      Math.max(_shootCrew - fullJobCrew, 0) * shootDays * rates.propmanShoot
+      Math.max(_shootCrew - fullJobCrew, 0) * shootDays * rates.propmanShoot +
+      _setDresserCount * (shootDays + 7) * rates.setdresserShoot +
+      _propsConstCount * shootDays * rates.propConstruction
     );
     // ─── TRANSPORT — struktura podle reálných rozpočtů ───
     const _totalDays   = prepDays + shootDays + wrapDays;
@@ -3845,6 +3941,11 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     if (_isBigJob)
       _tItems.push({ name: 'truck as workshop', days: 2 + shootDays,            rate: _bigRate });
 
+    // ── Construction truck — POUZE pokud je Props Construction zapnutý ──
+    if (_propsConstActive) {
+      _tItems.push({ name: 'construction truck', days: shootDays, rate: rates.truck });
+    }
+
     // ── Zahraniční trasy — POUZE pokud jsou zahraniční sety ──
     if (abroadSets > 0) {
       _tItems.push({ name: 'cesta zahraničí (km)', days: abroadSets, rate: Math.round(rates.truck * 1.05) });
@@ -3886,7 +3987,7 @@ CÍLOVÉ ČÁSTKY — ZÁVAZNÉ (odchylka max ±10 %, jinak je rozpočet špatn�
   Prop Master: celkem ${_pmDays} dní (shoot_days=${shootDays}, prep_days=${_pmDays - shootDays})
   Leading Propman: celkem ${_lpDays} dní (shoot_days=${shootDays}, prep_days=${_lpDays - shootDays})
   Propman 1: celkem ${_p1Days} dní (shoot_days=${shootDays}, prep_days=${_p1Days - shootDays})
-  Ostatní lidé: rozlož do prep_days/shoot_days dle jejich rolí (max shoot_days=${shootDays}, max prep_days=${prepDays + wrapDays})
+  Ostatní lidé: rozlož do prep_days/shoot_days dle jejich rolí (max shoot_days=${shootDays}, max prep_days=${prepDays + wrapDays})${_setDresserActive ? `\n  Set Dresser: ${_setDresserCount}× osoba, shoot_days=${shootDays}, prep_days=7, rate=${rates.setdresserShoot} Kč/den — POVINNĚ vlož do labour.team` : ''}${_propsConstActive ? `\n  Props Construction: ${_propsConstCount}× osoba, shoot_days=${shootDays}, prep_days=0, rate=${rates.propConstruction} Kč/den — POVINNĚ vlož do labour.team` : ''}
 - Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč — TATO ČÁSTKA JE ZÁVAZNÁ, odchylka max ±5 %
   Průměr na set: ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč (bez hero props). Každý set musí mít realisticky rozepsané položky které dohromady tuto částku naplní.
   NIKDY negeneruj props pod ${_fmt(Math.round(_propsAnchor * 0.95))} Kč. Pokud nevíš čím doplnit, přidej: pronájem dekorací a doplňků, nákup dekorativních předmětů, styling a výběr materiálů.

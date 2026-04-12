@@ -972,7 +972,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.8</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.9</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1872,20 +1872,26 @@
     const isMix   = propsSource === 'mix';
 
     // ── CORE CREW estimate (propmaster + buyer + ostatní) ──
+    const prepDaysVal = parseInt(document.getElementById('prepDays')?.value) || 0;
     let core = 2;
     if (totalSets >= 2) core = 3;
-    if (totalSets >= 4) core = 4;
-    if (totalSets >= 6) core = 5;
+    if (totalSets >= 3) core = 4;
+    if (totalSets >= 5) core = 5;
+    if (totalSets >= 7) core = 6;
     if (abroadSets >= 1) core = Math.max(core + 1, 4);
-    if (studioSets >= 3) core = Math.max(core, 4);
-    core = Math.min(core, 6);
+    if (studioSets >= 2) core = Math.max(core, 4);
+    if (studioSets >= 3) core = Math.max(core, 5);
+    if (prepDaysVal >= 15) core = Math.max(core, 4); // dlouhý prep = větší tým
+    if (isHeavy) core = Math.max(core + 1, 4);
+    core = Math.min(core, 7);
 
     // ── Role estimates ──
     // Propmaster: always 1
-    // Buyer: 1 for small/medium, 2 for large/abroad
-    const buyerEst = (totalSets >= 5 || abroadSets >= 1) ? 2 : 1;
-    // Ostatní = rest of core
-    const ostatniEst = Math.max(0, core - 1 - buyerEst);
+    // Buyer: 1 small, 2 medium+, 3 velký job
+    const buyerEst = totalSets >= 6 || abroadSets >= 1 ? 2
+                   : totalSets >= 3 ? 1 : 1;
+    // Ostatní = rest of core (set dressing, asistenti, řidiči)
+    const ostatniEst = Math.max(1, core - 1 - buyerEst);
 
     // Manual overrides
     const manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
@@ -2389,10 +2395,20 @@
         </div>`;
       }).join('');
 
+      // Uloži hero props do globální proměnné pro přenos do formuláře
+      if (parsed.hero_props?.length) {
+        window._lastHeroProps = [...parsed.hero_props];
+      }
+
       const heroRows = (parsed.hero_props || []).length
-        ? `<div style="margin-top:14px;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);">
-             <div style="font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);margin-bottom:7px;">Hero props / výroba</div>
-             ${(parsed.hero_props).map(p => `<div style="font-size:11px;color:var(--text);padding:2px 0;opacity:0.85;">· ${p}</div>`).join('')}
+        ? `<div style="margin-top:14px;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);">
+             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+               <div style="font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);">Hero props / výroba</div>
+               <button onclick="openHeroPropsEditor()" style="font-family:var(--font);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);padding:3px 8px;cursor:pointer;"
+                 onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+                 onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✎ Upravit</button>
+             </div>
+             <div id="heroPropsList">${(parsed.hero_props).map(p => `<div style="font-size:11px;color:var(--text);padding:2px 0;opacity:0.85;">· ${p}</div>`).join('')}</div>
            </div>` : '';
 
       const notesRow = parsed.notes && parsed.notes !== 'null'
@@ -2676,6 +2692,39 @@
   function confirmAndGenerate() {
     scrollRightTo('budgetOutput');
     generateBudget();
+  }
+
+  function openHeroPropsEditor() {
+    const current = window._lastHeroProps || [];
+    const textarea = document.createElement('div');
+    textarea.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    textarea.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px;width:420px;max-width:90vw;">
+        <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;">Upravit Hero Props</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Každá položka na nový řádek</div>
+        <textarea id="heroPropsEditorTA" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font);font-size:12px;padding:10px;outline:none;resize:vertical;min-height:140px;line-height:1.8;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">${current.join('\n')}</textarea>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button onclick="saveHeroPropsEditor(this.closest('div[style*=fixed]'))" style="flex:1;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#1C1C1E;font-family:var(--font);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;padding:10px;cursor:pointer;font-weight:600;">✓ Uložit</button>
+          <button onclick="this.closest('div[style*=fixed]').remove()" style="background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-family:var(--font);font-size:11px;padding:10px 16px;cursor:pointer;">Zrušit</button>
+        </div>
+      </div>`;
+    document.body.appendChild(textarea);
+    setTimeout(() => document.getElementById('heroPropsEditorTA')?.focus(), 50);
+  }
+
+  function saveHeroPropsEditor(overlay) {
+    const ta = document.getElementById('heroPropsEditorTA');
+    if (!ta) return;
+    const items = ta.value.split('\n').map(s => s.trim()).filter(Boolean);
+    window._lastHeroProps = items;
+    // Aktualizuj zobrazení v analýze
+    const listEl = document.getElementById('heroPropsList');
+    if (listEl) listEl.innerHTML = items.map(p => `<div style="font-size:11px;color:var(--text);padding:2px 0;opacity:0.85;">· ${p}</div>`).join('');
+    // Aktualizuj input pole heroProducts
+    const heroInput = document.getElementById('heroProducts');
+    if (heroInput) heroInput.value = items.join(', ');
+    overlay.remove();
   }
 
   function enableGenerateManually() {
@@ -3637,7 +3686,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v10.8';
+    const _APP_VER = 'v10.9';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3842,15 +3891,21 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const activeSets = Array.from(document.querySelectorAll('.set-row')).filter(r => r.querySelector('.set-name').value.trim() !== '').length;
     const studioSets = Array.from(document.querySelectorAll('.set-row .set-type')).filter(s => s.value === 'ateliér').length;
     const abroadSets = Array.from(document.querySelectorAll('.set-row .set-type')).filter(s => s.value === 'zahraničí').length;
-    // Auto-estimate core crew per role
+    // Auto-estimate core crew per role — sjednoceno s updateCrewEstimate()
+    const _isHeavyC = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';
     let _core = 2;
     if (activeSets >= 2) _core = 3;
-    if (activeSets >= 4) _core = 4;
-    if (activeSets >= 6) _core = 5;
+    if (activeSets >= 3) _core = 4;
+    if (activeSets >= 5) _core = 5;
+    if (activeSets >= 7) _core = 6;
     if (abroadSets >= 1) _core = Math.max(_core + 1, 4);
-    _core = Math.min(_core, 6);
-    const _buyerEst   = (activeSets >= 5 || abroadSets >= 1) ? 2 : 1;
-    const _ostatniEst = Math.max(0, _core - 1 - _buyerEst);
+    if (studioSets >= 2) _core = Math.max(_core, 4);
+    if (studioSets >= 3) _core = Math.max(_core, 5);
+    if (prepDays >= 15)  _core = Math.max(_core, 4);
+    if (_isHeavyC)       _core = Math.max(_core + 1, 4);
+    _core = Math.min(_core, 7);
+    const _buyerEst   = activeSets >= 6 || abroadSets >= 1 ? 2 : 1;
+    const _ostatniEst = Math.max(1, _core - 1 - _buyerEst);
     const _manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
     const _manualOstatni = document.getElementById('fullJobCrew').value !== ''
       ? parseInt(document.getElementById('fullJobCrew').value) : NaN;
@@ -4040,8 +4095,9 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
       ? heroProducts.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean)
       : [];
     const _heroSection = _heroItems.length > 0
-      ? `\nHERO PROPS (POVINNÉ — každou položku vlož jako samostatný řádek do sekce "Hero props" v props.sections, odhadni realistickou cenu výroby/nákupu/pronájmu v Kč):
-${_heroItems.map((h,i) => `${i+1}. ${h}`).join('\n')}\nTato sekce musí být jako PRVNÍ v props.sections[].`
+      ? `\nHERO PROPS (POVINNÉ — vlož jako SAMOSTATNOU sekci "Hero props" v props.sections, každou položku jako zvláštní řádek s realistickou cenou výroby/nákupu/pronájmu v Kč):
+${_heroItems.map((h,i) => `${i+1}. ${h}`).join('\n')}
+Tato sekce musí být jako PRVNÍ v props.sections[]. ZAKÁZÁNO: hero props NESMÍ být smíchány s dekorací setů — každý set má svou vlastní sekci s dekoracemi, hero props jsou vždy v samostatné sekci "Hero props".`
       : '';
     // Zvýšíme kotvu props o odhad hero props (500–5000 Kč/položku dle úrovně)
     const _heroPricePerItem = { luxury: 8000, premium: 5000, standard: 2500, low: 1000 };
@@ -4063,7 +4119,8 @@ CÍLOVÉ ČÁSTKY — ZÁVAZNÉ (odchylka max ±10 %, jinak je rozpočet špatn�
   Prop Master: celkem ${_pmDays} dní (shoot_days=${shootDays}, prep_days=${_pmDays - shootDays})
   Leading Propman: celkem ${_lpDays} dní (shoot_days=${shootDays}, prep_days=${_lpDays - shootDays})
   Propman 1: celkem ${_p1Days} dní (shoot_days=${shootDays}, prep_days=${_p1Days - shootDays})
-  Ostatní lidé: rozlož do prep_days/shoot_days dle jejich rolí (max shoot_days=${shootDays}, max prep_days=${prepDays + wrapDays})${_setDresserActive ? `\n  Set Dresser: ${_setDresserCount}× osoba, shoot_days=${shootDays}, prep_days=7, rate=${rates.setdresserShoot} Kč/den — POVINNĚ vlož do labour.team` : ''}${_propsConstActive ? `\n  Props Construction: ${_propsConstCount}× osoba, shoot_days=${shootDays}, prep_days=0, rate=${rates.propConstruction} Kč/den — POVINNĚ vlož do labour.team` : ''}
+  Ostatní lidé: rozlož do prep_days/shoot_days dle jejich rolí (max shoot_days=${shootDays}, max prep_days=${prepDays + wrapDays})${_setDresserActive ? `\n  Set Dresser: ${_setDresserCount}× osoba, shoot_days PŘESNĚ=${shootDays} (NESMÍ být jiné číslo), prep_days PŘESNĚ=7, rate=${rates.setdresserShoot} Kč/den — POVINNĚ vlož do labour.team` : ''}${_propsConstActive ? `\n  Props Construction: ${_propsConstCount}× osoba, shoot_days PŘESNĚ=${shootDays} (NESMÍ být jiné číslo), prep_days=0, rate=${rates.propConstruction} Kč/den — POVINNĚ vlož do labour.team` : ''}
+ZAKÁZÁNO: shoot_days u Set Dresser a Props Construction nesmí být nižší než ${shootDays}. Každá osoba těchto rolí musí mít shoot_days=${shootDays}.
 - Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč — TATO ČÁSTKA JE ZÁVAZNÁ, odchylka max ±5 %
   Průměr na set: ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč (bez hero props). Každý set musí mít realisticky rozepsané položky které dohromady tuto částku naplní.
   NIKDY negeneruj props pod ${_fmt(Math.round(_propsAnchor * 0.95))} Kč. Pokud nevíš čím doplnit, přidej: pronájem dekorací a doplňků, nákup dekorativních předmětů, styling a výběr materiálů.
@@ -4235,20 +4292,27 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       const borderStyle = dk ? `border-left:3px solid ${dk.isNew ? 'var(--success)' : 'var(--accent2)'};` : '';
       const amtColor = dk ? (dk.isNew ? 'var(--success)' : 'var(--accent2)') : 'var(--accent)';
       const deltaHtml = dk && !dk.isNew ? `<div style="font-size:9px;color:${dk.delta>0?'var(--danger)':'var(--success)'};">${dk.delta>0?'+':''}${fmt(dk.delta)} Kč</div>` : '';
+      const itemsHtml = sec.items.map(item => `
+        <div style="display:grid; grid-template-columns:1fr auto; align-items:center;
+                    padding:7px 16px 7px 28px; border-bottom:1px solid var(--border); opacity:0.75;">
+          <div style="font-size:11px; color:var(--text);">${item.name}</div>
+          <div style="font-size:12px; color:var(--muted); font-family:var(--font);">${fmt(item.amount)} Kč</div>
+        </div>`).join('');
       return `
         <div style="display:grid; grid-template-columns:1fr auto; align-items:center;
-                    padding:14px 16px; border-bottom:1px solid var(--border);${borderStyle}">
+                    padding:12px 16px 10px; border-bottom:1px solid var(--border);
+                    background:var(--surface2);${borderStyle}">
           <div>
-            <div style="font-size:13px; color:var(--text); margin-bottom:3px;">${sec.name}</div>
-            <div style="font-size:10px; color:var(--muted);">dressing</div>
+            <div style="font-size:12px; font-weight:600; color:var(--text); letter-spacing:0.03em;">${sec.name}</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-family:var(--font); font-size:20px; color:${amtColor};">
-              ${fmt(secTotal)} <span style="font-size:11px; color:var(--muted);">Kč</span>
+            <div style="font-family:var(--font); font-size:18px; color:${amtColor};">
+              ${fmt(secTotal)} <span style="font-size:10px; color:var(--muted);">Kč</span>
             </div>
             ${deltaHtml}
           </div>
-        </div>`;
+        </div>
+        ${itemsHtml}`;
     }).join('');
 
     let html = `

@@ -972,7 +972,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.2</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1119,7 +1119,7 @@
         <p><strong>Nahrát PDF nebo obrázky</strong><br>Storyboard, script, location notes<br>Max. 3 soubory — PDF nebo JPG/PNG</p>
         <button type="button" onclick="document.getElementById('fileInput').click()"
           style="margin-top:10px; background:var(--surface2); border:1px solid var(--border);
-                 color:var(--accent); font-family:var(--font); font-size:10px;
+                 border-radius:var(--radius-sm); color:var(--accent); font-family:var(--font); font-size:10px;
                  letter-spacing:0.12em; text-transform:uppercase; padding:7px 16px; cursor:pointer;">
           ↗ Vybrat soubory
         </button>
@@ -1323,9 +1323,9 @@
     <div class="error-msg" id="errorMsg"></div>
 
     <div class="section-label" style="margin-top:16px;">Další reference</div>
-    <div style="border:1px solid var(--border); background:var(--surface); margin-bottom:16px; padding:10px 14px;">
+    <div style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); margin-bottom:16px; padding:10px 14px;">
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
-        <button onclick="document.getElementById('extraRefFile').click()" style="font-family:var(--font); font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); color:var(--text); padding:5px 10px; cursor:pointer;">+ Přidat soubor</button>
+        <button onclick="document.getElementById('extraRefFile').click()" style="font-family:var(--font); font-size:9px; letter-spacing:0.1em; text-transform:uppercase; background:transparent; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); padding:5px 10px; cursor:pointer;">+ Přidat soubor</button>
         <input type="file" id="extraRefFile" accept=".pdf,.txt,.csv,.xlsx,.xls,.ods,.jpg,.jpeg,.png,.webp" style="display:none" onchange="addExtraRef(this)">
         <span id="extraRefStatus" style="font-size:10px; color:var(--muted); flex:1;"></span>
       </div>
@@ -1334,13 +1334,13 @@
     </div>
 
     <div class="section-label" style="margin-top:24px;">Moje instrukce</div>
-    <div style="border:1px solid var(--border); background:var(--surface); margin-bottom:16px;">
+    <div style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); margin-bottom:16px;">
 
       <!-- Manual instructions -->
       <div style="padding:10px 14px; border-bottom:1px solid var(--border);">
         <label style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:6px;">Trvalé instrukce</label>
         <textarea id="userInstructions" placeholder=""
-          style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+          style="width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text);
                  font-family:var(--font); font-size:11px; padding:8px 10px; outline:none;
                  resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;"
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'; saveInstructions()"></textarea>
@@ -1356,7 +1356,7 @@
     </div>
 
     <div class="section-label" style="margin-top:0;">Detail výstupu</div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); margin-bottom:12px;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:12px; overflow:hidden;">
       <button id="modeDetailed" onclick="setOutputMode('detailed')" style="
         background:var(--accent); color:#0e0e0e; border:none; border-right:1px solid rgba(0,0,0,0.15);
         font-family:var(--font); font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
@@ -1381,7 +1381,7 @@
     </div>
     <button id="stopBtn" onclick="stopGeneration()" style="
       display:none; width:100%; margin-top:8px;
-      background:transparent; border:1px solid var(--danger);
+      background:transparent; border:1px solid var(--danger); border-radius:var(--radius-sm);
       color:var(--danger); font-family:var(--font);
       font-size:12px; letter-spacing:0.15em; text-transform:uppercase;
       padding:11px; cursor:pointer; transition:all 0.2s;
@@ -3479,7 +3479,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v10.2';
+    const _APP_VER = 'v10.3';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

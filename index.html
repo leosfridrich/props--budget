@@ -972,7 +972,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.4</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1036,7 +1036,7 @@
         <button type="button" id="apiKeyToggle" onclick="(function(){var i=document.getElementById('apiKey');var b=document.getElementById('apiKeyToggle');if(i.type==='password'){i.type='text';b.textContent='🙈';}else{i.type='password';b.textContent='👁';}})()"
           style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:4px 8px;cursor:pointer;font-size:13px;border-radius:2px;flex-shrink:0;">👁</button>
       </div>
-      <p id="apiKeyStatus" style="color:var(--success);">✓ Klíč zadrátován — aplikace funguje bez zadání.</p>
+      <p id="apiKeyStatus" style="color:var(--muted);">Ověřuji API klíč…</p>
     </div>
 
     <!-- WORKSPACE -->
@@ -2687,7 +2687,7 @@
   document.getElementById('projectDesc').addEventListener('blur', () => triggerParseSets(400));
 
   // Also trigger if API key is entered AFTER files/text are already present
-  document.getElementById('apiKey').addEventListener('blur', () => triggerParseSets(200));
+  document.getElementById('apiKey').addEventListener('blur', () => { triggerParseSets(200); checkApiKeyStatus(); });
 
 
 
@@ -2997,7 +2997,6 @@
         text = pages.join('\n');
       } else if (file.type.startsWith('image/') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) {
         const apiKey = document.getElementById('apiKey').value.trim();
-        if (!apiKey) throw new Error('Pro obrázky je potřeba API klíč');
         statusEl.textContent = 'Extrahuji text z obrázku…';
         const b64 = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result.split(',')[1]); r.readAsDataURL(file); });
         const mediaType = file.type || 'image/jpeg';
@@ -3557,9 +3556,33 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
     return base ? base + '\n\n' + section : section;
   };
 
+  // ─── API KEY STATUS CHECK ───
+  async function checkApiKeyStatus() {
+    const statusEl = document.getElementById('apiKeyStatus');
+    const manualKey = document.getElementById('apiKey').value.trim();
+    try {
+      const headers = manualKey ? { 'x-api-key': manualKey } : {};
+      const r = await fetch('/api/ping', { headers });
+      const json = await r.json();
+      if (json.ok) {
+        statusEl.style.color = 'var(--success)';
+        statusEl.textContent = manualKey
+          ? '✓ Vlastní klíč nastaven.'
+          : '✓ Klíč zadrátován — aplikace funguje bez zadání.';
+      } else {
+        statusEl.style.color = 'var(--danger)';
+        statusEl.innerHTML = '✗ API klíč nenalezen. Zadej vlastní výše, nebo nastav <code>ANTHROPIC_API_KEY</code> ve Vercelu (Settings → Environment Variables).';
+      }
+    } catch(e) {
+      statusEl.style.color = 'var(--muted)';
+      statusEl.textContent = 'Nelze ověřit klíč — offline?';
+    }
+  }
+
   // Init on load
 document.addEventListener('DOMContentLoaded', () => {
     loadInstructions();
+    checkApiKeyStatus();
     renderLearnedList();
     renderActualsList();
     initRefDocs();
@@ -3567,7 +3590,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v10.4';
+    const _APP_VER = 'v10.5';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

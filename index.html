@@ -972,9 +972,20 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.0</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.1</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
+    <!-- API Usage indicator -->
+    <div id="apiUsageWidget" title="Odhadovaná cena API volání v této sessions" style="
+      display:flex; align-items:center; gap:6px;
+      padding:4px 10px; border-radius:20px;
+      background:rgba(255,255,255,0.04); border:1px solid var(--border);
+      cursor:default; transition:all 0.2s;
+    " onmouseover="this.style.borderColor='var(--border-mid)'" onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:11px; opacity:0.5;">$</span>
+      <span id="apiUsageValue" style="font-size:12px; font-weight:600; color:var(--muted); font-variant-numeric:tabular-nums;">0.000</span>
+      <span style="font-size:9px; color:var(--muted2);">session</span>
+    </div>
     <div style="display:flex; align-items:center; gap:8px;">
       <span style="font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted);">Jazyk výstupu</span>
       <div class="lang-toggle">
@@ -1000,13 +1011,14 @@
   <div class="panel-left">
 
     <!-- NOVÝ PROJEKT -->
-    <div style="padding:12px 16px 12px 16px; border-bottom:2px solid var(--border);">
+    <div style="padding:12px 0;">
       <button onclick="generateNewBudget()" style="
         width:100%; background:rgba(200,169,110,0.12); border:1px solid var(--accent);
         color:var(--accent); font-family:var(--font); font-size:10px;
         letter-spacing:0.2em; text-transform:uppercase; padding:10px 14px;
         cursor:pointer; transition:all 0.2s; text-align:left; display:flex;
-        align-items:center; gap:10px; font-weight:500;"
+        align-items:center; gap:10px; font-weight:500;
+        border-radius:var(--radius-sm);"
         onmouseover="this.style.background='rgba(200,169,110,0.22)';this.style.boxShadow='0 0 0 1px var(--accent)'"
         onmouseout="this.style.background='rgba(200,169,110,0.12)';this.style.boxShadow='none'">
         <span style="font-size:16px;line-height:1;">+</span> Nový projekt
@@ -1014,14 +1026,17 @@
     </div>
 
     <!-- API KEY -->
-    <div class="api-section">
-      <label>Anthropic API Klíč</label>
+    <div class="api-section" id="apiKeySection">
+      <label style="display:flex;align-items:center;justify-content:space-between;">
+        <span>API Klíč</span>
+        <span style="font-size:10px;color:var(--muted);font-weight:400;">volitelné — máš vlastní?</span>
+      </label>
       <div style="position:relative;display:flex;gap:6px;align-items:center;">
-        <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="new-password" spellcheck="false" style="flex:1;" />
+        <input type="password" id="apiKey" placeholder="" autocomplete="new-password" spellcheck="false" style="flex:1;" />
         <button type="button" id="apiKeyToggle" onclick="(function(){var i=document.getElementById('apiKey');var b=document.getElementById('apiKeyToggle');if(i.type==='password'){i.type='text';b.textContent='🙈';}else{i.type='password';b.textContent='👁';}})()"
           style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:4px 8px;cursor:pointer;font-size:13px;border-radius:2px;flex-shrink:0;">👁</button>
       </div>
-      <p id="apiKeyStatus">Klíč se ukládá do prohlížeče.</p>
+      <p id="apiKeyStatus" style="color:var(--success);">✓ Klíč zadrátován — aplikace funguje bez zadání.</p>
     </div>
 
     <!-- WORKSPACE -->
@@ -1667,6 +1682,24 @@
 
   function getLang() { return LANG[currentLang]; }
 
+  // ─── API USAGE TRACKER ───
+  let _sessionTokensIn = 0;
+  let _sessionTokensOut = 0;
+  function trackApiUsage(usage) {
+    if (!usage) return;
+    _sessionTokensIn  += usage.input_tokens  || 0;
+    _sessionTokensOut += usage.output_tokens || 0;
+    // claude-sonnet-4-5: $3/1M input, $15/1M output
+    const cost = (_sessionTokensIn / 1e6 * 3) + (_sessionTokensOut / 1e6 * 15);
+    const el = document.getElementById('apiUsageValue');
+    if (el) el.textContent = cost.toFixed(3);
+    const widget = document.getElementById('apiUsageWidget');
+    if (widget) {
+      const color = cost < 0.5 ? 'var(--muted)' : cost < 2 ? '#FF9F0A' : 'var(--danger)';
+      document.getElementById('apiUsageValue').style.color = color;
+    }
+  }
+
   // ─── ROBUST JSON PARSER ───
   // Zpracuje odpovědi ve formátu ```json {...} ```, nebo holý JSON, nebo JSON zahrabaný v textu
   function parseJsonFromLLM(raw) {
@@ -1899,15 +1932,13 @@
   function triggerParseSets(delay = 800) {
     clearTimeout(_parseDebounce);
     const desc = document.getElementById('projectDesc').value.trim();
-    const apiKey = document.getElementById('apiKey').value.replace(/\s/g, '');
     const hasContent = desc || uploadedFiles.length > 0;
-    if (!hasContent || !apiKey) return;
+    if (!hasContent) return;
     _parseDebounce = setTimeout(parseSetsFromScript, delay);
   }
 
   async function parseSetsFromScript() {
     const apiKey = document.getElementById('apiKey').value.replace(/\s/g, '');
-    if (!apiKey) return;
 
     const desc = document.getElementById('projectDesc').value.trim();
     const projectName = document.getElementById('projectName').value.trim();
@@ -2125,6 +2156,7 @@
       clearInterval(_analysisStepInterval); _analysisStepInterval = null;
 
       const raw = (data.content?.map(c => c.text || '') ?? []).join('').trim() || '';
+      trackApiUsage(data.usage);
       if (!raw) throw new Error(data.error?.message || 'API vrátilo prázdnou odpověď.');
 
       renderStep(analysisSteps.length);
@@ -2925,7 +2957,7 @@
   // Extrahuj crew kalendáře přes vision API
   async function extractCrewImages() {
     const apiKey = document.getElementById('apiKey').value.trim();
-    if (!apiKey) { alert('Nejdřív zadej API klíč'); return; }
+    if (false) return; // api key not required
     const btn = document.getElementById('extractCrewBtn');
     btn.disabled = true;
     btn.textContent = 'Extrahuji...';
@@ -3401,7 +3433,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v10.0';
+    const _APP_VER = 'v10.1';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3573,8 +3605,7 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
   }
 
   async function generateBudget() {
-    const apiKey = document.getElementById('apiKey').value.replace(/\s/g, '');
-    if (!apiKey) { showError('Zadejte prosím Anthropic API klíč.'); return; }
+    const apiKey = document.getElementById('apiKey').value.replace(/\s/g, '') || '';
 
     const btn = document.getElementById('generateBtn');
     const stopBtn = document.getElementById('stopBtn');
@@ -3878,6 +3909,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       const rawText = (data.content?.map(c => c.text || '') ?? []).join('') || '';
       if (!rawText) throw new Error(data.error?.message || 'API vrátilo prázdnou odpověď.');
 
+      trackApiUsage(data.usage);
       document.getElementById('progressEta').textContent = 'parsuju JSON…';
       let budget;
       try {
@@ -4537,8 +4569,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const note = document.getElementById('revisionNote')?.value?.trim();
     if (!note) return;
 
-    const apiKey = document.getElementById('apiKey').value.replace(/\s/g, '');
-    if (!apiKey) { alert('Zadejte API klíč.'); return; }
+    const apiKey = document.getElementById('apiKey').value.replace(/\s/g, '') || '';
 
     const b = window._lastBudget;
     const projectName = window._lastBudgetName || 'Projekt';
@@ -4668,6 +4699,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       });
 
       const raw = (data.content?.map(c => c.text || '') ?? []).join('').trim() || '';
+      trackApiUsage(data.usage);
       let revised;
       try { revised = parseJsonFromLLM(raw); } catch(e) {
         throw new Error('Chyba parsování revize: ' + raw.substring(0, 150));

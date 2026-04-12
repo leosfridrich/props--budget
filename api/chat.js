@@ -8,7 +8,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).end('POST only');
 
-  const apiKey = req.headers['x-api-key'];
+  const apiKey = req.headers['x-api-key'] || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(400).json({ error: { message: 'Missing API key' } });
 
   try {

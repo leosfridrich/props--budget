@@ -972,7 +972,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.1</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.2</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1159,53 +1159,90 @@
     </div>
 
     <div class="form-group">
-      <label>Lidé na celý job (prep + wrap) / shoot</label>
-      <div style="border:1px solid var(--border); background:var(--surface);">
+      <label>Crew — Rekvizitáři</label>
+      <div style="display:flex; flex-direction:column; gap:6px;">
 
-        <!-- Auto estimate strip -->
-        <div id="crewEstimateBar" style="
-          background:var(--surface2); border-bottom:1px solid var(--border);
-          padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
-          <div style="font-size:10px; color:var(--muted); letter-spacing:0.05em; line-height:1.5;" id="crewEstimateLabel">
-            Odhadováno automaticky
+        <!-- 1: Propmaster — always 1 -->
+        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); padding:11px 14px; display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <div style="font-size:12px; font-weight:600; color:var(--text);">Propmaster</div>
+            <div style="font-size:10px; color:var(--muted); margin-top:2px;">celý job — prep, shoot, wrap</div>
           </div>
-          <div style="font-family:var(--font); font-size:22px; color:var(--accent); white-space:nowrap;" id="crewEstimateValue">
-            2 lidi
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:22px; font-weight:700; color:var(--accent); font-variant-numeric:tabular-nums;">1</span>
+            <span style="font-size:10px; color:var(--muted);">×</span>
+            <span style="font-size:9px; color:var(--muted2); background:var(--surface2); border:1px solid var(--border); padding:2px 8px; border-radius:10px; letter-spacing:0.05em;">vždy</span>
           </div>
         </div>
 
-        <!-- Breakdown chips -->
-        <div id="crewBreakdown" style="
-          padding:10px 14px; font-size:10px; color:var(--muted);
-          line-height:2; border-bottom:1px solid var(--border);">
+        <!-- 2: Buyer -->
+        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); padding:11px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:12px; font-weight:600; color:var(--text);">Buyer</div>
+            <div style="font-size:10px; color:var(--muted); margin-top:2px;">schánění a objednávání rekvizit</div>
+            <div style="font-size:10px; color:var(--muted2); margin-top:4px;" id="buyerEstimateLabel">odhadováno automaticky</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            <span style="font-size:20px; font-weight:700; color:var(--accent); font-variant-numeric:tabular-nums; min-width:20px; text-align:right;" id="buyerEstimateValue">1</span>
+            <span style="font-size:10px; color:var(--muted);">×</span>
+            <input type="number" id="buyerOverride" value="" min="1" max="8" placeholder="—"
+              title="Přepsat ručně — prázdné = automatický odhad"
+              style="width:50px; background:var(--bg); border:1px solid var(--border);
+                     color:var(--accent); font-family:var(--font); font-size:13px;
+                     padding:5px 8px; outline:none; text-align:center; border-radius:var(--radius-sm);"
+              onfocus="this.style.borderColor='var(--accent)'"
+              onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
+              oninput="updateCrewEstimate()" />
+          </div>
         </div>
 
-        <!-- Manual override -->
-        <div style="padding:10px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <span style="font-size:10px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; white-space:nowrap;">Přepsat ručně:</span>
-          <span style="font-size:10px; color:var(--accent); margin-right:2px;">core</span>
-          <input type="number" id="fullJobCrew" value="" min="1" max="15"
-            placeholder=""
-            style="width:60px; background:var(--bg); border:1px solid var(--border);
-                   color:var(--accent); font-family:var(--font); font-size:13px;
-                   padding:6px 10px; outline:none; text-align:center;"
-            onfocus="this.style.borderColor='var(--accent)'"
-            onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
-            oninput="updateCrewEstimate()" />
-          <span style="font-size:10px; color:var(--accent2); margin-left:6px; margin-right:2px;">shoot</span>
-          <input type="number" id="shootCrewOverride" value="" min="1" max="50"
-            placeholder=""
-            style="width:60px; background:var(--bg); border:1px solid var(--border);
-                   color:var(--accent2); font-family:var(--font); font-size:13px;
-                   padding:6px 10px; outline:none; text-align:center;"
-            onfocus="this.style.borderColor='var(--accent2)'"
-            onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
-            oninput="updateCrewEstimate()" />
-          <span style="font-size:10px; color:var(--muted);">— prázdné = odhad</span>
+        <!-- 3: Ostatní rekvizitáři -->
+        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); padding:11px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:12px; font-weight:600; color:var(--text);">Ostatní rekvizitáři</div>
+            <div style="font-size:10px; color:var(--muted); margin-top:2px;">set dressing, asistenti, řidiči</div>
+            <div style="font-size:10px; color:var(--muted2); margin-top:4px;" id="otherCrewEstimateLabel">odhadováno automaticky</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            <span style="font-size:20px; font-weight:700; color:var(--accent2); font-variant-numeric:tabular-nums; min-width:20px; text-align:right;" id="otherCrewEstimateValue">1</span>
+            <span style="font-size:10px; color:var(--muted);">×</span>
+            <input type="number" id="fullJobCrew" value="" min="0" max="15" placeholder="—"
+              title="Přepsat ručně — prázdné = automatický odhad"
+              style="width:50px; background:var(--bg); border:1px solid var(--border);
+                     color:var(--accent2); font-family:var(--font); font-size:13px;
+                     padding:5px 8px; outline:none; text-align:center; border-radius:var(--radius-sm);"
+              onfocus="this.style.borderColor='var(--accent2)'"
+              onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
+              oninput="updateCrewEstimate()" />
+          </div>
         </div>
+
+        <!-- Shoot total + summary -->
+        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface2); padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:10px; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase;">Shoot den — celkem</div>
+            <div style="font-size:10px; color:var(--muted2); margin-top:3px;" id="crewEstimateLabel">odhadováno automaticky</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            <span style="font-size:20px; font-weight:700; color:var(--accent2); font-variant-numeric:tabular-nums;" id="crewEstimateValue">–</span>
+            <span style="font-size:10px; color:var(--muted);">lidí ·</span>
+            <input type="number" id="shootCrewOverride" value="" min="1" max="50" placeholder="—"
+              title="Přepsat shoot den ručně"
+              style="width:50px; background:var(--bg); border:1px solid var(--border);
+                     color:var(--accent2); font-family:var(--font); font-size:13px;
+                     padding:5px 8px; outline:none; text-align:center; border-radius:var(--radius-sm);"
+              onfocus="this.style.borderColor='var(--accent2)'"
+              onblur="this.style.borderColor='var(--border)'; updateCrewEstimate();"
+              oninput="updateCrewEstimate()" />
+            <span style="font-size:9px; color:var(--muted2);">ručně</span>
+          </div>
+        </div>
+
+        <!-- hidden breakdown (used internally) -->
+        <div id="crewBreakdown" style="display:none;"></div>
 
       </div>
-      <p style="font-size:10px; color:var(--muted); margin-top:6px;"><strong style="color:var(--text);">Core</strong> = Prop master + propmanové na celý prep+wrap. <strong style="color:var(--accent2);">Shoot</strong> = všichni na natáčení vč. souběžné likvidace. Prázdné pole = automatický odhad.</p>
+      <p style="font-size:10px; color:var(--muted); margin-top:6px;">Číslo = odhad ze scriptu. Přepis ručně vypíše to do rozpočtu. Prázdné pole = automatický odhad.</p>
     </div>
 
     <div class="form-group">
@@ -1777,8 +1814,7 @@
     const isHeavy = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';
     const isMix   = propsSource === 'mix';
 
-    // ── CORE CREW (celý job: prep + shoot + wrap) ──
-    // From data: G-STAR=2, ČS=3, Xiaomi=4, Shutterfly=5, AB Zero=5
+    // ── CORE CREW estimate (propmaster + buyer + ostatní) ──
     let core = 2;
     if (totalSets >= 2) core = 3;
     if (totalSets >= 4) core = 4;
@@ -1787,63 +1823,71 @@
     if (studioSets >= 3) core = Math.max(core, 4);
     core = Math.min(core, 6);
 
-    // ── PREP DAYS estimate (top core person) ──
-    // Formula from data: sets * 2.5 + shoot_days
-    // G-STAR: 1*2.5+2=4 ✓ | Xiaomi: 4*2.5+3=13 ✓ | AB Zero: 6*2.5+4=19 ✓
+    // ── Role estimates ──
+    // Propmaster: always 1
+    // Buyer: 1 for small/medium, 2 for large/abroad
+    const buyerEst = (totalSets >= 5 || abroadSets >= 1) ? 2 : 1;
+    // Ostatní = rest of core
+    const ostatniEst = Math.max(0, core - 1 - buyerEst);
+
+    // Manual overrides
+    const manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
+    const manualOstatni = parseInt(document.getElementById('fullJobCrew').value);
+    const manualShoot  = parseInt(document.getElementById('shootCrewOverride').value);
+
+    const displayBuyer  = manualBuyer  > 0 ? manualBuyer  : buyerEst;
+    const displayOstatni = manualOstatni >= 0 && document.getElementById('fullJobCrew').value !== ''
+      ? manualOstatni : ostatniEst;
+    const totalCore = 1 + displayBuyer + displayOstatni;
+
+    // ── PREP DAYS estimate ──
     const corePrepEst = Math.round(totalSets * 2.5 + shootDays);
 
     // ── SHOOT CREW ──
-    // Complexity factor per set type (derived from real budgets):
-    // ČS: 5 light sets → +1.0/set extras
-    // Xiaomi: 4 mixed sets → +2.8/set extras
-    // Shutterfly: 3 full houses → +4.7/set extras
-    // AB Zero: 6 complex → +2.7/set extras
     let extras = 0;
     extras += exteriorSets * 1.0;
     extras += realSets     * (isHeavy ? 4.5 : isMix ? 3.0 : 2.0);
     extras += studioSets   * (isHeavy ? 5.0 : 3.5);
     extras += abroadSets   * 4.0;
-
-    let shootCrew = Math.round(core + extras);
-
-    // Minimums anchored to real data
+    let shootCrew = Math.round(totalCore + extras);
     if (totalSets >= 3 && shootCrew < 12) shootCrew = 12;
     if (totalSets >= 5 && shootCrew < 15) shootCrew = 15;
     if (totalSets <= 1) shootCrew = Math.max(shootCrew, 3);
     shootCrew = Math.min(shootCrew, 25);
-
-    // Manual overrides
-    const manual = parseInt(document.getElementById('fullJobCrew').value);
-    const manualShoot = parseInt(document.getElementById('shootCrewOverride').value);
-    const displayCore = manual > 0 ? manual : core;
     const displayShoot = manualShoot > 0 ? manualShoot : shootCrew;
 
-    // ── Display ──
-    document.getElementById('crewEstimateValue').innerHTML =
-      `<span style="font-size:20px;color:var(--accent);">${displayCore}</span>` +
-      `<span style="font-size:10px;color:var(--muted);margin-left:3px;">core</span>` +
-      `<span style="font-size:13px;color:var(--border);margin:0 8px;">/</span>` +
-      `<span style="font-size:20px;color:var(--accent2);">${displayShoot}</span>` +
-      `<span style="font-size:10px;color:var(--muted);margin-left:3px;">shoot</span>` +
-      `<span style="font-size:10px;color:var(--muted);margin-left:10px;opacity:0.6;">prep ~${corePrepEst}d</span>`;
+    // ── Update 3 role cards ──
+    const buyerEl = document.getElementById('buyerEstimateValue');
+    if (buyerEl) {
+      buyerEl.textContent = displayBuyer;
+      buyerEl.style.opacity = manualBuyer > 0 ? '1' : '0.5';
+    }
+    const buyerLbl = document.getElementById('buyerEstimateLabel');
+    if (buyerLbl) buyerLbl.textContent = manualBuyer > 0 ? 'ručně zadáno' : 'odhad ze scriptu';
 
-    const chips = [
-      `<span style="color:var(--accent)">Core ${displayCore}:</span> Prop master + ${displayCore-1} propman${displayCore>2?'i':''} na celý prep (~${corePrepEst}d)`,
-      `<span style="color:var(--accent2)">Shoot ${displayShoot}:</span> všichni na natáčení + souběžná likvidace`,
-    ];
+    const ostatniEl = document.getElementById('otherCrewEstimateValue');
+    if (ostatniEl) {
+      ostatniEl.textContent = displayOstatni;
+      ostatniEl.style.opacity = (document.getElementById('fullJobCrew').value !== '') ? '1' : '0.5';
+    }
+    const ostatniLbl = document.getElementById('otherCrewEstimateLabel');
+    if (ostatniLbl) ostatniLbl.textContent =
+      document.getElementById('fullJobCrew').value !== '' ? 'ručně zadáno' : 'odhad ze scriptu';
+
+    // ── Shoot total row ──
+    const shootEl = document.getElementById('crewEstimateValue');
+    if (shootEl) shootEl.textContent = displayShoot;
 
     const reasons = [];
     if (totalSets >= 1) reasons.push(`${totalSets} ${totalSets===1?'set':'setů'}`);
     if (studioSets)   reasons.push(`${studioSets}× ateliér`);
-    if (exteriorSets) reasons.push(`${exteriorSets}× exteriér`);
     if (abroadSets)   reasons.push('zahraničí');
     if (isHeavy)      reasons.push('full dressing');
-    if (isMix)        reasons.push('mix');
-    if (manual > 0)   reasons.push('core ručně');
     if (manualShoot > 0) reasons.push('shoot ručně');
-
-    document.getElementById('crewEstimateLabel').innerHTML = `Na základě: ${reasons.join(' · ')}`;
-    document.getElementById('crewBreakdown').innerHTML = chips.join('<br>');
+    const lbl = document.getElementById('crewEstimateLabel');
+    if (lbl) lbl.textContent = reasons.length
+      ? `Na základě: ${reasons.join(' · ')} · prep ~${corePrepEst}d`
+      : `prep ~${corePrepEst}d`;
   }
 
   // Wire crew estimator to relevant inputs
@@ -2452,6 +2496,8 @@
     reset0('prepDays');
     reset0('wrapDays');
     clear('shootCrewOverride');
+    clear('buyerOverride');
+    clear('fullJobCrew');
     clear('revisionNote');
     // Vyčisti všechny sety — smaž je a přidej jeden prázdný
     document.getElementById('setsContainer').innerHTML = '';
@@ -3433,7 +3479,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v10.1';
+    const _APP_VER = 'v10.2';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3629,18 +3675,24 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const scenesPerDay = parseInt((document.getElementById('scenesPerDay') || {}).value) || 1;
     const propsSource = document.getElementById('propsSource').value;
     const heroProducts = document.getElementById('heroProducts').value;
-    const _manualCrew = parseInt(document.getElementById('fullJobCrew').value);
     const activeSets = Array.from(document.querySelectorAll('.set-row')).filter(r => r.querySelector('.set-name').value.trim() !== '').length;
     const studioSets = Array.from(document.querySelectorAll('.set-row .set-type')).filter(s => s.value === 'ateliér').length;
     const abroadSets = Array.from(document.querySelectorAll('.set-row .set-type')).filter(s => s.value === 'zahraničí').length;
-    // Auto-estimate if not manually set
+    // Auto-estimate core crew per role
     let _core = 2;
     if (activeSets >= 2) _core = 3;
     if (activeSets >= 4) _core = 4;
     if (activeSets >= 6) _core = 5;
     if (abroadSets >= 1) _core = Math.max(_core + 1, 4);
     _core = Math.min(_core, 6);
-    const fullJobCrew = _manualCrew > 0 ? _manualCrew : _core;
+    const _buyerEst   = (activeSets >= 5 || abroadSets >= 1) ? 2 : 1;
+    const _ostatniEst = Math.max(0, _core - 1 - _buyerEst);
+    const _manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
+    const _manualOstatni = document.getElementById('fullJobCrew').value !== ''
+      ? parseInt(document.getElementById('fullJobCrew').value) : NaN;
+    const _displayBuyer  = _manualBuyer  > 0 ? _manualBuyer  : _buyerEst;
+    const _displayOstatni = !isNaN(_manualOstatni) ? _manualOstatni : _ostatniEst;
+    const fullJobCrew = 1 + _displayBuyer + _displayOstatni;
 
     // Shoot crew estimate for prompt
     const _isHeavy = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';

@@ -972,7 +972,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.6</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.7</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -2152,11 +2152,23 @@
     const shootLine   = 'Shoot dny: ' + shootDays;
     const descLine    = desc ? 'Popis / script / treatment:\n' + desc : '';
     const jsonExample = '{"sets":[{"name":"Obývací pokoj","type":"reálná lokace","note":"moderní interiér, velká okna"},{"name":"Kuchyně","type":"reálná lokace","note":"vaření na plynu"}],"hero_props":["čisticí sprej","varná deska"],"notes":"žádné speciální požadavky"}';
+
+    // ── Paměť projektu — pokud existuje memory karta, přidej závazné sety do promptu ──
+    const _memCard = projectName ? findMemoryCard(projectName) : null;
+    const _memSetsLine = _memCard?.setsRaw?.length
+      ? '\n⚑ UŽIVATELEM POTVRZENÉ SETY Z PŘEDEŠLÉ PRÁCE — POVINNĚ je zahrň do výstupu (i kdyby nebyly vidět ve scriptu):\n' +
+        _memCard.setsRaw.map((s, i) => `${i+1}. ${s.name} (${s.type})`).join('\n')
+      : '';
+    const _memCorrectionsLine = _memCard?.corrections?.length
+      ? '\nUŽIVATELSKÉ KOREKCE Z MINULA:\n' + _memCard.corrections.slice(-3).map(c => `- [${c.date}] ${c.note}`).join('\n')
+      : '';
+
     const promptText = [
       'Jsi expert na filmovou rekvizitní výpravu.',
       'Přečti podklady a identifikuj všechny SETY / PROSTŘEDÍ kde se bude točit.',
       '',
       projectLine, shootLine, descLine,
+      _memSetsLine, _memCorrectionsLine,
       '',
       'Pro každý set urči:',
       '- name: konkrétní název (Obývací pokoj, Kuchyně moderní, Metro Anděl...)',
@@ -2325,16 +2337,37 @@
         type: typeMap[s.type?.toLowerCase()] || s.type || 'reálná lokace'
       }));
 
-      // ── Fill sets on left panel — MERGE (nemazat ručně přidané/upravené sety) ──
+      // ── Fill sets on left panel — MERGE (model + paměť) ──
       const _existingSetNames = Array.from(document.querySelectorAll('.set-row'))
         .map(r => (r.querySelector('.set-name')?.value || '').trim().toLowerCase())
         .filter(Boolean);
-      // Přidej pouze sety které uživatel ještě nemá
+
+      // 1. Přidej sety z analýzy scriptu
       const _newFromAnalysis = (parsed.sets || []).filter(s => {
         const n = (s.name || '').trim().toLowerCase();
         return n && !_existingSetNames.includes(n);
       });
       _newFromAnalysis.forEach(s => addSet(s.name || 'Set', s.type));
+
+      // 2. Přidej sety z paměti které analýza vynechala (uživatelem potvrzená prostředí)
+      if (_memCard?.setsRaw?.length) {
+        const _afterAnalysisNames = Array.from(document.querySelectorAll('.set-row'))
+          .map(r => (r.querySelector('.set-name')?.value || '').trim().toLowerCase())
+          .filter(Boolean);
+        const _memMissing = _memCard.setsRaw.filter(s => {
+          const n = (s.name || '').trim().toLowerCase();
+          return n && !_afterAnalysisNames.includes(n);
+        });
+        if (_memMissing.length) {
+          _memMissing.forEach(s => addSet(s.name, s.type));
+          // Zobraz info uživateli
+          if (textEl) {
+            textEl.textContent = `✓ Analýza hotova · +${_memMissing.length} set${_memMissing.length > 1 ? 'y' : ''} z paměti`;
+            textEl.style.color = 'var(--accent)';
+          }
+        }
+      }
+
       updateCrewEstimate();
 
       // ── Build right panel analysis view ──
@@ -3599,7 +3632,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v10.6';
+    const _APP_VER = 'v10.7';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

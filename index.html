@@ -972,7 +972,7 @@
     <span>Rekvizitní Výprava — AI Odhad</span>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.7</span>
+                 padding:2px 7px;display:inline-block;margin-top:4px;">v10.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -2153,8 +2153,12 @@
     const descLine    = desc ? 'Popis / script / treatment:\n' + desc : '';
     const jsonExample = '{"sets":[{"name":"Obývací pokoj","type":"reálná lokace","note":"moderní interiér, velká okna"},{"name":"Kuchyně","type":"reálná lokace","note":"vaření na plynu"}],"hero_props":["čisticí sprej","varná deska"],"notes":"žádné speciální požadavky"}';
 
-    // ── Paměť projektu — pokud existuje memory karta, přidej závazné sety do promptu ──
+    // ── Paměť projektu — načti kartu a předvyplň sety do formuláře PŘED analýzou ──
     const _memCard = projectName ? findMemoryCard(projectName) : null;
+    if (_memCard?.setsRaw?.length) {
+      // Předvyplníme sety z paměti do formuláře — analýza pak může přidat nové, ne mazat staré
+      applyMemoryCardSets(_memCard);
+    }
     const _memSetsLine = _memCard?.setsRaw?.length
       ? '\n⚑ UŽIVATELEM POTVRZENÉ SETY Z PŘEDEŠLÉ PRÁCE — POVINNĚ je zahrň do výstupu (i kdyby nebyly vidět ve scriptu):\n' +
         _memCard.setsRaw.map((s, i) => `${i+1}. ${s.name} (${s.type})`).join('\n')
@@ -3300,10 +3304,11 @@
     const mem = getScriptMemory();
     const idx = mem.findIndex(c => c.scriptId === card.scriptId);
     if (idx >= 0) {
-      // Merge — aktualizuj sety a přidej korekce
+      // Merge — aktualizuj sety (pokud jsou neprázdné) a přidej korekce
       mem[idx] = {
         ...mem[idx], ...card,
-        sets: card.sets?.length ? card.sets : mem[idx].sets,
+        sets:    card.sets?.length    ? card.sets    : mem[idx].sets,
+        setsRaw: card.setsRaw?.length ? card.setsRaw : mem[idx].setsRaw,
         corrections: [...(mem[idx].corrections || []), ...(card.corrections || [])]
       };
     } else {
@@ -3632,7 +3637,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v10.7';
+    const _APP_VER = 'v10.8';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3665,16 +3670,22 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!name) return;
           const card = findMemoryCard(name);
           if (!card?.setsRaw?.length) return;
-          const currentSets = getCurrentSets();
-          // Aplikuj pouze pokud formulář nemá ještě žádné sety nebo je to nový projekt
-          if (currentSets.length === 0 || (currentSets.length === 1 && !currentSets[0].name)) {
-            document.getElementById('setsContainer').innerHTML = '';
-            setCounter = 0;
-            card.setsRaw.forEach(s => addSet(s.name, s.type));
-            updateCrewEstimate();
+          // Vždy aplikuj paměťové sety — přidej chybějící (applyMemoryCardSets merguje, nepřepisuje)
+          const added = applyMemoryCardSets(card);
+          if (added > 0) {
             // Vizuální indikace
             _pnInput.style.borderColor = 'var(--success)';
             setTimeout(() => { _pnInput.style.borderColor = ''; }, 2000);
+            // Zobraz info
+            const setsStatusText = document.getElementById('setsStatusText');
+            const setsStatus = document.getElementById('setsStatus');
+            if (setsStatus && setsStatusText) {
+              setsStatus.style.display = 'flex';
+              document.getElementById('setsStatusIcon').textContent = '💾';
+              setsStatusText.style.color = 'var(--success)';
+              setsStatusText.textContent = `${added} set${added > 1 ? 'y' : ''} načteny z paměti (${card.lastUpdate})`;
+              setTimeout(() => { setsStatus.style.display = 'none'; }, 4000);
+            }
           }
         }, 700);
       });
@@ -5024,9 +5035,9 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       status.textContent = '✓ Opraveno';
       setTimeout(() => { status.textContent = ''; }, 3000);
 
-      // Save as learned correction (summarized)
-      addLearnedCorrection(savedNote.substring(0, 120));
-      // Uloží korekci do Script Memory Card — agent ji použije při dalším zpracování stejného scriptu
+      // Save as learned correction (summarized) — zvýšeno na 250 znaků
+      addLearnedCorrection(savedNote.substring(0, 250));
+      // Uloží korekci + aktuální sety do Script Memory Card
       saveProjectToMemory(projectName, savedNote);
 
       _rpFinish(true);

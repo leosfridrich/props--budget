@@ -4503,7 +4503,9 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       </div>
 
       <div class="export-row">
-        <button class="btn-secondary" onclick="downloadExcel()">⬇ Numbers</button>
+        <button class="btn-secondary" onclick="copyJSON()">↗ JSON</button>
+        <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel</button>
+        <button class="btn-secondary" onclick="downloadNumbers()">⬇ Numbers</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
       </div>
       <button class="btn-new-gen" onclick="generateNewBudget()">↗ Generovat další</button>
@@ -4834,7 +4836,9 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       </div>
 
       <div class="export-row">
-        <button class="btn-secondary" onclick="downloadExcel()">⬇ Numbers</button>
+        <button class="btn-secondary" onclick="copyJSON()">↗ JSON</button>
+        <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel</button>
+        <button class="btn-secondary" onclick="downloadNumbers()">⬇ Numbers</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
       </div>
       <button class="btn-new-gen" onclick="generateNewBudget()">↗ Generovat další</button>
@@ -4936,6 +4940,30 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
   function toggleSection(id) {
     const el = document.getElementById(id);
     if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+  }
+
+  function copyJSON() {
+    if (window._lastBudget) {
+      navigator.clipboard.writeText(JSON.stringify(window._lastBudget, null, 2));
+      alert('JSON zkopírován do schránky!');
+    }
+  }
+
+  async function downloadNumbers() {
+    // Numbers na Macu otevírá .xlsx nativně — stejný export, jiný název souboru
+    const b = window._lastBudget;
+    if (!b) return;
+    const projectName = document.getElementById('projectName').value || 'ROZPOČET';
+    const wb = new window.ExcelJS.Workbook();
+    const ws = wb.addWorksheet('List3');
+    buildMiuWorksheet(ws, b, projectName, outputMode !== 'approx');
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F]/g,'_')}_numbers.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
   }
 
   async function reviseBudget() {

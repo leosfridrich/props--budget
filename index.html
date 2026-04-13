@@ -977,7 +977,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.9</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.10</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1875,56 +1875,43 @@
     const isHeavy = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';
     const isMix   = propsSource === 'mix';
 
-    // ── CORE CREW estimate (propmaster + buyer + ostatní) ──
-    const prepDaysVal = parseInt(document.getElementById('prepDays')?.value) || 0;
-    let core = 2;
-    if (totalSets >= 2) core = 3;
-    if (totalSets >= 3) core = 4;
-    if (totalSets >= 5) core = 5;
-    if (totalSets >= 7) core = 6;
-    if (abroadSets >= 1) core = Math.max(core + 1, 4);
-    if (studioSets >= 2) core = Math.max(core, 4);
-    if (studioSets >= 3) core = Math.max(core, 5);
-    if (prepDaysVal >= 15) core = Math.max(core, 4); // dlouhý prep = větší tým
-    if (isHeavy) core = Math.max(core + 1, 4);
-    core = Math.min(core, 7);
+    // ── Optional roles ──
+    const setDresserActive = document.getElementById('setDresserCard')?.dataset.active === 'true';
+    const propsConstActive = document.getElementById('propsConstCard')?.dataset.active === 'true';
+    const setDresserCount  = setDresserActive ? (parseInt(document.getElementById('setDresserCount')?.value) || 1) : 0;
+    const propsConstCount  = propsConstActive ? (parseInt(document.getElementById('propsConstCount')?.value) || 1) : 0;
 
-    // ── Role estimates ──
-    // Propmaster: always 1
-    // Buyer: 1 small, 2 medium+, 3 velký job
-    const buyerEst = totalSets >= 6 || abroadSets >= 1 ? 2
-                   : totalSets >= 3 ? 1 : 1;
-    // Ostatní = ~1 osoba na každé 2 sety (runners, asistenti, řidiči)
-    let ostatniEst = Math.max(1, Math.ceil(totalSets / 2));
-    if (isHeavy) ostatniEst = Math.max(ostatniEst + 1, 2);
-    if (abroadSets >= 1) ostatniEst++;
-    ostatniEst = Math.min(ostatniEst, 5);
-
-    // Manual overrides
+    // ── Buyer estimate ──
+    const buyerEst = totalSets >= 6 || abroadSets >= 1 ? 2 : 1;
     const manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
-    const manualOstatni = parseInt(document.getElementById('fullJobCrew').value);
-    const manualShoot  = parseInt(document.getElementById('shootCrewOverride').value);
+    const displayBuyer = manualBuyer > 0 ? manualBuyer : buyerEst;
 
-    const displayBuyer  = manualBuyer  > 0 ? manualBuyer  : buyerEst;
-    const displayOstatni = manualOstatni >= 0 && document.getElementById('fullJobCrew').value !== ''
-      ? manualOstatni : ostatniEst;
-    const totalCore = 1 + displayBuyer + displayOstatni;
-
-    // ── PREP DAYS estimate ──
-    const corePrepEst = Math.round(totalSets * 2.5 + shootDays);
-
-    // ── SHOOT CREW ──
+    // ── SHOOT CREW (celkem na place shoot den) ──
+    // Základ: PM + Buyer + SetDresser + PropsConst + extras dle setů
     let extras = 0;
     extras += exteriorSets * 1.0;
     extras += realSets     * (isHeavy ? 4.5 : isMix ? 3.0 : 2.0);
     extras += studioSets   * (isHeavy ? 5.0 : 3.5);
     extras += abroadSets   * 4.0;
-    let shootCrew = Math.round(totalCore + extras);
+    let shootCrew = Math.round(1 + displayBuyer + setDresserCount + propsConstCount + extras);
     if (totalSets >= 3 && shootCrew < 12) shootCrew = 12;
     if (totalSets >= 5 && shootCrew < 15) shootCrew = 15;
     if (totalSets <= 1) shootCrew = Math.max(shootCrew, 3);
     shootCrew = Math.min(shootCrew, 25);
+    const manualShoot = parseInt(document.getElementById('shootCrewOverride').value);
     const displayShoot = manualShoot > 0 ? manualShoot : shootCrew;
+
+    // ── Ostatní rekvizitáři = shoot crew − PM − Buyer − SetDresser − PropsConst ──
+    const namedOnSet = 1 + displayBuyer + setDresserCount + propsConstCount;
+    const ostatniEst = Math.max(0, displayShoot - namedOnSet);
+    const manualOstatni = document.getElementById('fullJobCrew').value !== ''
+      ? parseInt(document.getElementById('fullJobCrew').value) : NaN;
+    const displayOstatni = !isNaN(manualOstatni) ? manualOstatni : ostatniEst;
+
+    const totalCore = 1 + displayBuyer + displayOstatni;
+
+    // ── PREP DAYS estimate ──
+    const corePrepEst = Math.round(totalSets * 2.5 + shootDays);
 
     // ── Update 3 role cards ──
     const buyerEl = document.getElementById('buyerEstimateValue');
@@ -1944,7 +1931,7 @@
     if (ostatniLbl) ostatniLbl.textContent =
       document.getElementById('fullJobCrew').value !== ''
         ? 'ručně zadáno'
-        : `~1 os. / 2 sety (${totalSets} ${totalSets === 1 ? 'set' : 'setů'})${isHeavy ? ' · +1 heavy' : ''}${abroadSets >= 1 ? ' · +1 zahraničí' : ''}`;
+        : `${displayShoot} celkem − PM − ${displayBuyer}× Buyer${setDresserCount ? ` − ${setDresserCount}× Set Dresser` : ''}${propsConstCount ? ` − ${propsConstCount}× Construction` : ''}`;
 
     // ── Shoot total row ──
     const shootEl = document.getElementById('crewEstimateValue');
@@ -3787,7 +3774,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.9';
+    const _APP_VER = 'v11.10';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3992,40 +3979,38 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const activeSets = Array.from(document.querySelectorAll('.set-row')).filter(r => r.querySelector('.set-name').value.trim() !== '').length;
     const studioSets = Array.from(document.querySelectorAll('.set-row .set-type')).filter(s => s.value === 'ateliér').length;
     const abroadSets = Array.from(document.querySelectorAll('.set-row .set-type')).filter(s => s.value === 'zahraničí').length;
-    // Auto-estimate core crew per role — sjednoceno s updateCrewEstimate()
+    // Optional roles — musí být před crew estimate
+    const _setDresserActiveEarly = document.getElementById('setDresserCard')?.dataset.active === 'true';
+    const _propsConstActiveEarly = document.getElementById('propsConstCard')?.dataset.active === 'true';
+    const _setDresserCountEarly  = _setDresserActiveEarly ? (parseInt(document.getElementById('setDresserCount')?.value) || 1) : 0;
+    const _propsConstCountEarly  = _propsConstActiveEarly ? (parseInt(document.getElementById('propsConstCount')?.value) || 1) : 0;
+    // ── Crew estimate — sjednoceno s updateCrewEstimate() ──
     const _isHeavyC = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';
-    let _core = 2;
-    if (activeSets >= 2) _core = 3;
-    if (activeSets >= 3) _core = 4;
-    if (activeSets >= 5) _core = 5;
-    if (activeSets >= 7) _core = 6;
-    if (abroadSets >= 1) _core = Math.max(_core + 1, 4);
-    if (studioSets >= 2) _core = Math.max(_core, 4);
-    if (studioSets >= 3) _core = Math.max(_core, 5);
-    if (prepDays >= 15)  _core = Math.max(_core, 4);
-    if (_isHeavyC)       _core = Math.max(_core + 1, 4);
-    _core = Math.min(_core, 7);
-    const _buyerEst   = activeSets >= 6 || abroadSets >= 1 ? 2 : 1;
-    let _ostatniEst = Math.max(1, Math.ceil(activeSets / 2));
-    if (_isHeavyC) _ostatniEst = Math.max(_ostatniEst + 1, 2);
-    if (abroadSets >= 1) _ostatniEst++;
-    _ostatniEst = Math.min(_ostatniEst, 5);
-    const _manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
-    const _manualOstatni = document.getElementById('fullJobCrew').value !== ''
-      ? parseInt(document.getElementById('fullJobCrew').value) : NaN;
-    const _displayBuyer  = _manualBuyer  > 0 ? _manualBuyer  : _buyerEst;
-    const _displayOstatni = !isNaN(_manualOstatni) ? _manualOstatni : _ostatniEst;
-    const fullJobCrew = 1 + _displayBuyer + _displayOstatni;
+    const _isHeavy  = _isHeavyC;
+    const _isMix    = propsSource === 'mix';
+    const _buyerEst = activeSets >= 6 || abroadSets >= 1 ? 2 : 1;
+    const _manualBuyer = parseInt(document.getElementById('buyerOverride').value);
+    const _displayBuyer = _manualBuyer > 0 ? _manualBuyer : _buyerEst;
 
-    // Shoot crew estimate for prompt
-    const _isHeavy = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';
-    const _isMix   = propsSource === 'mix';
-    const _extSets = abroadSets;
+    const _extSets  = abroadSets;
     const _realSets = Math.max(activeSets - studioSets - _extSets, 0);
     let _extras = _realSets * (_isHeavy ? 4.5 : _isMix ? 3.0 : 2.0) + studioSets * (_isHeavy ? 5.0 : 3.5) + abroadSets * 4.0;
+
+    let _shootCrew = Math.round(1 + _displayBuyer + _setDresserCountEarly + _propsConstCountEarly + _extras);
+    if (activeSets >= 3 && _shootCrew < 12) _shootCrew = 12;
+    if (activeSets >= 5 && _shootCrew < 15) _shootCrew = 15;
+    if (activeSets <= 1) _shootCrew = Math.max(_shootCrew, 3);
+    _shootCrew = Math.min(_shootCrew, 25);
     const _manualShoot = parseInt(document.getElementById('shootCrewOverride').value);
-    let _shootCrew = Math.min(Math.max(Math.round(fullJobCrew + _extras), activeSets >= 3 ? 12 : 6), 25);
     if (_manualShoot > 0) _shootCrew = _manualShoot;
+
+    // Ostatní = shoot crew − PM − Buyer − SetDresser − PropsConst
+    const _namedOnSet = 1 + _displayBuyer + _setDresserCountEarly + _propsConstCountEarly;
+    const _ostatniEst = Math.max(0, _shootCrew - _namedOnSet);
+    const _manualOstatni = document.getElementById('fullJobCrew').value !== ''
+      ? parseInt(document.getElementById('fullJobCrew').value) : NaN;
+    const _displayOstatni = !isNaN(_manualOstatni) ? _manualOstatni : _ostatniEst;
+    const fullJobCrew = 1 + _displayBuyer + _displayOstatni;
     const budgetCeiling = parseKAmount(document.getElementById('budgetCeiling').value) || document.getElementById('budgetCeiling').value;
     const desc = document.getElementById('projectDesc').value;
 

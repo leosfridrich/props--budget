@@ -977,7 +977,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.10</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.11</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -3774,7 +3774,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.10';
+    const _APP_VER = 'v11.11';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4496,7 +4496,6 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
 
       <div class="export-row">
         <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel</button>
-        <button class="btn-secondary" onclick="downloadNumbers()">⬇ Numbers</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
       </div>
       <button class="btn-new-gen" onclick="generateNewBudget()">↗ Generovat další</button>
@@ -4828,7 +4827,6 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
 
       <div class="export-row">
         <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel</button>
-        <button class="btn-secondary" onclick="downloadNumbers()">⬇ Numbers</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
       </div>
       <button class="btn-new-gen" onclick="generateNewBudget()">↗ Generovat další</button>
@@ -4932,22 +4930,6 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
   }
 
-  async function downloadNumbers() {
-    // Numbers na Macu otevírá .xlsx nativně — stejný export, jiný název souboru
-    const b = window._lastBudget;
-    if (!b) return;
-    const projectName = document.getElementById('projectName').value || 'ROZPOČET';
-    const wb = new window.ExcelJS.Workbook();
-    const ws = wb.addWorksheet('List3');
-    buildMiuWorksheet(ws, b, projectName, outputMode !== 'approx');
-    const buf = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${projectName.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F]/g,'_')}_numbers.xlsx`;
-    a.click(); URL.revokeObjectURL(url);
-  }
 
   async function reviseBudget() {
     const note = document.getElementById('revisionNote')?.value?.trim();
@@ -5235,7 +5217,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     ws.getColumn(2).width = 16;
     ws.getColumn(3).width = 12;
     ws.getColumn(4).width = 13.5;
-    ws.getColumn(5).width = 14.11;
+    ws.getColumn(5).width = 20;
 
     // Fonty podle vzoru
     const fBody  = { name: 'Helvetica Neue Light', size: 11 };

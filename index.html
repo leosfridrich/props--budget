@@ -977,7 +977,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.2</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -2091,6 +2091,10 @@
     const projectName = document.getElementById('projectName').value.trim();
     if (!desc && uploadedFiles.length === 0) return;
 
+    // ── Fingerprint scriptu dle obsahu — primární identifikátor, nezávisí na názvu ──
+    const _scriptFP = buildScriptFingerprint(desc, uploadedFiles);
+    window._currentScriptFP = _scriptFP; // sdílej s generateBudget()
+
     // ── UI: show progress in right panel ──
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('analysisPanel').style.display = 'none';
@@ -2164,8 +2168,8 @@
     const descLine    = desc ? 'Popis / script / treatment:\n' + desc : '';
     const jsonExample = '{"sets":[{"name":"Obývací pokoj","type":"reálná lokace","note":"moderní interiér, velká okna"},{"name":"Kuchyně","type":"reálná lokace","note":"vaření na plynu"}],"hero_props":["čisticí sprej","varná deska"],"notes":"žádné speciální požadavky"}';
 
-    // ── Paměť projektu — načti kartu a předvyplň sety do formuláře PŘED analýzou ──
-    const _memCard = projectName ? findMemoryCard(projectName) : null;
+    // ── Paměť projektu — hledej PRIMÁRNĚ dle fingerprintu obsahu, sekundárně dle názvu ──
+    const _memCard = findMemoryCard(projectName, _scriptFP);
     if (_memCard?.setsRaw?.length) {
       // Předvyplníme sety z paměti do formuláře — analýza pak může přidat nové, ne mazat staré
       applyMemoryCardSets(_memCard);
@@ -2460,8 +2464,8 @@
       textEl.style.color = 'var(--success)';
       setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
 
-      // Ulož kartu do paměti hned po analýze (ne až po generaci) — aby bylo dostupné při opakované analýze
-      if (projectName) { try { saveProjectToMemory(projectName, null); } catch(e) {} }
+      // Ulož kartu do paměti hned po analýze s fingerpritem obsahu
+      try { saveProjectToMemory(projectName, null, _scriptFP); } catch(e) {}
 
     } catch (e) {
 
@@ -3372,16 +3376,39 @@
     try { return JSON.parse(localStorage.getItem(_SMEM_KEY) || '[]'); } catch(e) { return []; }
   }
 
+  // ── Fingerprint scriptu dle OBSAHU — nezávisí na názvu projektu ──
+  // Hashuje text + název/velikost souborů → stabilní ID pro stejný script
+  function buildScriptFingerprint(text, files) {
+    let src = '';
+    if (text && text.length > 20) {
+      const norm = text.toLowerCase().replace(/\s+/g, ' ').trim();
+      const l = norm.length;
+      src += norm.substring(0, 200);
+      if (l > 400) src += norm.substring(Math.floor(l / 2) - 50, Math.floor(l / 2) + 50);
+      if (l > 300) src += norm.substring(Math.max(0, l - 100));
+    }
+    if (files && files.length > 0) {
+      src += Array.from(files).map(f => f.name + ':' + f.size).join('|');
+    }
+    if (!src || src.length < 10) return null;
+    let h = 5381;
+    for (let i = 0; i < src.length; i++) { h = ((h << 5) + h) ^ src.charCodeAt(i); h |= 0; }
+    return 'fp' + Math.abs(h).toString(36);
+  }
+
   function saveScriptMemory(card) {
     const mem = getScriptMemory();
-    const idx = mem.findIndex(c => c.scriptId === card.scriptId);
+    // Hledej shodu: 1. fingerprint (obsah), 2. scriptId (název)
+    let idx = -1;
+    if (card.scriptFingerprint) idx = mem.findIndex(c => c.scriptFingerprint === card.scriptFingerprint);
+    if (idx < 0 && card.scriptId) idx = mem.findIndex(c => c.scriptId === card.scriptId);
     if (idx >= 0) {
-      // Merge — aktualizuj sety (pokud jsou neprázdné) a přidej korekce
       mem[idx] = {
         ...mem[idx], ...card,
-        sets:    card.sets?.length    ? card.sets    : mem[idx].sets,
-        setsRaw: card.setsRaw?.length ? card.setsRaw : mem[idx].setsRaw,
-        corrections: [...(mem[idx].corrections || []), ...(card.corrections || [])]
+        sets:              card.sets?.length    ? card.sets    : mem[idx].sets,
+        setsRaw:           card.setsRaw?.length ? card.setsRaw : mem[idx].setsRaw,
+        scriptFingerprint: card.scriptFingerprint || mem[idx].scriptFingerprint,
+        corrections:       [...(mem[idx].corrections || []), ...(card.corrections || [])]
       };
     } else {
       if (mem.length >= 20) mem.shift();
@@ -3391,26 +3418,33 @@
     autoSyncPush();
   }
 
-  // Klíč projektu — jen název (lowercase, normalizovaný) — stačí pro matching
+  // Klíč projektu — jen název (lowercase, normalizovaný)
   function buildProjectKey(name) {
     return (name || '').trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '_').substring(0, 60);
   }
 
-  // Fuzzy match — najde existující memory kartu dle názvu projektu
-  function findMemoryCard(projectName) {
+  // Najde memory kartu — priorita: 1. fingerprint obsahu, 2. přesný název, 3. částečný název
+  function findMemoryCard(projectName, scriptFingerprint) {
     const mem = getScriptMemory();
     if (!mem.length) return null;
+    // 1. Fingerprint (nejspolehlivější — totožný obsah scriptu bez ohledu na název)
+    if (scriptFingerprint) {
+      const byFp = mem.find(c => c.scriptFingerprint && c.scriptFingerprint === scriptFingerprint);
+      if (byFp) return byFp;
+    }
+    // 2. Přesný název
     const key = buildProjectKey(projectName);
-    if (!key) return null;
-    // Exact match
-    let card = mem.find(c => buildProjectKey(c.projectName) === key);
-    if (card) return card;
-    // Partial match — jedno obsahuje druhé
-    card = mem.find(c => {
-      const ck = buildProjectKey(c.projectName);
-      return ck && (key.includes(ck) || ck.includes(key));
-    });
-    return card || null;
+    if (key) {
+      let card = mem.find(c => buildProjectKey(c.projectName) === key);
+      if (card) return card;
+      // 3. Částečný název
+      card = mem.find(c => {
+        const ck = buildProjectKey(c.projectName);
+        return ck && (key.includes(ck) || ck.includes(key));
+      });
+      if (card) return card;
+    }
+    return null;
   }
 
   // Získá sety z formuláře
@@ -3422,21 +3456,23 @@
       })).filter(s => s.name);
   }
 
-  // Uloží aktuální stav projektu do memory (volá se po generaci i po revizi)
-  function saveProjectToMemory(projectName, corrections) {
-    const key = buildProjectKey(projectName);
-    if (!key) return;
+  // Uloží aktuální stav projektu do memory (po analýze, generaci i revizi)
+  function saveProjectToMemory(projectName, corrections, scriptFingerprint) {
+    const fp = scriptFingerprint || window._currentScriptFP || null;
+    const key = buildProjectKey(projectName) || (fp ? fp : null);
+    if (!key && !fp) return;
     const sets = getCurrentSets();
     const card = {
-      scriptId:    key,
-      projectName: projectName || '',
-      setCount:    sets.length,
-      sets:        sets.map(s => `${s.name} (${s.type})`),
-      setsRaw:     sets,
-      shootDays:   parseInt(document.getElementById('shootDays')?.value) || 0,
-      prepDays:    parseInt(document.getElementById('prepDays')?.value)  || 0,
-      lastUpdate:  new Date().toLocaleDateString('cs-CZ'),
-      corrections: corrections ? [{ date: new Date().toLocaleDateString('cs-CZ'), note: (corrections).substring(0, 250) }] : []
+      scriptId:          key || fp,
+      scriptFingerprint: fp,
+      projectName:       projectName || '',
+      setCount:          sets.length,
+      sets:              sets.map(s => `${s.name} (${s.type})`),
+      setsRaw:           sets,
+      shootDays:         parseInt(document.getElementById('shootDays')?.value) || 0,
+      prepDays:          parseInt(document.getElementById('prepDays')?.value)  || 0,
+      lastUpdate:        new Date().toLocaleDateString('cs-CZ'),
+      corrections:       corrections ? [{ date: new Date().toLocaleDateString('cs-CZ'), note: (corrections).substring(0, 250) }] : []
     };
     saveScriptMemory(card);
   }
@@ -3466,8 +3502,8 @@
 
     if (instructions) parts.push('TRVALÉ INSTRUKCE OD UŽIVATELE:\n' + instructions);
 
-    // Najdi kartu aktuálního projektu — pokud existuje, dej ji jako PRVNÍ a nejvýraznější
-    const currentCard = findMemoryCard(projectName);
+    // Najdi kartu aktuálního projektu — fingerprint má přednost před názvem
+    const currentCard = findMemoryCard(projectName, window._currentScriptFP);
     if (currentCard) {
       const corr = (currentCard.corrections || []).map(x => `  ⚠ [${x.date}] ${x.note}`).join('\n');
       parts.push(`⚑ ROZPOZNANÝ PROJEKT — POUŽIJ TATO DATA ZÁVAZNĚ:
@@ -3710,7 +3746,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.2';
+    const _APP_VER = 'v11.3';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4250,7 +4286,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       }
 
       // Ulož aktuální stav projektu do script memory (bez korekce — jen snapshot)
-      try { saveProjectToMemory(projectName, null); } catch(e) {}
+      try { saveProjectToMemory(projectName, null, window._currentScriptFP); } catch(e) {}
 
       window._revisionDiff = null;
       window._lastBudgetName = projectName;
@@ -5126,7 +5162,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       // Save as learned correction (summarized) — zvýšeno na 250 znaků
       addLearnedCorrection(savedNote.substring(0, 250));
       // Uloží korekci + aktuální sety do Script Memory Card
-      saveProjectToMemory(projectName, savedNote);
+      saveProjectToMemory(projectName, savedNote, window._currentScriptFP);
 
       _rpFinish(true);
       window._revisionDiff = computeRevisionDiff(window._lastBudget, revised);

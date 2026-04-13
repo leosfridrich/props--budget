@@ -977,7 +977,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.3</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -2360,6 +2360,22 @@
         type: typeMap[s.type?.toLowerCase()] || s.type || 'reálná lokace'
       }));
 
+      // ── Záchranný set-based matching — pokud karta nebyla nalezena před analýzou ──
+      // Porovná sety vrácené analýzou s kartami v paměti (35% překryv stačí)
+      // Funguje i pro staré karty bez fingerprintu nebo s jiným názvem projektu
+      let _activeMemCard = _memCard;
+      if (!_activeMemCard && parsed.sets?.length) {
+        const _bySetMatch = findMemoryCardBySets(parsed.sets.map(s => s.name));
+        if (_bySetMatch) {
+          _activeMemCard = _bySetMatch;
+          // Přiřaď fingerprint k nalezené kartě → příště najde přímo
+          if (_scriptFP && !_bySetMatch.scriptFingerprint) {
+            _bySetMatch.scriptFingerprint = _scriptFP;
+            try { saveScriptMemory(_bySetMatch); } catch(e) {}
+          }
+        }
+      }
+
       // ── Fill sets on left panel — MERGE (model + paměť) ──
       const _existingSetNames = Array.from(document.querySelectorAll('.set-row'))
         .map(r => (r.querySelector('.set-name')?.value || '').trim().toLowerCase())
@@ -2373,11 +2389,11 @@
       _newFromAnalysis.forEach(s => addSet(s.name || 'Set', s.type));
 
       // 2. Přidej sety z paměti které analýza vynechala (uživatelem potvrzená prostředí)
-      if (_memCard?.setsRaw?.length) {
+      if (_activeMemCard?.setsRaw?.length) {
         const _afterAnalysisNames = Array.from(document.querySelectorAll('.set-row'))
           .map(r => (r.querySelector('.set-name')?.value || '').trim().toLowerCase())
           .filter(Boolean);
-        const _memMissing = _memCard.setsRaw.filter(s => {
+        const _memMissing = _activeMemCard.setsRaw.filter(s => {
           const n = (s.name || '').trim().toLowerCase();
           return n && !_afterAnalysisNames.includes(n);
         });
@@ -3447,6 +3463,27 @@
     return null;
   }
 
+  // Záchranný matching dle překryvu názvů setů — funguje i pro staré karty bez fingerprintu
+  // Volá se PO analýze, pokud findMemoryCard nic nenašel
+  function findMemoryCardBySets(analyzedSetNames) {
+    const mem = getScriptMemory();
+    if (!mem.length || !analyzedSetNames?.length) return null;
+    const norm = s => (s || '').toLowerCase().replace(/[^\wáčďéěíňóřšťúůýž]/g, ' ').replace(/\s+/g, ' ').trim();
+    const analyzed = analyzedSetNames.map(norm).filter(Boolean);
+    let bestCard = null, bestScore = 0;
+    mem.forEach(card => {
+      const cardNames = (card.setsRaw || []).map(s => norm(s.name)).filter(Boolean);
+      if (!cardNames.length) return;
+      let overlap = 0;
+      analyzed.forEach(an => {
+        if (cardNames.some(cn => cn === an || cn.includes(an) || an.includes(cn))) overlap++;
+      });
+      const score = overlap / Math.max(analyzed.length, cardNames.length);
+      if (score > bestScore && score >= 0.35) { bestScore = score; bestCard = card; }
+    });
+    return bestCard;
+  }
+
   // Získá sety z formuláře
   function getCurrentSets() {
     return Array.from(document.querySelectorAll('.set-row'))
@@ -3746,7 +3783,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.3';
+    const _APP_VER = 'v11.4';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4346,33 +4383,25 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const total_base = base + fee;
     const grand = total_base + (b.overtime_estimate || 0) + (b.overcosts_estimate || 0);
 
+    // APPROX: pouze název scény + celková cena (BEZ detailních položek)
     let setsHtml = (b.props?.sections || []).map(sec => {
       const secTotal = sec.items.reduce((s, i) => s + (i.amount || 0), 0);
       const dk = window._revisionDiff?.['props:' + sec.name];
       const borderStyle = dk ? `border-left:3px solid ${dk.isNew ? 'var(--success)' : 'var(--accent2)'};` : '';
       const amtColor = dk ? (dk.isNew ? 'var(--success)' : 'var(--accent2)') : 'var(--accent)';
       const deltaHtml = dk && !dk.isNew ? `<div style="font-size:9px;color:${dk.delta>0?'var(--danger)':'var(--success)'};">${dk.delta>0?'+':''}${fmt(dk.delta)} Kč</div>` : '';
-      const itemsHtml = sec.items.map(item => `
-        <div style="display:grid; grid-template-columns:1fr auto; align-items:center;
-                    padding:7px 16px 7px 28px; border-bottom:1px solid var(--border); opacity:0.75;">
-          <div style="font-size:11px; color:var(--text);">${item.name}</div>
-          <div style="font-size:12px; color:var(--muted); font-family:var(--font);">${fmt(item.amount)} Kč</div>
-        </div>`).join('');
       return `
         <div style="display:grid; grid-template-columns:1fr auto; align-items:center;
-                    padding:12px 16px 10px; border-bottom:1px solid var(--border);
+                    padding:12px 16px; border-bottom:1px solid var(--border);
                     background:var(--surface2);${borderStyle}">
-          <div>
-            <div style="font-size:12px; font-weight:600; color:var(--text); letter-spacing:0.03em;">${sec.name}</div>
-          </div>
+          <div style="font-size:12px; font-weight:600; color:var(--text); letter-spacing:0.03em;">${sec.name}</div>
           <div style="text-align:right;">
             <div style="font-family:var(--font); font-size:18px; color:${amtColor};">
               ${fmt(secTotal)} <span style="font-size:10px; color:var(--muted);">Kč</span>
             </div>
             ${deltaHtml}
           </div>
-        </div>
-        ${itemsHtml}`;
+        </div>`;
     }).join('');
 
     let html = `
@@ -4474,8 +4503,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       </div>
 
       <div class="export-row">
-        <button class="btn-secondary" onclick="copyJSON()">↗ JSON</button>
-        <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel / Numbers</button>
+        <button class="btn-secondary" onclick="downloadExcel()">⬇ Numbers</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
       </div>
       <button class="btn-new-gen" onclick="generateNewBudget()">↗ Generovat další</button>
@@ -4806,8 +4834,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       </div>
 
       <div class="export-row">
-        <button class="btn-secondary" onclick="copyJSON()">↗ JSON</button>
-        <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel / Numbers</button>
+        <button class="btn-secondary" onclick="downloadExcel()">⬇ Numbers</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
       </div>
       <button class="btn-new-gen" onclick="generateNewBudget()">↗ Generovat další</button>
@@ -4909,13 +4936,6 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
   function toggleSection(id) {
     const el = document.getElementById(id);
     if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
-  }
-
-  function copyJSON() {
-    if (window._lastBudget) {
-      navigator.clipboard.writeText(JSON.stringify(window._lastBudget, null, 2));
-      alert('JSON zkopírován do schránky!');
-    }
   }
 
   async function reviseBudget() {
@@ -5538,6 +5558,9 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     setTimeout(() => {
       try {
         const idoc = iframe.contentDocument || iframe.contentWindow.document;
+        // Nastav výšku iframu dle skutečného obsahu — zabrání ořezu
+        const contentH = Math.max(1123, idoc.documentElement.scrollHeight || 0, idoc.body.scrollHeight || 0);
+        iframe.style.height = contentH + 'px';
         html2pdf().set({
           margin: [10, 14, 10, 14],
           filename: filename + '.pdf',
@@ -5552,6 +5575,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
             scrollY: 0,
             backgroundColor: '#ffffff',
             windowWidth: 794,
+            windowHeight: contentH,
           },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         }).from(idoc.body).save().then(cleanup).catch(err => {

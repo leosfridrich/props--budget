@@ -977,7 +977,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.5</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.6</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1214,7 +1214,6 @@
         <div style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); padding:11px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
           <div style="flex:1; min-width:0;">
             <div style="font-size:12px; font-weight:600; color:var(--text);">Ostatní rekvizitáři</div>
-            <div style="font-size:10px; color:var(--muted); margin-top:2px;">set dressing, asistenti, řidiči</div>
             <div style="font-size:10px; color:var(--muted2); margin-top:4px;" id="otherCrewEstimateLabel">odhadováno automaticky</div>
           </div>
           <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
@@ -1895,8 +1894,11 @@
     // Buyer: 1 small, 2 medium+, 3 velký job
     const buyerEst = totalSets >= 6 || abroadSets >= 1 ? 2
                    : totalSets >= 3 ? 1 : 1;
-    // Ostatní = rest of core (set dressing, asistenti, řidiči)
-    const ostatniEst = Math.max(1, core - 1 - buyerEst);
+    // Ostatní = ~1 osoba na každé 2 sety (runners, asistenti, řidiči)
+    let ostatniEst = Math.max(1, Math.ceil(totalSets / 2));
+    if (isHeavy) ostatniEst = Math.max(ostatniEst + 1, 2);
+    if (abroadSets >= 1) ostatniEst++;
+    ostatniEst = Math.min(ostatniEst, 5);
 
     // Manual overrides
     const manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
@@ -1940,7 +1942,9 @@
     }
     const ostatniLbl = document.getElementById('otherCrewEstimateLabel');
     if (ostatniLbl) ostatniLbl.textContent =
-      document.getElementById('fullJobCrew').value !== '' ? 'ručně zadáno' : 'odhad ze scriptu';
+      document.getElementById('fullJobCrew').value !== ''
+        ? 'ručně zadáno'
+        : `~1 os. / 2 sety (${totalSets} ${totalSets === 1 ? 'set' : 'setů'})${isHeavy ? ' · +1 heavy' : ''}${abroadSets >= 1 ? ' · +1 zahraničí' : ''}`;
 
     // ── Shoot total row ──
     const shootEl = document.getElementById('crewEstimateValue');
@@ -3783,7 +3787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.5';
+    const _APP_VER = 'v11.6';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4002,7 +4006,10 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     if (_isHeavyC)       _core = Math.max(_core + 1, 4);
     _core = Math.min(_core, 7);
     const _buyerEst   = activeSets >= 6 || abroadSets >= 1 ? 2 : 1;
-    const _ostatniEst = Math.max(1, _core - 1 - _buyerEst);
+    let _ostatniEst = Math.max(1, Math.ceil(activeSets / 2));
+    if (_isHeavyC) _ostatniEst = Math.max(_ostatniEst + 1, 2);
+    if (abroadSets >= 1) _ostatniEst++;
+    _ostatniEst = Math.min(_ostatniEst, 5);
     const _manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
     const _manualOstatni = document.getElementById('fullJobCrew').value !== ''
       ? parseInt(document.getElementById('fullJobCrew').value) : NaN;

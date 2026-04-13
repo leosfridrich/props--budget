@@ -976,7 +976,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.15</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.16</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1121,6 +1121,16 @@
         <label>Wrap dny</label>
         <input type="number" id="wrapDays" value="0" min="0" max="30" />
       </div>
+    </div>
+    <div class="form-group" style="margin-top:8px;">
+      <label style="display:flex;align-items:center;gap:6px;">
+        Počet lokací
+        <span style="font-size:9px;color:var(--muted);font-weight:400;">kde se točí (1 = vše na místě, ovlivňuje počet lidí)</span>
+      </label>
+      <input type="number" id="locationCount" value="" min="1" max="30" placeholder="—"
+        title="Počet různých míst/lokací kde se točí. 1 = vše na jednom místě (méně lidí). Prázdné = ignoruj."
+        style="width:80px;"
+        oninput="updateCrewEstimate()" />
     </div>
 
     <div class="section-label">Script / Storyboard</div>
@@ -1885,18 +1895,29 @@
     const manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
     const displayBuyer = manualBuyer > 0 ? manualBuyer : buyerEst;
 
+    // ── Počet lokací — ovlivňuje potřebný počet lidí ──
+    const locationCount = parseInt(document.getElementById('locationCount')?.value) || 0;
+    // locAdj: 1 lokace = −2, 2 = −1, 3+ = 0, více lokací než setů = +1 za každou navíc
+    let locAdj = 0;
+    if (locationCount > 0) {
+      if      (locationCount === 1)               locAdj = -2;
+      else if (locationCount === 2)               locAdj = -1;
+      else if (locationCount <= totalSets)        locAdj =  0;
+      else locAdj = Math.min(locationCount - totalSets, 3); // přejezdy navíc
+    }
+
     // ── SHOOT CREW (celkem na place shoot den) ──
-    // Základ: PM + Buyer + SetDresser + PropsConst + extras dle setů
+    // Základ: PM + Buyer + SetDresser + PropsConst + extras dle setů + lokační faktor
     let extras = 0;
     extras += exteriorSets * 1.0;
     extras += realSets     * (isHeavy ? 4.5 : isMix ? 3.0 : 2.0);
     extras += studioSets   * (isHeavy ? 5.0 : 3.5);
     extras += abroadSets   * 4.0;
-    let shootCrew = Math.round(1 + displayBuyer + setDresserCount + propsConstCount + extras);
-    if (totalSets >= 3 && shootCrew < 12) shootCrew = 12;
-    if (totalSets >= 5 && shootCrew < 15) shootCrew = 15;
+    let shootCrew = Math.round(1 + displayBuyer + setDresserCount + propsConstCount + extras + locAdj);
+    if (totalSets >= 3 && shootCrew < 12) shootCrew = Math.max(shootCrew, 12 + locAdj);
+    if (totalSets >= 5 && shootCrew < 15) shootCrew = Math.max(shootCrew, 15 + locAdj);
     if (totalSets <= 1) shootCrew = Math.max(shootCrew, 3);
-    shootCrew = Math.min(shootCrew, 25);
+    shootCrew = Math.min(Math.max(shootCrew, 2), 25);
     const manualShoot = parseInt(document.getElementById('shootCrewOverride').value);
     const displayShoot = manualShoot > 0 ? manualShoot : shootCrew;
 
@@ -1941,6 +1962,7 @@
     if (studioSets)   reasons.push(`${studioSets}× ateliér`);
     if (abroadSets)   reasons.push('zahraničí');
     if (isHeavy)      reasons.push('full dressing');
+    if (locationCount > 0) reasons.push(`${locationCount} ${locationCount===1?'lokace':'lokací'}${locAdj!==0?' ('+( locAdj>0?'+':'')+locAdj+')':''}`);
     if (manualShoot > 0) reasons.push('shoot ručně');
     const lbl = document.getElementById('crewEstimateLabel');
     if (lbl) lbl.textContent = reasons.length
@@ -3773,7 +3795,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.15';
+    const _APP_VER = 'v11.16';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -3995,11 +4017,20 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const _realSets = Math.max(activeSets - studioSets - _extSets, 0);
     let _extras = _realSets * (_isHeavy ? 4.5 : _isMix ? 3.0 : 2.0) + studioSets * (_isHeavy ? 5.0 : 3.5) + abroadSets * 4.0;
 
-    let _shootCrew = Math.round(1 + _displayBuyer + _setDresserCountEarly + _propsConstCountEarly + _extras);
-    if (activeSets >= 3 && _shootCrew < 12) _shootCrew = 12;
-    if (activeSets >= 5 && _shootCrew < 15) _shootCrew = 15;
+    const _locationCount = parseInt(document.getElementById('locationCount')?.value) || 0;
+    let _locAdj = 0;
+    if (_locationCount > 0) {
+      if      (_locationCount === 1)            _locAdj = -2;
+      else if (_locationCount === 2)            _locAdj = -1;
+      else if (_locationCount <= activeSets)    _locAdj =  0;
+      else _locAdj = Math.min(_locationCount - activeSets, 3);
+    }
+
+    let _shootCrew = Math.round(1 + _displayBuyer + _setDresserCountEarly + _propsConstCountEarly + _extras + _locAdj);
+    if (activeSets >= 3 && _shootCrew < 12) _shootCrew = Math.max(_shootCrew, 12 + _locAdj);
+    if (activeSets >= 5 && _shootCrew < 15) _shootCrew = Math.max(_shootCrew, 15 + _locAdj);
     if (activeSets <= 1) _shootCrew = Math.max(_shootCrew, 3);
-    _shootCrew = Math.min(_shootCrew, 25);
+    _shootCrew = Math.min(Math.max(_shootCrew, 2), 25);
     const _manualShoot = parseInt(document.getElementById('shootCrewOverride').value);
     if (_manualShoot > 0) _shootCrew = _manualShoot;
 

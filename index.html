@@ -977,7 +977,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.4</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -3783,7 +3783,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.4';
+    const _APP_VER = 'v11.5';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4503,7 +4503,6 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       </div>
 
       <div class="export-row">
-        <button class="btn-secondary" onclick="copyJSON()">↗ JSON</button>
         <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel</button>
         <button class="btn-secondary" onclick="downloadNumbers()">⬇ Numbers</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
@@ -4836,7 +4835,6 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       </div>
 
       <div class="export-row">
-        <button class="btn-secondary" onclick="copyJSON()">↗ JSON</button>
         <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel</button>
         <button class="btn-secondary" onclick="downloadNumbers()">⬇ Numbers</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
@@ -4940,13 +4938,6 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
   function toggleSection(id) {
     const el = document.getElementById(id);
     if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
-  }
-
-  function copyJSON() {
-    if (window._lastBudget) {
-      navigator.clipboard.writeText(JSON.stringify(window._lastBudget, null, 2));
-      alert('JSON zkopírován do schránky!');
-    }
   }
 
   async function downloadNumbers() {

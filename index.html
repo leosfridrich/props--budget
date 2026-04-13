@@ -968,11 +968,16 @@
 
 <header>
   <div class="logo">
-    Props Budget
-    <span>Rekvizitní Výprava — AI Odhad</span>
+    <div style="display:flex; flex-direction:column; gap:2px;">
+      <div id="logoTitle" style="font-size:22px; font-weight:800; color:var(--accent); letter-spacing:-0.3px; line-height:1.15;">Props Budget</div>
+      <div style="display:flex; justify-content:space-between; width:100%;">
+        <span style="font-size:10px; color:var(--muted2);">vytvořil</span>
+        <span style="font-size:10px; color:var(--muted2);">Leoš Fridrich</span>
+      </div>
+    </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;margin-top:4px;">v11.0</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.2</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -2173,12 +2178,16 @@
       ? '\nUŽIVATELSKÉ KOREKCE Z MINULA:\n' + _memCard.corrections.slice(-3).map(c => `- [${c.date}] ${c.note}`).join('\n')
       : '';
 
+    // Plný learning kontext — stejný jako v generateBudget (history oprav + karty)
+    const _analysisLearningCtx = getLearningContext();
+
     const promptText = [
       'Jsi expert na filmovou rekvizitní výpravu.',
       'Přečti podklady a identifikuj všechny SETY / PROSTŘEDÍ kde se bude točit.',
       '',
       projectLine, shootLine, descLine,
       _memSetsLine, _memCorrectionsLine,
+      _analysisLearningCtx ? '\n--- PAMĚŤ PROJEKTU ---\n' + _analysisLearningCtx : '',
       '',
       'Pro každý set urči:',
       '- name: konkrétní název (Obývací pokoj, Kuchyně moderní, Metro Anděl...)',
@@ -2417,7 +2426,18 @@
              <strong style="color:var(--accent2);">Poznámky:</strong> ${parsed.notes}
            </div>` : '';
 
+      const _memBadge = _memCard
+        ? `<div style="display:flex;align-items:center;gap:6px;padding:7px 10px;margin-bottom:10px;
+                       background:rgba(255,159,10,0.08);border:1px solid rgba(255,159,10,0.25);border-radius:6px;">
+             <span style="font-size:13px;">💾</span>
+             <span style="font-size:10px;color:var(--accent);letter-spacing:0.05em;">
+               Rozpoznán z paměti — <strong>${_memCard.projectName}</strong>
+               (${_memCard.setCount} setů${_memCard.corrections?.length ? `, ${_memCard.corrections.length} korekc${_memCard.corrections.length === 1 ? 'e' : 'í'}` : ''}, ${_memCard.lastUpdate})
+             </span>
+           </div>` : '';
+
       document.getElementById('analysisContent').innerHTML = `
+        ${_memBadge}
         <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.6;">
           Nalezeno <strong style="color:var(--text);">${parsed.sets.length} setů</strong> —
           předvyplněno vlevo. Uprav co potřebuješ, pak generuj.
@@ -2439,6 +2459,9 @@
       textEl.textContent = parsed.sets.length + ' setů — zkontroluj vlevo';
       textEl.style.color = 'var(--success)';
       setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+
+      // Ulož kartu do paměti hned po analýze (ne až po generaci) — aby bylo dostupné při opakované analýze
+      if (projectName) { try { saveProjectToMemory(projectName, null); } catch(e) {} }
 
     } catch (e) {
 
@@ -3687,7 +3710,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.0';
+    const _APP_VER = 'v11.2';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

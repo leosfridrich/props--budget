@@ -977,7 +977,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.8</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.9</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -3787,7 +3787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.8';
+    const _APP_VER = 'v11.9';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5246,9 +5246,9 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
   // ─── Sdílený Excel builder — styl přesně podle MIU MIU konečný rozpočet ───
   function buildMiuWorksheet(ws, b, projectName, isDetailed) {
     // Sloupce přesně podle vzoru (A=18.08, B=22.92, C=12.62, D=13.5, E=14.11)
-    ws.getColumn(1).width = 18.08;
-    ws.getColumn(2).width = 22.92;
-    ws.getColumn(3).width = 12.62;
+    ws.getColumn(1).width = 44;
+    ws.getColumn(2).width = 16;
+    ws.getColumn(3).width = 12;
     ws.getColumn(4).width = 13.5;
     ws.getColumn(5).width = 14.11;
 
@@ -5398,25 +5398,30 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
 
     const prStart = ws.rowCount + 1;
     (b.props?.sections || []).forEach(sec => {
-      // Sub-sekce nadpis (žluté pozadí)
-      const secHdrR = ws.addRow([sec.name]);
+      // Sub-sekce nadpis (žluté pozadí) — merge A:C
+      const secHdrR = ws.addRow([sec.name, null, null, null]);
       secHdrR.getCell(1).font = fBodyM;
       styleRow(secHdrR, { ht: 17.65, fill: C_PR_YEL, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
+      ws.mergeCells(`A${ws.rowCount}:C${ws.rowCount}`);
       // Položky
       if (isDetailed) {
         (sec.items || []).forEach(item => {
-          const r = ws.addRow([item.name, item.note || '', null, item.amount || 0]);
-          r.getCell(1).font = fBodyM; r.getCell(2).font = fBody;
+          // Název + note v jednom textu přes A:C, cena v D
+          const label = item.note ? `${item.name}  —  ${item.note}` : item.name;
+          const r = ws.addRow([label, null, null, item.amount || 0]);
+          r.getCell(1).font = fBodyM;
           r.getCell(4).numFmt = numFmtD; r.getCell(4).alignment = aR; r.getCell(4).font = fBodyM;
           styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
+          ws.mergeCells(`A${ws.rowCount}:C${ws.rowCount}`);
         });
       } else {
-        // Approx: jedna řádka s paušálem
+        // Approx: jedna řádka s paušálem — merge A:C
         const secTotal = (sec.items || []).reduce((s, i) => s + (i.amount || 0), 0);
         const r = ws.addRow(['dressing / dekorace paušál', null, null, secTotal]);
         r.getCell(1).font = fBody;
         r.getCell(4).numFmt = numFmtD; r.getCell(4).alignment = aR; r.getCell(4).font = fBodyM;
         styleRow(r, { ht: 17.65, bdrTop: 'thin', bdrBot: 'thin', bdrLeft: 'thick', bdrRight: 'thick' });
+        ws.mergeCells(`A${ws.rowCount}:C${ws.rowCount}`);
       }
     });
     const prEnd = ws.rowCount;

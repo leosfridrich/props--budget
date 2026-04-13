@@ -977,7 +977,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.7</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -3787,7 +3787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.7';
+    const _APP_VER = 'v11.8';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5565,7 +5565,9 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     // IFRAME přístup — izolovaný dokument, html2canvas renderuje uvnitř iframu
     // bez interference CSS proměnných nebo z-index stackingu hlavní stránky
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:0;left:-9999px;width:794px;height:1123px;border:none;';
+    // left:0 je klíčové — left:-9999px způsobovalo, že html2canvas ořezával obsah zleva
+    // iframe je zakrytý overlay vrstvou (z-index:999999)
+    iframe.style.cssText = 'position:fixed;top:0;left:0;width:794px;height:1123px;border:none;z-index:1;';
     document.body.appendChild(iframe);
 
     // Zapišeme kompletní HTML do iframu
@@ -5643,12 +5645,13 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       </tr>`;
     }).join('');
 
-    const html = `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8">
+    const html = `<!DOCTYPE html><html lang="cs" style="color-scheme:light;background:#fff;"><head><meta charset="UTF-8"><meta name="color-scheme" content="light">
 <title>${projectName} — Aproximativní rozpočet</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Helvetica Neue','Arial',sans-serif; font-size:9pt; color:#1a1a1a; background:white; }
-  .page { max-width:210mm; margin:0 auto; padding:12mm 14mm; }
+  html { color-scheme: light; }
+  body { font-family:'Helvetica Neue','Arial',sans-serif; font-size:9pt; color:#1a1a1a; background:#ffffff !important; width:794px; }
+  .page { width:794px; margin:0 auto; padding:12mm 14mm; overflow:hidden; }
   /* Header */
   .doc-title { font-family:'Arial',sans-serif; font-size:19pt; font-weight:bold; margin-bottom:2px; }
   .doc-sub { font-size:8pt; color:#555; margin-bottom:10px; }
@@ -5784,12 +5787,13 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         </tr>${items}`;
     }).join('');
 
-    const html = `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8">
+    const html = `<!DOCTYPE html><html lang="cs" style="color-scheme:light;background:#fff;"><head><meta charset="UTF-8"><meta name="color-scheme" content="light">
 <title>${projectName} — Detailní rozpočet</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Helvetica Neue','Arial',sans-serif; font-size:8.5pt; color:#1a1a1a; background:white; }
-  .page { max-width:210mm; margin:0 auto; padding:12mm 14mm; }
+  html { color-scheme: light; }
+  body { font-family:'Helvetica Neue','Arial',sans-serif; font-size:8.5pt; color:#1a1a1a; background:#ffffff !important; width:794px; }
+  .page { width:794px; margin:0 auto; padding:12mm 14mm; overflow:hidden; }
   /* Header */
   .doc-title { font-family:'Arial',sans-serif; font-size:19pt; font-weight:bold; margin-bottom:2px; }
   .doc-sub { font-size:8pt; color:#555; margin-bottom:10px; }

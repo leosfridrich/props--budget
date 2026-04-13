@@ -976,7 +976,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.16</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.17</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -3795,7 +3795,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.16';
+    const _APP_VER = 'v11.17';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4152,10 +4152,34 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const _isBigJob    = activeSets >= 3 || fullJobCrew >= 4 || _shootCrew >= 8;
     const _bigRate     = rates.bigTruck || Math.round(rates.truck * 1.8);
 
-    // Dny pro labour (hlavní trio):
+    // Dny pro labour (hlavní tým):
     const _pmDays      = _totalDays;              // Prop Master: všechny dny
-    const _lpDays      = _totalDays - 1;          // Leading Propman: -1
-    const _p1Days      = _totalDays - 2;          // Propman 1: -2
+    const _lpDays      = Math.max(shootDays, _totalDays - 1);   // Leading Propman: -1
+    const _p1Days      = Math.max(shootDays, _totalDays - 2);   // Propman 1: -2
+
+    // Dynamické instrukce pro labour team — přesný počet lidí dle nastavení
+    const _labourTeamLines = [];
+    _labourTeamLines.push(`  Prop Master: celkem ${_pmDays} dní (shoot_days=${shootDays}, prep_days=${_pmDays - shootDays}, rate=${rates.propMasterShoot})`);
+    if (_displayBuyer > 0) {
+      const _buyerPrep = Math.max(Math.round(prepDays * 0.6), 3);
+      _labourTeamLines.push(`  Buyer: celkem ${shootDays + _buyerPrep} dní (shoot_days=${shootDays}, prep_days=${_buyerPrep}, rate=${rates.propMasterShoot})`);
+    }
+    if (_displayOstatni >= 2) {
+      _labourTeamLines.push(`  Leading Propman: celkem ${_lpDays} dní (shoot_days=${shootDays}, prep_days=${_lpDays - shootDays})`);
+      for (let _pi = 1; _pi < _displayOstatni; _pi++) {
+        const _pDays = Math.max(shootDays, _totalDays - 1 - _pi);
+        _labourTeamLines.push(`  Propman ${_pi}: celkem ${_pDays} dní (shoot_days=${shootDays}, prep_days=${_pDays - shootDays})`);
+      }
+    } else if (_displayOstatni === 1) {
+      _labourTeamLines.push(`  1. Propman: celkem ${_lpDays} dní (shoot_days=${shootDays}, prep_days=${_lpDays - shootDays})`);
+    }
+    if (_setDresserActive && _setDresserCount > 0) {
+      _labourTeamLines.push(`  Set Dresser: ${_setDresserCount}× osoba, shoot_days PŘESNĚ=${shootDays}, prep_days PŘESNĚ=7, rate=${rates.setdresserShoot} Kč/den — POVINNĚ vlož do labour.team`);
+    }
+    if (_propsConstActive && _propsConstCount > 0) {
+      _labourTeamLines.push(`  Props Construction: ${_propsConstCount}× osoba, shoot_days PŘESNĚ=${shootDays}, prep_days=0, rate=${rates.propConstruction} Kč/den — POVINNĚ vlož do labour.team`);
+    }
+    const _totalLabourPeople = fullJobCrew + (_setDresserActive ? _setDresserCount : 0) + (_propsConstActive ? _propsConstCount : 0);
 
     // ── Osobní auta ──
     // 1 auto na každé 2 lidi v core týmu (každý člen týmu potřebuje dopravu)
@@ -4234,12 +4258,9 @@ ${outputMode==='approx'
   ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0.`
   : `MÓD: DETAILNÍ — pro každý set vygeneruj 3–5 konkrétních prop položek s reálnými cenami.`}${_heroSection}
 CÍLOVÉ ČÁSTKY — ZÁVAZNÉ (odchylka max ±10 %, jinak je rozpočet špatně):
-- Labour celkem: ${_fmt(_labourAnchor)} Kč → POVINNÉ DNY PRO HLAVNÍ TRIO (shoot_days=${shootDays}, prep_days=zbytek):
-  Prop Master: celkem ${_pmDays} dní (shoot_days=${shootDays}, prep_days=${_pmDays - shootDays})
-  Leading Propman: celkem ${_lpDays} dní (shoot_days=${shootDays}, prep_days=${_lpDays - shootDays})
-  Propman 1: celkem ${_p1Days} dní (shoot_days=${shootDays}, prep_days=${_p1Days - shootDays})
-  Ostatní lidé: rozlož do prep_days/shoot_days dle jejich rolí (max shoot_days=${shootDays}, max prep_days=${prepDays + wrapDays})${_setDresserActive ? `\n  Set Dresser: ${_setDresserCount}× osoba, shoot_days PŘESNĚ=${shootDays} (NESMÍ být jiné číslo), prep_days PŘESNĚ=7, rate=${rates.setdresserShoot} Kč/den — POVINNĚ vlož do labour.team` : ''}${_propsConstActive ? `\n  Props Construction: ${_propsConstCount}× osoba, shoot_days PŘESNĚ=${shootDays} (NESMÍ být jiné číslo), prep_days=0, rate=${rates.propConstruction} Kč/den — POVINNĚ vlož do labour.team` : ''}
-ZAKÁZÁNO: shoot_days u Set Dresser a Props Construction nesmí být nižší než ${shootDays}. Každá osoba těchto rolí musí mít shoot_days=${shootDays}.
+- Labour celkem: ${_fmt(_labourAnchor)} Kč → labour.team musí mít PŘESNĚ ${_totalLabourPeople} lidí (ne víc, ne míň). shoot_days=${shootDays}:
+${_labourTeamLines.join('\n')}
+ZAKÁZÁNO: přidat nebo vynechat kohokoliv. Celkem v labour.team = přesně ${_totalLabourPeople}. shoot_days u každé osoby musí být přesně ${shootDays}.
 - Props celkem: ${_fmt(_propsAnchor + _heroAnchorAdd)} Kč — TATO ČÁSTKA JE ZÁVAZNÁ, odchylka max ±5 %
   Průměr na set: ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč (bez hero props). Každý set musí mít realisticky rozepsané položky které dohromady tuto částku naplní.
   NIKDY negeneruj props pod ${_fmt(Math.round(_propsAnchor * 0.95))} Kč. Pokud nevíš čím doplnit, přidej: pronájem dekorací a doplňků, nákup dekorativních předmětů, styling a výběr materiálů.

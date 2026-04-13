@@ -977,7 +977,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.13</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.14</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -3774,7 +3774,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.13';
+    const _APP_VER = 'v11.14';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5006,7 +5006,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const _fmtR = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n));
     const _targetLines = [];
     if (_targetProps     > 0) _targetLines.push(`   • Props celkem = PŘESNĚ ${_fmtR(_targetProps)} Kč — rozlož tuto částku proporcionálně mezi sekce/položky`);
-    if (_targetLabour    > 0) _targetLines.push(`   • Labour celkem = PŘESNĚ ${_fmtR(_targetLabour)} Kč — uprav POUZE prep_days (ne rate, ne shoot_days). Sniž/zvyš prep_days postupně odspoda týmu (nejméně zkušení první) dokud součet nedosáhne PŘESNĚ této částky.`);
+    if (_targetLabour    > 0) _targetLines.push(`   • Labour celkem = PŘESNĚ ${_fmtR(_targetLabour)} Kč — uprav POUZE prep_days (ne rate, ne shoot_days = vždy ${_rShoot}). Snižuj: odebírej prep_days odspoda týmu. Zvyšuj: přidej prep_days stávajícím, pak přidej nové lidi. Postupuj dokud součet nedosáhne PŘESNĚ této částky.`);
     if (_targetTransport > 0) _targetLines.push(`   • Transport celkem = PŘESNĚ ${_fmtR(_targetTransport)} Kč — uprav POUZE days u vozidel (ne rate). Zkracej/prodluž days dokud součet nedosáhne PŘESNĚ této částky.`);
 
     const prompt = [
@@ -5023,7 +5023,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       '',
       'PRAVIDLA (ZÁVAZNÁ — porušení = chybný výstup):',
       '1. Uprav přesně to co požadavek říká. Zachovej celkovou strukturu JSON.',
-      `2. LABOUR: NIKDY nemeň "rate". NIKDY nemeň shoot_days. Měň POUZE prep_days. Max prep_days = ${_rPrep + _rWrap} na osobu. Při SNIŽOVÁNÍ labour: odebírej prep_days postupně odspoda — nejdřív nejméně zkušeným/posledním členům týmu, pak výše. Při ZVYŠOVÁNÍ labour: přidej prep_days nebo přidej novou osobu do labour.team[]. NIKDY nepřidávej osoby jen kvůli navýšení — nejdřív maximalizuj prep_days stávajících.`,
+      `2. LABOUR: NIKDY nemeň "rate". NIKDY nemeň shoot_days (shoot_days = vždy přesně ${_rShoot} u každé osoby). Měň POUZE prep_days. Max prep_days = ${_rPrep + _rWrap} na osobu. SNIŽOVÁNÍ: odebírej prep_days postupně odspoda týmu (nejméně zkušení/poslední jako první), pak výše — dokud nedosáhneš cílové částky. ZVYŠOVÁNÍ: nejdřív přidej prep_days stávajícím odspoda nahoru (do max ${_rPrep + _rWrap}), pak přidej nové lidi s logickými prep_days (dle jejich role) a shoot_days = ${_rShoot}.`,
       `3. TRANSPORT: NIKDY nemeň "rate". Měň POUZE "days". Max days ≤ ${_maxDays} na vozidlo. Při snižování: zkracej days nejméně důležitým vozidlům jako prvním. NIKDY nepřidávej nová vozidla jen kvůli dosažení částky.`,
       '4. PROPS: Uprav amount u konkrétních položek v props.sections[].items[], nebo přidej/odeber položky.',
       '5. Pole labour.total, transport.total, props.total, subtotal, fee, total_base, grand_total nastav na 0 — jsou přepočítávány automaticky.',

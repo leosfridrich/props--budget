@@ -977,7 +977,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.6</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.7</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -3787,7 +3787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.6';
+    const _APP_VER = 'v11.7';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4172,13 +4172,13 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     // Big truck II: velký job — shoot + wrap + 1d prep
     if (_isBigJob)
       _tItems.push({ name: 'big truck 7,5t II', days: 1 + shootDays + wrapDays, rate: _bigRate });
-    // Workshop truck: velký job — shoot dny + 2d prep
-    if (_isBigJob)
+    // Workshop truck: velký job — shoot dny + 2d prep (pouze pokud NENÍ Props Construction)
+    if (_isBigJob && !_propsConstActive)
       _tItems.push({ name: 'truck as workshop', days: 2 + shootDays,            rate: _bigRate });
 
-    // ── Construction truck — POUZE pokud je Props Construction zapnutý ──
+    // ── Props Construction → truck as workshop na stejný počet dnů ──
     if (_propsConstActive) {
-      _tItems.push({ name: 'construction truck', days: shootDays, rate: rates.truck });
+      _tItems.push({ name: 'truck as workshop', days: shootDays, rate: _bigRate });
     }
 
     // ── Zahraniční trasy — POUZE pokud jsou zahraniční sety ──

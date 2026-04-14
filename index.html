@@ -976,7 +976,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.17</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.18</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1918,14 +1918,18 @@
     if (totalSets >= 5 && shootCrew < 15) shootCrew = Math.max(shootCrew, 15 + locAdj);
     if (totalSets <= 1) shootCrew = Math.max(shootCrew, 3);
     shootCrew = Math.min(Math.max(shootCrew, 2), 25);
-    const manualShoot = parseInt(document.getElementById('shootCrewOverride').value);
-    const displayShoot = manualShoot > 0 ? manualShoot : shootCrew;
+    const manualShoot  = parseInt(document.getElementById('shootCrewOverride').value);
+    const manualOstatni = document.getElementById('fullJobCrew').value !== ''
+      ? parseInt(document.getElementById('fullJobCrew').value) : NaN;
+
+    // displayShoot: manualShoot > odvozeno z ručně zadaných lidí > auto odhad
+    const displayShoot = manualShoot > 0 ? manualShoot
+      : !isNaN(manualOstatni) ? 1 + displayBuyer + manualOstatni + setDresserCount + propsConstCount
+      : shootCrew;
 
     // ── Ostatní rekvizitáři = shoot crew − PM − Buyer − SetDresser − PropsConst ──
     const namedOnSet = 1 + displayBuyer + setDresserCount + propsConstCount;
     const ostatniEst = Math.max(0, displayShoot - namedOnSet);
-    const manualOstatni = document.getElementById('fullJobCrew').value !== ''
-      ? parseInt(document.getElementById('fullJobCrew').value) : NaN;
     const displayOstatni = !isNaN(manualOstatni) ? manualOstatni : ostatniEst;
 
     const totalCore = 1 + displayBuyer + displayOstatni;
@@ -1964,6 +1968,7 @@
     if (isHeavy)      reasons.push('full dressing');
     if (locationCount > 0) reasons.push(`${locationCount} ${locationCount===1?'lokace':'lokací'}${locAdj!==0?' ('+( locAdj>0?'+':'')+locAdj+')':''}`);
     if (manualShoot > 0) reasons.push('shoot ručně');
+    else if (!isNaN(manualOstatni)) reasons.push('ručně');
     const lbl = document.getElementById('crewEstimateLabel');
     if (lbl) lbl.textContent = reasons.length
       ? `Na základě: ${reasons.join(' · ')} · prep ~${corePrepEst}d`
@@ -3795,7 +3800,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.17';
+    const _APP_VER = 'v11.18';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

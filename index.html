@@ -976,7 +976,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.20</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.21</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1486,7 +1486,7 @@
           <div id="progressPct" style="font-family:var(--font); font-size:28px; color:var(--accent); line-height:1;">0%</div>
           <div id="progressEta" style="font-size:10px; color:var(--muted); letter-spacing:0.1em;"></div>
         </div>
-        <div style="height:3px; background:var(--border); position:relative; overflow:hidden;">
+        <div style="height:3px; background:var(--border); border-radius:2px; position:relative; overflow:hidden;">
           <div id="progressBar" style="height:100%; background:var(--accent); width:0%; transition:width 0.4s ease; position:absolute; top:0; left:0;"></div>
           <!-- shimmer effect when active -->
           <div id="progressShimmer" style="display:none; position:absolute; top:0; left:-100%; width:60%; height:100%;
@@ -1500,7 +1500,7 @@
       <button id="stopAnalysisBtn" onclick="stopAnalysis()"
         style="margin-top:14px; background:none; border:1px solid var(--danger); color:var(--danger);
                font-family:var(--font); font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
-               padding:7px 16px; cursor:pointer; display:none;">
+               padding:7px 16px; cursor:pointer; display:none; border-radius:var(--radius-sm);">
         ✕ Zastavit analýzu
       </button>
     </div>
@@ -1511,20 +1511,11 @@
 
       <div id="analysisContent" style="margin-bottom:24px;"></div>
 
-      <div style="border:1px solid var(--accent); background:rgba(200,169,110,0.05); padding:16px 20px; margin-bottom:8px;">
+      <div style="border:1px solid var(--accent); background:rgba(200,169,110,0.05); padding:16px 20px; margin-bottom:8px; border-radius:var(--radius-sm);">
         <div style="font-size:10px; letter-spacing:0.15em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;">Vše v pořádku?</div>
-        <div style="font-size:12px; color:var(--muted); line-height:1.7; margin-bottom:14px;">
-          Zkontroluj sety a tým vlevo. Uprav co potřebuješ — pak klikni na tlačítko níže.
+        <div style="font-size:12px; color:var(--muted); line-height:1.7;">
+          Zkontroluj sety a tým vlevo. Uprav co potřebuješ — pak klikni na ↗ Generovat odhad vlevo.
         </div>
-        <button onclick="confirmAndGenerate()" style="
-          width:100%; background:var(--accent); color:#0e0e0e;
-          border:none; font-family:var(--font); font-size:12px;
-          letter-spacing:0.2em; text-transform:uppercase;
-          padding:14px; cursor:pointer; font-weight:500; transition:all 0.2s;
-        " onmouseover="this.style.background='#7a5a2a'"
-           onmouseout="this.style.background='var(--accent)'">
-          ↗ Generovat rozpočet
-        </button>
       </div>
     </div>
 
@@ -3804,7 +3795,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.20';
+    const _APP_VER = 'v11.21';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4558,9 +4549,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
       </div>
-      <button class="btn-new-gen" onclick="generateNewBudget()">↗ Generovat další</button>
-
-      <div id="revisionBox" style="margin-top:20px; border:1px solid var(--border); background:var(--surface);">
+      <div id="revisionBox" style="margin-top:20px; border:1px solid var(--border); background:var(--surface); border-radius:var(--radius-sm); overflow:hidden;">
         <div style="padding:12px 16px; background:var(--surface2); border-bottom:1px solid var(--border);
                     display:flex; align-items:center; gap:10px;">
           <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
@@ -4570,14 +4559,15 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           <textarea id="revisionNote" placeholder="Napiš co opravit — např. &quot;Lidí je moc, měli by být max 3 na celý prep&quot; nebo &quot;Přidej do obýváku ještě fotbálek 4000 Kč&quot;..."
             style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
                    font-family:var(--font); font-size:12px; padding:10px 12px; outline:none;
-                   resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;"
+                   resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;
+                   border-radius:var(--radius-sm);"
             onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
           <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
             <button onclick="reviseBudget()" id="reviseBtn" style="
               flex:1; background:var(--surface2); border:1px solid var(--border);
               color:var(--text); font-family:var(--font); font-size:11px;
               letter-spacing:0.15em; text-transform:uppercase; padding:10px;
-              cursor:pointer; transition:all 0.2s;"
+              cursor:pointer; transition:all 0.2s; border-radius:var(--radius-sm);"
               onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
               onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
               ↺ Aplikovat opravy
@@ -4612,7 +4602,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     const _trEst  = (b.transport?.items || []).reduce((s, i) => s + (i.days||0)*(i.rate||0), 0);
     const _prEst  = (b.props?.sections || []).reduce((s, sec) => s + (sec.items||[]).reduce((ss,i)=>ss+(i.amount||0),0), 0);
     return `
-      <div style="margin-top:12px; border:1px solid var(--border); background:var(--surface);">
+      <div style="margin-top:12px; border:1px solid var(--border); background:var(--surface); border-radius:var(--radius-sm); overflow:hidden;">
         <div style="padding:10px 16px; background:var(--surface2); border-bottom:1px solid var(--border);
                     display:flex; align-items:center; gap:10px; cursor:pointer;"
              onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
@@ -4627,21 +4617,21 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
               <div style="font-size:9px;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Labour</div>
               <input type="text" id="actualLabour" placeholder=""
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
-                       font-family:var(--font);font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
+                       font-family:var(--font);font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;border-radius:var(--radius-sm);"
                 onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
             <div>
               <div style="font-size:9px;color:var(--accent2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Transport</div>
               <input type="text" id="actualTransport" placeholder=""
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
-                       font-family:var(--font);font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
+                       font-family:var(--font);font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;border-radius:var(--radius-sm);"
                 onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
             <div>
               <div style="font-size:9px;color:var(--text);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Props</div>
               <input type="text" id="actualProps" placeholder=""
                 style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
-                       font-family:var(--font);font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;"
+                       font-family:var(--font);font-size:12px;padding:7px 9px;outline:none;box-sizing:border-box;border-radius:var(--radius-sm);"
                 onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
             </div>
           </div>
@@ -4651,7 +4641,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
               flex:1;background:var(--surface2);border:1px solid var(--success);
               color:var(--success);font-family:var(--font);font-size:11px;
               letter-spacing:0.15em;text-transform:uppercase;padding:10px;
-              cursor:pointer;transition:all 0.2s;"
+              cursor:pointer;transition:all 0.2s;border-radius:var(--radius-sm);"
               onmouseover="this.style.background='var(--success)';this.style.color='#0e0e0e'"
               onmouseout="this.style.background='var(--surface2)';this.style.color='var(--success)'">
               ✓ Uložit jako kalibrační data
@@ -4889,9 +4879,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         <button class="btn-secondary" onclick="downloadExcel()">⬇ Excel</button>
         <button class="btn-secondary" onclick="printBudget()">⎙ PDF</button>
       </div>
-      <button class="btn-new-gen" onclick="generateNewBudget()">↗ Generovat další</button>
-
-      <div id="revisionBox" style="margin-top:20px; border:1px solid var(--border); background:var(--surface);">
+      <div id="revisionBox" style="margin-top:20px; border:1px solid var(--border); background:var(--surface); border-radius:var(--radius-sm); overflow:hidden;">
         <div style="padding:12px 16px; background:var(--surface2); border-bottom:1px solid var(--border);
                     display:flex; align-items:center; gap:10px;">
           <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
@@ -4901,14 +4889,15 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           <textarea id="revisionNote" placeholder="Napiš co opravit — např. &quot;Lidí je moc, měli by být max 3 na celý prep&quot; nebo &quot;Přidej do obýváku ještě fotbálek 4000 Kč&quot;..."
             style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
                    font-family:var(--font); font-size:12px; padding:10px 12px; outline:none;
-                   resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;"
+                   resize:vertical; min-height:70px; line-height:1.6; transition:border-color 0.2s; box-sizing:border-box;
+                   border-radius:var(--radius-sm);"
             onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
           <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
             <button onclick="reviseBudget()" id="reviseBtn" style="
               flex:1; background:var(--surface2); border:1px solid var(--border);
               color:var(--text); font-family:var(--font); font-size:11px;
               letter-spacing:0.15em; text-transform:uppercase; padding:10px;
-              cursor:pointer; transition:all 0.2s;"
+              cursor:pointer; transition:all 0.2s; border-radius:var(--radius-sm);"
               onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
               onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
               ↺ Aplikovat opravy

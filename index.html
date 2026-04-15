@@ -976,7 +976,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.18</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.19</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1426,15 +1426,17 @@
     </div>
 
     <div class="section-label" style="margin-top:0;">Detail výstupu</div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:12px; overflow:hidden;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:12px;">
       <button id="modeDetailed" onclick="setOutputMode('detailed')" style="
-        background:var(--accent); color:#0e0e0e; border:none; border-right:1px solid rgba(0,0,0,0.15);
+        background:var(--accent); color:#0e0e0e; border:1px solid var(--accent);
+        border-radius:var(--radius-sm);
         font-family:var(--font); font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
         padding:11px 8px; cursor:pointer; transition:all 0.15s; line-height:1.4;">
         ≡ Detailní<br><span style="font-size:9px;opacity:0.7;">položky + tým + doprava</span>
       </button>
       <button id="modeApprox" onclick="setOutputMode('approx')" style="
-        background:transparent; color:var(--muted); border:none;
+        background:transparent; color:var(--muted); border:1px solid var(--border);
+        border-radius:var(--radius-sm);
         font-family:var(--font); font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
         padding:11px 8px; cursor:pointer; transition:all 0.15s; line-height:1.4;">
         ≈ Aproximativní<br><span style="font-size:9px;opacity:0.7;">sety + odhadní cena</span>
@@ -1763,11 +1765,11 @@
     const btnD = document.getElementById('modeDetailed');
     const btnA = document.getElementById('modeApprox');
     if (mode === 'detailed') {
-      btnD.style.background = 'var(--accent)'; btnD.style.color = '#0e0e0e';
-      btnA.style.background = 'transparent'; btnA.style.color = 'var(--muted)';
+      btnD.style.background = 'var(--accent)'; btnD.style.color = '#0e0e0e'; btnD.style.borderColor = 'var(--accent)';
+      btnA.style.background = 'transparent';   btnA.style.color = 'var(--muted)'; btnA.style.borderColor = 'var(--border)';
     } else {
-      btnA.style.background = 'var(--accent)'; btnA.style.color = '#0e0e0e';
-      btnD.style.background = 'transparent'; btnD.style.color = 'var(--muted)';
+      btnA.style.background = 'var(--accent)'; btnA.style.color = '#0e0e0e'; btnA.style.borderColor = 'var(--accent)';
+      btnD.style.background = 'transparent';   btnD.style.color = 'var(--muted)'; btnD.style.borderColor = 'var(--border)';
     }
     if (window._lastBudget && window._lastBudgetName) {
       renderBudget(window._lastBudget, window._lastBudgetName);
@@ -3800,7 +3802,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.18';
+    const _APP_VER = 'v11.19';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

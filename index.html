@@ -976,7 +976,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.19</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v11.20</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1026,15 +1026,17 @@
     <!-- NOVÝ PROJEKT -->
     <div style="padding:12px 0;">
       <button onclick="generateNewBudget()" style="
-        width:100%; background:rgba(200,169,110,0.12); border:1px solid var(--accent);
-        color:var(--accent); font-family:var(--font); font-size:10px;
-        letter-spacing:0.2em; text-transform:uppercase; padding:10px 14px;
-        cursor:pointer; transition:all 0.2s; text-align:left; display:flex;
-        align-items:center; gap:10px; font-weight:500;
-        border-radius:var(--radius-sm);"
-        onmouseover="this.style.background='rgba(200,169,110,0.22)';this.style.boxShadow='0 0 0 1px var(--accent)'"
-        onmouseout="this.style.background='rgba(200,169,110,0.12)';this.style.boxShadow='none'">
-        <span style="font-size:16px;line-height:1;">+</span> Nový projekt
+        width:100%; background:linear-gradient(145deg,#C8A96E 0%,#A8895E 100%);
+        border:none; border-radius:var(--radius-md);
+        color:#1C1C1E; font-family:var(--font); font-size:14px;
+        font-weight:600; letter-spacing:0.1px;
+        height:44px; padding:0 14px; cursor:pointer;
+        display:flex; align-items:center; justify-content:center; gap:8px;
+        transition:all 0.2s; position:relative; overflow:hidden;
+        box-shadow:0 4px 16px rgba(200,169,110,0.30),0 1px 4px rgba(200,169,110,0.20);"
+        onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 8px 28px rgba(200,169,110,0.40),0 2px 8px rgba(200,169,110,0.25)'"
+        onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 16px rgba(200,169,110,0.30),0 1px 4px rgba(200,169,110,0.20)'">
+        + Nový projekt
       </button>
     </div>
 
@@ -3802,7 +3804,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v11.19';
+    const _APP_VER = 'v11.20';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

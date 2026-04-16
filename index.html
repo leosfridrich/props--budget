@@ -83,6 +83,22 @@
     z-index: 100;
   }
 
+  .subheader {
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: sticky;
+    top: 56px;
+    background: rgba(22,22,24,0.92);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    z-index: 99;
+    overflow: hidden;
+  }
+
   .logo {
     display: flex;
     align-items: center;
@@ -976,7 +992,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v12.10</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.0</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1018,6 +1034,46 @@
   </div>
 </header>
 
+<!-- SUB-HEADER: API key + Workspace -->
+<div class="subheader" id="subHeader">
+  <!-- API Key -->
+  <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+    <span style="font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); white-space:nowrap;">API Klíč</span>
+    <input type="password" id="apiKey" placeholder="sk-ant-…" autocomplete="new-password" spellcheck="false"
+      style="width:190px; background:var(--bg); border:1px solid var(--border); color:var(--text);
+             font-family:var(--font); font-size:11px; padding:5px 9px; outline:none; border-radius:var(--radius-sm);"
+      onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
+    <button type="button" id="apiKeyToggle"
+      onclick="(function(){var i=document.getElementById('apiKey');var b=document.getElementById('apiKeyToggle');if(i.type==='password'){i.type='text';b.textContent='🙈';}else{i.type='password';b.textContent='👁';}})()"
+      style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:4px 7px;cursor:pointer;font-size:12px;border-radius:var(--radius-sm);flex-shrink:0;">👁</button>
+    <span id="apiKeyStatus" style="font-size:10px; color:var(--muted); white-space:nowrap;">Ověřuji…</span>
+  </div>
+
+  <div style="width:1px; height:20px; background:var(--border); flex-shrink:0;"></div>
+
+  <!-- Workspace -->
+  <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+    <span style="font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); white-space:nowrap;">Workspace</span>
+    <input type="text" id="workspaceCode" placeholder="sunprops"
+      style="width:120px; background:var(--bg); border:1px solid var(--border); color:var(--text);
+             font-family:var(--font); font-size:11px; padding:5px 9px; outline:none; border-radius:var(--radius-sm);"
+      onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+      onkeydown="if(event.key==='Enter')connectWorkspace()"/>
+    <button onclick="connectWorkspace()" id="wsConnectBtn"
+      style="background:var(--surface2);border:1px solid var(--border);color:var(--text);
+             font-family:var(--font);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
+             padding:5px 10px;cursor:pointer;white-space:nowrap;transition:all 0.15s;border-radius:var(--radius-sm);"
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">Připojit</button>
+    <button onclick="pushWorkspace()" id="wsSyncBtn" title="Synchronizovat nyní"
+      style="display:none;background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+             font-family:var(--font);font-size:13px;padding:5px 9px;cursor:pointer;transition:all 0.15s;border-radius:var(--radius-sm);"
+      onmouseover="this.style.borderColor='var(--success)';this.style.color='var(--success)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↻</button>
+    <div id="wsStatus" style="font-size:9px; color:var(--muted); letter-spacing:0.05em; white-space:nowrap;">Sdílej s týmem</div>
+  </div>
+</div>
+
 <div class="main">
 
   <!-- LEFT: INPUT PANEL -->
@@ -1038,46 +1094,6 @@
         onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 16px rgba(200,169,110,0.30),0 1px 4px rgba(200,169,110,0.20)'">
         + Nový projekt
       </button>
-    </div>
-
-    <!-- API KEY -->
-    <div class="api-section" id="apiKeySection">
-      <label style="display:flex;align-items:center;justify-content:space-between;">
-        <span>API Klíč</span>
-        <span style="font-size:10px;color:var(--muted);font-weight:400;">volitelné — máš vlastní?</span>
-      </label>
-      <div style="position:relative;display:flex;gap:6px;align-items:center;">
-        <input type="password" id="apiKey" placeholder="" autocomplete="new-password" spellcheck="false" style="flex:1;" />
-        <button type="button" id="apiKeyToggle" onclick="(function(){var i=document.getElementById('apiKey');var b=document.getElementById('apiKeyToggle');if(i.type==='password'){i.type='text';b.textContent='🙈';}else{i.type='password';b.textContent='👁';}})()"
-          style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:4px 8px;cursor:pointer;font-size:13px;border-radius:2px;flex-shrink:0;">👁</button>
-      </div>
-      <p id="apiKeyStatus" style="color:var(--muted);">Ověřuji API klíč…</p>
-    </div>
-
-    <!-- WORKSPACE -->
-    <div class="section-label" style="margin-top:0;">Týmový workspace</div>
-    <div style="border:1px solid var(--border);background:var(--surface);margin-bottom:16px;padding:10px 14px;">
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-        <input type="text" id="workspaceCode" placeholder=""
-          style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);
-                 font-family:var(--font);font-size:11px;padding:7px 10px;outline:none;box-sizing:border-box;"
-          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
-          onkeydown="if(event.key==='Enter')connectWorkspace()"/>
-        <button onclick="connectWorkspace()" id="wsConnectBtn"
-          style="background:var(--surface2);border:1px solid var(--border);color:var(--text);
-                 font-family:var(--font);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
-                 padding:7px 12px;cursor:pointer;white-space:nowrap;transition:all 0.15s;"
-          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
-          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">Připojit</button>
-        <button onclick="pushWorkspace()" id="wsSyncBtn" title="Synchronizovat nyní"
-          style="display:none;background:var(--surface2);border:1px solid var(--border);color:var(--muted);
-                 font-family:var(--font);font-size:13px;padding:7px 10px;cursor:pointer;transition:all 0.15s;"
-          onmouseover="this.style.borderColor='var(--success)';this.style.color='var(--success)'"
-          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↻</button>
-      </div>
-      <div id="wsStatus" style="font-size:9px;color:var(--muted);letter-spacing:0.08em;">
-        Sdílej data s týmem — všichni se stejným kódem sdílí memory a projekty.
-      </div>
     </div>
 
     <div class="section-label">Projekt</div>
@@ -3795,7 +3811,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v12.10';
+    const _APP_VER = 'v13.0';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5858,7 +5874,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
   const printCSS = document.createElement('style');
   printCSS.media = 'print';
   printCSS.textContent = `
-    header, .panel-left, .btn-generate, .export-row, .api-section { display: none !important; }
+    header, .subheader, .panel-left, .btn-generate, .export-row, .api-section { display: none !important; }
     .main { display: block !important; }
   `;
   document.head.appendChild(printCSS);

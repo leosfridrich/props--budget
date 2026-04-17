@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.10</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.11</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -2809,6 +2809,11 @@
     // Skryj output, zobraz empty state
     const out = document.getElementById('budgetOutput');
     if (out) { out.innerHTML = ''; out.classList.remove('visible'); }
+    // Vyčisti pravý panel s analýzou scriptu (sety z minulého jobu)
+    const analysisPanel = document.getElementById('analysisPanel');
+    const analysisContent = document.getElementById('analysisContent');
+    if (analysisPanel) analysisPanel.style.display = 'none';
+    if (analysisContent) analysisContent.innerHTML = '';
     document.getElementById('emptyState').style.display = '';
     // Scrolluj vlevo nahoru
     const panelLeft = document.querySelector('.panel-left');
@@ -4178,7 +4183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v13.10';
+    const _APP_VER = 'v13.11';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4368,6 +4373,12 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     _abortController = new AbortController();
     const interval = showThinking();
     scrollRightTop();
+
+    // Skryj pravý panel se starou analýzou scriptu — generace produkuje vlastní výstup
+    const _aPanel = document.getElementById('analysisPanel');
+    const _aContent = document.getElementById('analysisContent');
+    if (_aPanel) _aPanel.style.display = 'none';
+    if (_aContent) _aContent.innerHTML = '';
 
     // Gather inputs
     const projectName = document.getElementById('projectName').value || 'Nový projekt';

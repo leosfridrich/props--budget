@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.1</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.2</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -4183,7 +4183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v14.1';
+    const _APP_VER = 'v14.2';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4331,6 +4331,13 @@ ZAKÁZÁNO:
 - Vracet nižší počet prostředí než uživatel dříve potvrdil
 - Tvářit se, že každý běh je nový bez ohledu na historii
 - Upřednostnit nejistou novou analýzu před dříve potvrzenou správnou verzí
+
+POŽADAVKY UŽIVATELE V POPISU PROJEKTU:
+Pokud uživatel v sekci "POŽADAVKY A POZNÁMKY PROJEKTU" zmíní konkrétní okolnosti (typ produkce, noční natáčení, ateliér vs. lokace, hero produkty, stavba, speciální efekty, zahraniční trasy, časová tíseň, ekonomická úroveň jobu, minimální/maximální tým) — MUSÍŠ je promítnout přímo do čísel v JSON výstupu:
+- labour: upravit počet lidí, prep_days, rate dle komplexity
+- transport: přidat/ubrat vozidla a dny dle logistiky
+- props: upravit částky per set, zdůraznit hero items, dodat relevantní kategorie
+Není dostatečné tyto požadavky pouze zmínit v summary — musí se projevit v konkrétních řádcích rozpočtu.
 
 Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachovej konzistentní strukturu JSON výstupu.`;
 
@@ -4722,7 +4729,7 @@ ${_calibLine}
 PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%
 ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
 ${sets.map((s,i)=>`${i+1}.${s}`).join('|')}
-${desc?'Info:'+desc.substring(0,200):''}${_refJobsCtx}${_refBudgetCtx}${_refScriptCtx}${_refCrewCtx}${_refExtraCtx}
+${desc ? `POŽADAVKY A POZNÁMKY PROJEKTU (ZÁVAZNÉ — respektuj každý bod při sestavení labour/transport/props, promítni konkrétně do čísel, ne jen do summary):\n${desc.substring(0,1500)}\n` : ''}${_refJobsCtx}${_refBudgetCtx}${_refScriptCtx}${_refCrewCtx}${_refExtraCtx}
 JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
 ${outputMode==='approx'
   ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0.`

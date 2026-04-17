@@ -992,7 +992,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.1</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1914,8 +1914,18 @@
     const setDresserCount  = setDresserActive ? (parseInt(document.getElementById('setDresserCount')?.value) || 1) : 0;
     const propsConstCount  = propsConstActive ? (parseInt(document.getElementById('propsConstCount')?.value) || 1) : 0;
 
+    // ── Budget level config (musí odpovídat _budgetLevelCfg v generateBudget) ──
+    const _uiBudgetLevel = document.getElementById('budgetLevel')?.value || 'premium';
+    const _uiBlCfg = ({
+      low:      { crewCap: 3,  shootCrewMult: 0.45, buyerMin: 0 },
+      standard: { crewCap: 99, shootCrewMult: 1.0,  buyerMin: 1 },
+      premium:  { crewCap: 99, shootCrewMult: 1.0,  buyerMin: 1 },
+      luxury:   { crewCap: 99, shootCrewMult: 1.15, buyerMin: 1 }
+    })[_uiBudgetLevel] || { crewCap: 99, shootCrewMult: 1.0, buyerMin: 1 };
+
     // ── Buyer estimate ──
-    const buyerEst = totalSets >= 6 || abroadSets >= 1 ? 2 : 1;
+    let buyerEst = totalSets >= 6 || abroadSets >= 1 ? 2 : 1;
+    if (_uiBlCfg.buyerMin === 0) buyerEst = 0; // low budget → PM dělá buyer sám
     const manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
     const displayBuyer = manualBuyer > 0 ? manualBuyer : buyerEst;
 
@@ -1942,6 +1952,9 @@
     if (totalSets >= 5 && shootCrew < 15) shootCrew = Math.max(shootCrew, 15 + locAdj);
     if (totalSets <= 1) shootCrew = Math.max(shootCrew, 3);
     shootCrew = Math.min(Math.max(shootCrew, 2), 25);
+    // ── Budget level scaling ──
+    if (_uiBlCfg.shootCrewMult !== 1.0) shootCrew = Math.max(2, Math.round(shootCrew * _uiBlCfg.shootCrewMult));
+    if (_uiBlCfg.crewCap < 99)          shootCrew = Math.min(shootCrew, _uiBlCfg.crewCap);
     const manualShoot  = parseInt(document.getElementById('shootCrewOverride').value);
     const manualOstatni = document.getElementById('fullJobCrew').value !== ''
       ? parseInt(document.getElementById('fullJobCrew').value) : NaN;
@@ -2035,7 +2048,7 @@
   }
 
   // Wire crew estimator to relevant inputs
-  ['shootDays', 'prepDays', 'propsSource'].forEach(id => {
+  ['shootDays', 'prepDays', 'propsSource', 'budgetLevel'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', updateCrewEstimate);
     if (el) el.addEventListener('input', updateCrewEstimate);
@@ -3967,7 +3980,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v13.1';
+    const _APP_VER = 'v13.3';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4177,11 +4190,25 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const _propsConstActiveEarly = document.getElementById('propsConstCard')?.dataset.active === 'true';
     const _setDresserCountEarly  = _setDresserActiveEarly ? (parseInt(document.getElementById('setDresserCount')?.value) || 1) : 0;
     const _propsConstCountEarly  = _propsConstActiveEarly ? (parseInt(document.getElementById('propsConstCount')?.value) || 1) : 0;
+    // ── Budget level konfigurace — řídí scaling crew/transport/props dle úrovně
+    //   low      = charita / velmi malý job, minimální tým (2–3 lidi), žádné big trucky
+    //   standard = defaultní komerční produkce
+    //   premium  = high-end komerční (default UI hodnota)
+    //   luxury   = extended tým + rezervní vozidla
+    const _budgetLevelCfg = {
+      low:      { crewCap: 3,  shootCrewMult: 0.45, buyerMin: 0, skipBigTrucks: true,  skipWorkshop: true,  carLimit: 1, truckLimit: 1, description: 'LOW BUDGET / CHARITA — minimální tým (2–3 lidi celkem), jen 1 auto + 1 dodávka, ŽÁDNÉ big trucky, ŽÁDNÝ workshop truck, základní minimální rekvizity. Propmaster + 1–2 assistenty dělají vše včetně nákupu a dopravy.' },
+      standard: { crewCap: 99, shootCrewMult: 1.0,  buyerMin: 1, skipBigTrucks: false, skipWorkshop: false, carLimit: 99, truckLimit: 99, description: 'STANDARD komerční produkce — běžný tým a vybavení.' },
+      premium:  { crewCap: 99, shootCrewMult: 1.0,  buyerMin: 1, skipBigTrucks: false, skipWorkshop: false, carLimit: 99, truckLimit: 99, description: 'PREMIUM high-end komerční — plný tým, všechna standardní vozidla.' },
+      luxury:   { crewCap: 99, shootCrewMult: 1.15, buyerMin: 1, skipBigTrucks: false, skipWorkshop: false, carLimit: 99, truckLimit: 99, description: 'LUXURY — nejvyšší standard, rozšířený tým (+15 %), rezervní vozidla a buffer v rekvizitách.' }
+    };
+    const _blCfg = _budgetLevelCfg[document.getElementById('budgetLevel').value] || _budgetLevelCfg.premium;
+
     // ── Crew estimate — sjednoceno s updateCrewEstimate() ──
     const _isHeavyC = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';
     const _isHeavy  = _isHeavyC;
     const _isMix    = propsSource === 'mix';
-    const _buyerEst = activeSets >= 6 || abroadSets >= 1 ? 2 : 1;
+    let _buyerEst = activeSets >= 6 || abroadSets >= 1 ? 2 : 1;
+    if (_blCfg.buyerMin === 0) _buyerEst = 0; // low budget → PM dělá buyer sám
     const _manualBuyer = parseInt(document.getElementById('buyerOverride').value);
     const _displayBuyer = _manualBuyer > 0 ? _manualBuyer : _buyerEst;
 
@@ -4203,6 +4230,9 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     if (activeSets >= 5 && _shootCrew < 15) _shootCrew = Math.max(_shootCrew, 15 + _locAdj);
     if (activeSets <= 1) _shootCrew = Math.max(_shootCrew, 3);
     _shootCrew = Math.min(Math.max(_shootCrew, 2), 25);
+    // ── Budget level scaling (aplikuje se PŘED manual override) ──
+    if (_blCfg.shootCrewMult !== 1.0) _shootCrew = Math.max(2, Math.round(_shootCrew * _blCfg.shootCrewMult));
+    if (_blCfg.crewCap < 99)          _shootCrew = Math.min(_shootCrew, _blCfg.crewCap);
     const _manualShoot = parseInt(document.getElementById('shootCrewOverride').value);
     if (_manualShoot > 0) _shootCrew = _manualShoot;
 
@@ -4372,38 +4402,44 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     // 1 auto na každé 2 lidi v core týmu (každý člen týmu potřebuje dopravu)
     // car prep = PM: všechny dny; car2 = LP (lpDays); car3 = Propman1+2; car4 = jen u big job
     const _tItems = [];
-    _tItems.push({ name: 'car prep',      days: _pmDays,        rate: rates.car }); // PM
-    _tItems.push({ name: 'car 2 prep',    days: _lpDays,        rate: rates.car }); // LP
+    let _carCount = 0, _truckCount = 0;
+    const _pushCar   = (it) => { if (_carCount   < _blCfg.carLimit)   { _tItems.push(it); _carCount++; } };
+    const _pushTruck = (it) => { if (_truckCount < _blCfg.truckLimit) { _tItems.push(it); _truckCount++; } };
+    _pushCar({ name: 'car prep',      days: _pmDays,        rate: rates.car }); // PM
+    _pushCar({ name: 'car 2 prep',    days: _lpDays,        rate: rates.car }); // LP
     if (fullJobCrew >= 3)
-      _tItems.push({ name: 'car 3 prep',  days: _p1Days,        rate: rates.car }); // Propman 1+2
+      _pushCar({ name: 'car 3 prep',  days: _p1Days,        rate: rates.car }); // Propman 1+2
     if (_isBigJob)
-      _tItems.push({ name: 'car 4 prep',  days: Math.max(shootDays + wrapDays + 5, Math.round(_totalDays * 0.6)), rate: rates.car }); // extra crew
+      _pushCar({ name: 'car 4 prep',  days: Math.max(shootDays + wrapDays + 5, Math.round(_totalDays * 0.6)), rate: rates.car }); // extra crew
 
     // ── Pick-up ── (sazba = car rate, ne truck)
-    // 4d prep + shoot + wrap
-    _tItems.push({ name: 'pick up',       days: 4 + shootDays + wrapDays,  rate: rates.car });
+    // 4d prep + shoot + wrap — pick-up je univerzální, posílá se vždy mimo low (kde truckLimit=1 a už je truck I)
+    if (_blCfg.truckLimit >= 2 || _blCfg.truckLimit === 99)
+      _tItems.push({ name: 'pick up',       days: 4 + shootDays + wrapDays,  rate: rates.car });
 
     // ── Dodávky (small trucks) ──
     // Truck I: 4d prep + shoot + wrap
-    _tItems.push({ name: 'truck I',       days: 4 + shootDays + wrapDays,  rate: rates.truck });
+    _pushTruck({ name: 'truck I',       days: 4 + shootDays + wrapDays,  rate: rates.truck });
     // Truck for set: jen shoot dny
-    _tItems.push({ name: 'truck for set', days: shootDays,                  rate: rates.truck });
+    _pushTruck({ name: 'truck for set', days: shootDays,                  rate: rates.truck });
     // Truck II: velký job — shoot + wrap
     if (_isBigJob)
-      _tItems.push({ name: 'truck II',    days: shootDays + wrapDays,       rate: rates.truck });
+      _pushTruck({ name: 'truck II',    days: shootDays + wrapDays,       rate: rates.truck });
 
-    // ── Velké trucky ──
-    // Big truck I: 2d prep + shoot + wrap
-    _tItems.push({ name: 'big truck 7,5t',    days: 2 + shootDays + wrapDays, rate: _bigRate });
-    // Big truck II: velký job — shoot + wrap + 1d prep
-    if (_isBigJob)
-      _tItems.push({ name: 'big truck 7,5t II', days: 1 + shootDays + wrapDays, rate: _bigRate });
-    // Workshop truck: velký job — shoot dny + 2d prep (pouze pokud NENÍ Props Construction)
-    if (_isBigJob && !_propsConstActive)
+    // ── Velké trucky ── (low budget je vynecháno, malý job/charita nepotřebuje)
+    if (!_blCfg.skipBigTrucks) {
+      // Big truck I: 2d prep + shoot + wrap
+      _tItems.push({ name: 'big truck 7,5t',    days: 2 + shootDays + wrapDays, rate: _bigRate });
+      // Big truck II: velký job — shoot + wrap + 1d prep
+      if (_isBigJob)
+        _tItems.push({ name: 'big truck 7,5t II', days: 1 + shootDays + wrapDays, rate: _bigRate });
+    }
+    // Workshop truck: velký job — shoot dny + 2d prep (pouze pokud NENÍ Props Construction; u low budgetu vynecháno)
+    if (_isBigJob && !_propsConstActive && !_blCfg.skipWorkshop)
       _tItems.push({ name: 'truck as workshop', days: 2 + shootDays,            rate: _bigRate });
 
     // ── Props Construction → truck as workshop na stejný počet dnů ──
-    if (_propsConstActive) {
+    if (_propsConstActive && !_blCfg.skipWorkshop) {
       _tItems.push({ name: 'truck as workshop', days: shootDays, rate: _bigRate });
     }
 
@@ -4436,6 +4472,7 @@ Tato sekce musí být jako PRVNÍ v props.sections[]. ZAKÁZÁNO: hero props NES
     const _scriptFP = [projectName, ...sets].join('|').substring(0, 80).replace(/\s+/g, '_');
     const prompt = `Rekvizitní rozpočet CZK. Sunprops.
 SCRIPT_ID: ${_scriptFP}
+BUDGET ÚROVEŇ: ${budgetLevelLabels[budgetLevel] || budgetLevel} — ${_blCfg.description}
 PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%
 ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
 ${sets.map((s,i)=>`${i+1}.${s}`).join('|')}

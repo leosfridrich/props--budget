@@ -1421,8 +1421,12 @@
       <div style="font-size:9px; color:var(--muted); margin-top:5px; opacity:0.7;">Rozpočty, scripty nebo rozpisy týmu pro zpřesnění budoucích odhadů</div>
     </div>
 
-    <div class="section-label" style="margin-top:16px;">Kalibrační joby</div>
-    <div style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); margin-bottom:16px; padding:10px 14px;">
+    <div class="section-label" style="margin-top:16px; cursor:pointer; user-select:none; display:flex; align-items:center; justify-content:space-between;"
+         onclick="(function(){var el=document.getElementById('jobsCollapsible');var arr=document.getElementById('jobsArrow');var open=el.style.display!=='none';el.style.display=open?'none':'';arr.textContent=open?'▶':'▼';})()">
+      <span>Kalibrační joby</span>
+      <span id="jobsArrow" style="font-size:9px; color:var(--muted); margin-right:2px;">▶</span>
+    </div>
+    <div id="jobsCollapsible" style="display:none; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); margin-bottom:16px; padding:10px 14px;">
       <div id="jobsList" style="font-size:10px; color:var(--text);"></div>
       <div style="font-size:9px; color:var(--muted); margin-top:6px; opacity:0.7; line-height:1.5;">
         📄 script · 👥 crew tabulka · 💰 rozpočet — soubory se sdružují podle názvu do jednoho jobu.<br/>

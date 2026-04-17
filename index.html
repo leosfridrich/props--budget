@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.2</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -3553,8 +3553,8 @@
     // Avoid duplicates — if very similar note exists skip
     const similar = learned.some(l => l.toLowerCase().includes(note.toLowerCase().substring(0, 30)));
     if (similar) return;
-    // Keep max 10 corrections
-    if (learned.length >= 10) learned.shift();
+    // Keep max 20 corrections
+    if (learned.length >= 20) learned.shift();
     learned.push(note);
     try { localStorage.setItem(LS_LEARNED, JSON.stringify(learned)); } catch(e) {}
     renderLearnedList();
@@ -3796,7 +3796,7 @@
       shootDays:         parseInt(document.getElementById('shootDays')?.value) || 0,
       prepDays:          parseInt(document.getElementById('prepDays')?.value)  || 0,
       lastUpdate:        new Date().toLocaleDateString('cs-CZ'),
-      corrections:       corrections ? [{ date: new Date().toLocaleDateString('cs-CZ'), note: (corrections).substring(0, 250) }] : []
+      corrections:       corrections ? [{ date: new Date().toLocaleDateString('cs-CZ'), note: (corrections).substring(0, 500) }] : []
     };
     saveScriptMemory(card);
   }
@@ -4183,7 +4183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v14.2';
+    const _APP_VER = 'v14.3';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5470,6 +5470,29 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     return diff;
   }
 
+  // Kompaktní shrnutí rozdílu mezi starým a opraveným rozpočtem — pro ukládání ke korekcím
+  function summarizeRevisionDiff(oldB, newB) {
+    if (!oldB || !newB) return '';
+    const _tot = (o) => ({
+      lab: (o.labour?.team||[]).reduce((s,p)=>s + ((p.shoot_days||0)+(p.prep_days||0))*(p.rate||0), 0),
+      tra: (o.transport?.items||[]).reduce((s,i)=>s + (i.days||0)*(i.rate||0), 0),
+      pro: (o.props?.sections||[]).reduce((s,sec)=>s + (sec.items||[]).reduce((ss,it)=>ss+(it.amount||0),0), 0)
+    });
+    const a = _tot(oldB), b = _tot(newB);
+    const fmt = (oldV, newV) => {
+      const d = newV - oldV;
+      if (Math.abs(d) < 500) return null;
+      const pct = oldV > 0 ? Math.round(d / oldV * 100) : (newV > 0 ? 100 : 0);
+      const sign = d >= 0 ? '+' : '';
+      return `${sign}${pct}% (${sign}${Math.round(d/1000)}k)`;
+    };
+    const parts = [];
+    const L = fmt(a.lab, b.lab); if (L) parts.push('labour ' + L);
+    const T = fmt(a.tra, b.tra); if (T) parts.push('transport ' + T);
+    const P = fmt(a.pro, b.pro); if (P) parts.push('props ' + P);
+    return parts.join(', ');
+  }
+
   function toggleSection(id) {
     const el = document.getElementById(id);
     if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
@@ -5717,10 +5740,13 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       status.textContent = '✓ Opraveno';
       setTimeout(() => { status.textContent = ''; }, 3000);
 
-      // Save as learned correction (summarized) — zvýšeno na 250 znaků
-      addLearnedCorrection(savedNote.substring(0, 250));
+      // Spočti číselný rozdíl starého a opraveného rozpočtu + připoj k poznámce
+      const _diffSummary = summarizeRevisionDiff(b, revised);
+      const _noteWithDiff = _diffSummary ? `${savedNote} [Δ ${_diffSummary}]` : savedNote;
+      // Save as learned correction (summarized) — zvýšeno na 500 znaků, includes delta
+      addLearnedCorrection(_noteWithDiff.substring(0, 500));
       // Uloží korekci + aktuální sety do Script Memory Card
-      saveProjectToMemory(projectName, savedNote, window._currentScriptFP);
+      saveProjectToMemory(projectName, _noteWithDiff, window._currentScriptFP);
 
       _rpFinish(true);
       window._revisionDiff = computeRevisionDiff(window._lastBudget, revised);

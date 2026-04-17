@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.7</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1044,15 +1044,15 @@
 
   <!-- API Key — šíře levého sloupce (380px − 20px left padding) -->
   <div style="width:360px; flex-shrink:0; display:flex; align-items:center; gap:8px;">
-    <span id="apiKeyLabel" style="font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); white-space:nowrap; transition:color 0.3s;">API Klíč</span>
+    <span id="apiKeyLabel" style="font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); white-space:nowrap; flex-shrink:0; transition:color 0.3s;">API Klíč</span>
     <input type="password" id="apiKey" placeholder="sk-ant-…" autocomplete="new-password" spellcheck="false"
-      style="width:180px; background:var(--bg); border:1px solid var(--border); color:var(--text);
+      style="flex:1; min-width:0; background:var(--bg); border:1px solid var(--border); color:var(--text);
              font-family:var(--font); font-size:11px; padding:5px 9px; outline:none; border-radius:var(--radius-sm);"
       onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
     <button type="button" id="apiKeyToggle"
       onclick="(function(){var i=document.getElementById('apiKey');var b=document.getElementById('apiKeyToggle');if(i.type==='password'){i.type='text';b.textContent='🙈';}else{i.type='password';b.textContent='👁';}})()"
       style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:4px 7px;cursor:pointer;font-size:12px;border-radius:var(--radius-sm);flex-shrink:0;">👁</button>
-    <span id="apiKeyStatus" style="font-size:10px; color:var(--muted); white-space:nowrap; flex:1; overflow:hidden; text-overflow:ellipsis;">Ověřuji…</span>
+    <span id="apiKeyStatus" style="display:none;"></span>
   </div>
 
   <div style="width:1px; height:20px; background:var(--border); flex-shrink:0; margin:0 16px;"></div>
@@ -4153,17 +4153,11 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
       const json = await r.json();
       const lbl = document.getElementById('apiKeyLabel');
       if (json.ok) {
-        statusEl.style.color = 'var(--success)';
-        statusEl.textContent = manualKey ? '✓ vlastní klíč' : '✓ zadrátováno';
         if (lbl) lbl.style.color = 'var(--success)';
       } else {
-        statusEl.style.color = 'var(--danger)';
-        statusEl.textContent = '✗ klíč nenalezen';
         if (lbl) lbl.style.color = 'var(--danger)';
       }
     } catch(e) {
-      statusEl.style.color = 'var(--muted)';
-      statusEl.textContent = 'offline?';
       const lbl = document.getElementById('apiKeyLabel');
       if (lbl) lbl.style.color = 'var(--muted)';
     }
@@ -4182,7 +4176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v13.7';
+    const _APP_VER = 'v13.8';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

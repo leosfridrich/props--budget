@@ -992,7 +992,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.0</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.1</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1419,6 +1419,15 @@
       </div>
       <div id="extraRefList" style="font-size:10px; color:var(--muted);"></div>
       <div style="font-size:9px; color:var(--muted); margin-top:5px; opacity:0.7;">Rozpočty, scripty nebo rozpisy týmu pro zpřesnění budoucích odhadů</div>
+    </div>
+
+    <div class="section-label" style="margin-top:16px;">Kalibrační joby</div>
+    <div style="border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); margin-bottom:16px; padding:10px 14px;">
+      <div id="jobsList" style="font-size:10px; color:var(--text);"></div>
+      <div style="font-size:9px; color:var(--muted); margin-top:6px; opacity:0.7; line-height:1.5;">
+        📄 script · 👥 crew tabulka · 💰 rozpočet — soubory se sdružují podle názvu do jednoho jobu.<br/>
+        Agent dostává každý kompletní job jako propojený benchmark (ne samostatné kousky).
+      </div>
     </div>
 
     <div class="section-label" style="margin-top:24px;">Moje instrukce</div>
@@ -3117,6 +3126,7 @@
       if (existIdx >= 0) arr[existIdx] = entry; else arr.push(entry);
       saveRefDB(type, arr);
       updateRefStatus(type);
+      linkToJob(type, file.name, text);
     } catch(e) {
       statusEl.textContent = 'Chyba: ' + e.message;
     }
@@ -3127,6 +3137,122 @@
     saveRefDB(type, []);
     updateRefStatus(type);
   }
+
+  // ── Job Records — sdružují script + rozpočet + crew pod jedno jméno projektu ──
+  const LS_JOBS_DB = 'propsBudget_jobsDB';
+
+  function getJobsDB() {
+    try { return JSON.parse(localStorage.getItem(LS_JOBS_DB) || '[]'); }
+    catch(e) { return []; }
+  }
+  function saveJobsDB(arr) {
+    try { localStorage.setItem(LS_JOBS_DB, JSON.stringify(arr)); } catch(e) {}
+  }
+
+  function slugifyJob(name) {
+    if (!name) return '';
+    return String(name).toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\.(xlsx?|pdf|txt|csv|ods|jpe?g|png|webp|heic)$/i, '')
+      .replace(/\b(odhad|rozpocet|rozpočet|budget|script|scenar|scénář|crew|tabulka|tým|tym|copy|final|fin|v\d+|ver\d+)\b/gi, '')
+      .replace(/\b\d{1,2}[.\-_/]\d{1,2}([.\-_/]\d{2,4})?\b/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 40);
+  }
+
+  function findJob(nameOrSlug) {
+    const db = getJobsDB();
+    const slug = slugifyJob(nameOrSlug);
+    if (!slug) return null;
+    return db.find(j =>
+      j.slug === slug ||
+      (j.aliases || []).includes(slug) ||
+      slugifyJob(j.projectName) === slug
+    );
+  }
+
+  function upsertJob(partial) {
+    const db = getJobsDB();
+    const slug = partial.slug || slugifyJob(partial.projectName || partial.fileName);
+    if (!slug) return null;
+    let idx = db.findIndex(j => j.slug === slug);
+    if (idx < 0) {
+      db.push({
+        slug,
+        projectName: partial.projectName || partial.fileName || slug,
+        aliases: [],
+        corrections: [],
+        lastUpdate: new Date().toISOString()
+      });
+      idx = db.length - 1;
+    }
+    Object.assign(db[idx], partial, { slug, lastUpdate: new Date().toISOString() });
+    saveJobsDB(db);
+    return db[idx];
+  }
+
+  function linkToJob(type, fileName, text) {
+    const slug = slugifyJob(fileName);
+    if (!slug) return;
+    const field = type === 'budget' ? 'budget' : type === 'script' ? 'script' : 'crewTable';
+    const existing = findJob(slug);
+    const prettyName = fileName.replace(/\.(xlsx?|pdf|txt|csv|ods|jpe?g|png|webp|heic)$/i, '').replace(/[_-]+/g, ' ').trim();
+    const base = existing || { slug, projectName: prettyName };
+    base[field] = { text, fileName, date: new Date().toISOString() };
+    upsertJob(base);
+    try { renderJobsList(); } catch(e) {}
+  }
+
+  function migrateRefsToJobs() {
+    try {
+      if (localStorage.getItem('propsBudget_jobs_migrated_v1')) return;
+      ['budget', 'script', 'crew'].forEach(type => {
+        const field = type === 'budget' ? 'budget' : type === 'script' ? 'script' : 'crewTable';
+        getRefDB(type).forEach(f => {
+          const slug = slugifyJob(f.name);
+          if (!slug) return;
+          const existing = findJob(slug);
+          const pretty = f.name.replace(/\.(xlsx?|pdf|txt|csv|ods|jpe?g|png|webp|heic)$/i, '').replace(/[_-]+/g, ' ').trim();
+          const base = existing || { slug, projectName: pretty };
+          base[field] = { text: f.text, fileName: f.name, date: f.date || new Date().toISOString() };
+          upsertJob(base);
+        });
+      });
+      localStorage.setItem('propsBudget_jobs_migrated_v1', '1');
+    } catch(e) { console.warn('migrateRefsToJobs err', e); }
+  }
+
+  function renderJobsList() {
+    const el = document.getElementById('jobsList');
+    if (!el) return;
+    const db = getJobsDB().slice().sort((a, b) => {
+      const aScore = (a.script?1:0) + (a.budget?1:0) + (a.crewTable?1:0);
+      const bScore = (b.script?1:0) + (b.budget?1:0) + (b.crewTable?1:0);
+      return bScore - aScore;
+    });
+    if (!db.length) {
+      el.innerHTML = '<em style="color:var(--muted); font-size:10px;">Žádné joby. Nahraj script/rozpočet/crew — automaticky se sdruží podle názvu souboru.</em>';
+      return;
+    }
+    const cntComplete = db.filter(j => j.script && j.budget && j.crewTable).length;
+    const cntPartial = db.filter(j => (j.script || j.budget || j.crewTable) && !(j.script && j.budget && j.crewTable)).length;
+    const header = `<div style="font-size:9px; color:var(--muted); margin-bottom:6px; letter-spacing:0.1em; text-transform:uppercase;">
+      ${db.length} jobů · <span style="color:var(--success)">${cntComplete} kompletní</span> · <span style="color:var(--accent)">${cntPartial} částečné</span>
+    </div>`;
+    el.innerHTML = header + db.map(j => {
+      const S = j.script ? '📄' : '·';
+      const C = j.crewTable ? '👥' : '·';
+      const B = j.budget ? '💰' : '·';
+      const total = j.lastGenerated?.total ? Math.round(j.lastGenerated.total / 1000) + 'k' : '';
+      const date = j.lastUpdate ? new Date(j.lastUpdate).toLocaleDateString('cs') : '';
+      return `<div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-top:1px solid var(--border); font-size:10px;">
+        <span><b>${j.projectName}</b> <span style="opacity:0.6; letter-spacing:2px;">${S}${C}${B}</span></span>
+        <span style="color:var(--muted); font-size:9px;">${total} ${date}</span>
+      </div>`;
+    }).join('');
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   const LS_EXTRA_REF = 'propsBudget_extraRefs';
   function getExtraRefs() { try { return JSON.parse(localStorage.getItem(LS_EXTRA_REF) || '[]'); } catch(e) { return []; } }
@@ -3287,6 +3413,7 @@
           const entry = {name: img.name, text: text.substring(0,4000), date: new Date().toLocaleDateString('cs')};
           if (idx >= 0) arr[idx] = entry; else arr.push(entry);
           saveRefDB('crew', arr);
+          linkToJob('crew', img.name, entry.text);
         }
         done++;
       } catch(e) { console.warn('Crew extract error:', img.name, e); }
@@ -3695,6 +3822,28 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
         if (localDB.length > 50) localDB.length = 50;
         saveProjectsDB(localDB);
       }
+      // Jobs DB — merge dle slug, vyhrává novější lastUpdate
+      if (Array.isArray(remote.jobs) && remote.jobs.length) {
+        const local = getJobsDB();
+        const bySlug = new Map(local.map(j => [j.slug, j]));
+        remote.jobs.forEach(rj => {
+          if (!rj || !rj.slug) return;
+          const lj = bySlug.get(rj.slug);
+          if (!lj) { local.push(rj); bySlug.set(rj.slug, rj); return; }
+          // vyhrává novější lastUpdate, ale mergeujeme pole (script/budget/crewTable)
+          const rTime = Date.parse(rj.lastUpdate||'') || 0;
+          const lTime = Date.parse(lj.lastUpdate||'') || 0;
+          const winner = rTime > lTime ? rj : lj;
+          const loser  = rTime > lTime ? lj : rj;
+          ['script','budget','crewTable','lastGenerated'].forEach(k => { if (!winner[k] && loser[k]) winner[k] = loser[k]; });
+          winner.corrections = [...(lj.corrections||[]), ...(rj.corrections||[])]
+            .filter((v,i,a) => a.findIndex(x => (x.date+x.note) === (v.date+v.note)) === i)
+            .slice(-20);
+          Object.assign(lj, winner);
+        });
+        saveJobsDB(local);
+        try { renderJobsList(); } catch(e) {}
+      }
       _wsLastSync = remote.lastSync;
       const ts = remote.lastSync ? new Date(remote.lastSync).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'}) : '';
       setWsStatus('✓ Synced ' + (ts ? '@ '+ts : ''), 'var(--success)');
@@ -3715,6 +3864,7 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
         instructions: (document.getElementById('userInstructions')?.value || '').trim(),
         learned: getLearnedCorrections(),
         projects: getProjectsDB(),
+        jobs: getJobsDB(),
       };
       const r = await fetch('/api/memory', {
         method: 'POST',
@@ -3807,11 +3957,13 @@ document.addEventListener('DOMContentLoaded', () => {
     renderLearnedList();
     renderActualsList();
     initRefDocs();
+    migrateRefsToJobs();
+    renderJobsList();
     renderExtraRefList();
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v13.0';
+    const _APP_VER = 'v13.1';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4111,32 +4263,47 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     // Learning context — uložené korekce, historická data, instrukce
     const _learningCtx = getLearningContext();
 
-    // Referenční kontext — z RefDB (obsahuje seed data + vše co uživatel nahrál)
-    // Pevný limit na soubor (ne dělený počtem) — Claude zvládá 200k tokenů
+    // Referenční kontext — PRIMÁRNĚ Job Records (crew+script+rozpočet propojené dle názvu),
+    // sekundárně sirotci z RefDB které se k žádnému jobu nepřipojily.
+    let _refJobsCtx = '';
     let _refBudgetCtx = '';
     let _refScriptCtx = '';
     let _refCrewCtx = '';
     try {
-      const _budgets = getRefDB('budget');
-      if (_budgets.length > 0) {
-        const combined = _budgets.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, 2000)).join('\n\n');
-        _refBudgetCtx = '\n\nREFERENČNÍ ROZPOČTY (' + _budgets.length + ' reálných jobů — použij jako vzor pro ceny, strukturu, počty dní a proporce):\n' + combined;
+      const _jobs = getJobsDB().slice().sort((a,b) => {
+        const sc = j => (j.script?1:0) + (j.budget?1:0) + (j.crewTable?1:0);
+        return sc(b) - sc(a);
+      });
+      const _usedNames = new Set();
+      if (_jobs.length > 0) {
+        const _blocks = _jobs.slice(0, 14).map(j => {
+          const parts = [`=== REFERENČNÍ JOB: ${j.projectName} ===`];
+          if (j.script)    { parts.push('[SCRIPT / LOKACE / BRIEF]\n' + j.script.text.substring(0, 1500));    _usedNames.add(j.script.fileName); }
+          if (j.crewTable) { parts.push('[CREW TABULKA — lidé × dny + trucky]\n' + j.crewTable.text.substring(0, 2500)); _usedNames.add(j.crewTable.fileName); }
+          if (j.budget)    { parts.push('[FINÁLNÍ ROZPOČET — sazby, položky, trucky]\n' + j.budget.text.substring(0, 2500)); _usedNames.add(j.budget.fileName); }
+          if (j.corrections?.length) parts.push('[UŽIVATELEM POTVRZENÉ OPRAVY]\n' + j.corrections.slice(-5).map(c => '- [' + c.date + '] ' + c.note).join('\n'));
+          if (j.lastGenerated?.total) parts.push('[POSLEDNÍ VYGENEROVANÝ ODHAD]\ntotal=' + j.lastGenerated.total + ' labour=' + (j.lastGenerated.labour||'?') + ' transport=' + (j.lastGenerated.transport||'?') + ' props=' + (j.lastGenerated.props||'?'));
+          return parts.join('\n\n');
+        }).join('\n\n─────────────────────\n\n');
+        _refJobsCtx = '\n\nREFERENČNÍ JOBY (' + _jobs.length + ' kalibračních případů — každý job má crew + script + finální rozpočet propojené; POUŽIJ JAKO PŘESNÝ BENCHMARK pro sazby, počty dní per role, strukturu týmu a trucků). Každý blok reprezentuje JEDEN reálný job:\n\n' + _blocks;
       }
-    } catch(e) {}
-    try {
-      const _scripts = getRefDB('script');
-      if (_scripts.length > 0) {
-        const combined = _scripts.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, 1000)).join('\n\n');
-        _refScriptCtx = '\n\nREFERENČNÍ SCRIPTY (' + _scripts.length + ' projektů — kontext typů zakázek a složitosti):\n' + combined;
+      // Sirotci — soubory v RefDB, které se nepřipojily k žádnému jobu (starý formát, neznámé názvy)
+      const _orphanBudgets = getRefDB('budget').filter(f => !_usedNames.has(f.name));
+      if (_orphanBudgets.length > 0) {
+        const combined = _orphanBudgets.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, 2000)).join('\n\n');
+        _refBudgetCtx = '\n\nDALŠÍ REFERENČNÍ ROZPOČTY (' + _orphanBudgets.length + ' samostatných — bez přiřazeného scriptu/crew):\n' + combined;
       }
-    } catch(e) {}
-    try {
-      const _crew = getRefDB('crew');
-      if (_crew.length > 0) {
-        const combined = _crew.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, 3000)).join('\n\n');
-        _refCrewCtx = '\n\nTABULKY LIDÍ / CREW LISTY (' + _crew.length + ' souborů — POUŽIJ jako základ pro sestavení týmu, role, jména a sazby):\n' + combined;
+      const _orphanScripts = getRefDB('script').filter(f => !_usedNames.has(f.name));
+      if (_orphanScripts.length > 0) {
+        const combined = _orphanScripts.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, 1000)).join('\n\n');
+        _refScriptCtx = '\n\nDALŠÍ REFERENČNÍ SCRIPTY (' + _orphanScripts.length + ' samostatných):\n' + combined;
       }
-    } catch(e) {}
+      const _orphanCrew = getRefDB('crew').filter(f => !_usedNames.has(f.name));
+      if (_orphanCrew.length > 0) {
+        const combined = _orphanCrew.map(f => '--- ' + f.name + ' ---\n' + f.text.substring(0, 3000)).join('\n\n');
+        _refCrewCtx = '\n\nDALŠÍ CREW LISTY (' + _orphanCrew.length + ' samostatných — bez rozpočtu/scriptu):\n' + combined;
+      }
+    } catch(e) { console.warn('Jobs context err', e); }
     let _refExtraCtx = '';
     try {
       const _extra = getExtraRefs();
@@ -4268,7 +4435,7 @@ SCRIPT_ID: ${_scriptFP}
 PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%
 ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
 ${sets.map((s,i)=>`${i+1}.${s}`).join('|')}
-${desc?'Info:'+desc.substring(0,200):''}${_refBudgetCtx}${_refScriptCtx}${_refCrewCtx}${_refExtraCtx}
+${desc?'Info:'+desc.substring(0,200):''}${_refJobsCtx}${_refBudgetCtx}${_refScriptCtx}${_refCrewCtx}${_refExtraCtx}
 JAZYK:${getLang().promptLang==='en'?'EN':'CS'}
 ${outputMode==='approx'
   ? `MÓD: APROXIMATIVNÍ — pro každý set vygeneruj v props.sections JEDEN záznam s realistickým paušálním odhadem nákladů na dekorace a rekvizity (v Kč). Částky NESMÍ být 0.`
@@ -4716,6 +4883,23 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       transportActual: trVal || trEst,
       propsActual: prVal || prEst,
     });
+    // Napojit actuals i do Job Record (pokud existuje/vytvořit dle jména projektu)
+    try {
+      const _jobSlug = slugifyJob(projectName);
+      if (_jobSlug) {
+        const _job = findJob(_jobSlug) || { slug: _jobSlug, projectName };
+        _job.lastGenerated = {
+          date: new Date().toISOString(),
+          total: (labVal||labEst) + (trVal||trEst) + (prVal||prEst),
+          labour: labVal || labEst,
+          transport: trVal || trEst,
+          props: prVal || prEst,
+          shootDays, prepDays, setCount: sets.length, sets
+        };
+        upsertJob(_job);
+        renderJobsList();
+      }
+    } catch(e) { console.warn('Job auto-learning err', e); }
     document.getElementById('actualsStatus').textContent = '✓ Uloženo a přidáno do databáze';
     setTimeout(() => { const el = document.getElementById('actualsStatus'); if(el) el.textContent=''; }, 3000);
   }

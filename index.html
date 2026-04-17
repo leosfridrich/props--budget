@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.9</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.10</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -4178,7 +4178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v13.9';
+    const _APP_VER = 'v13.10';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4562,7 +4562,9 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const _labourAnchor = Math.round(_labourAnchorRaw * _calib.labour);
     // ─── TRANSPORT — struktura podle reálných rozpočtů ───
     const _totalDays   = prepDays + shootDays + wrapDays;
-    const _isBigJob    = activeSets >= 3 || fullJobCrew >= 4 || _shootCrew >= 8;
+    // Tight threshold — musí splnit AND podmínku nebo velkou shoot crew.
+    // Důvod: 14 reálných jobů ukazuje, že menší joby (crew 4-7, 2-3 sety) nepotřebují extra truck II / big truck II / workshop truck.
+    const _isBigJob    = (activeSets >= 4 && fullJobCrew >= 5) || _shootCrew >= 10;
     const _bigRate     = rates.bigTruck || Math.round(rates.truck * 1.8);
 
     // Dny pro labour (hlavní tým):
@@ -4645,7 +4647,17 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     }
 
     const _transportAnchorRaw = _tItems.reduce((s, v) => s + v.days * v.rate, 0);
-    const _transportAnchor = Math.round(_transportAnchorRaw * _calib.transport);
+    let _transportAnchor = Math.round(_transportAnchorRaw * _calib.transport);
+
+    // Transport ceiling vůči labour — medián reálných 14 jobů je 33–36 %, max ~49 %.
+    // Pokud kotva přesahuje cap, proporcionálně zkrátíme dny u všech položek.
+    const _transportCapRatio = ({ low: 0.40, standard: 0.42, premium: 0.45, luxury: 0.50 })[budgetLevel] || 0.42;
+    const _transportCap = Math.round(_labourAnchor * _transportCapRatio);
+    if (_transportAnchor > _transportCap && _transportAnchor > 0) {
+      const _scale = _transportCap / _transportAnchor;
+      _tItems.forEach(it => { it.days = Math.max(1, Math.round(it.days * _scale)); });
+      _transportAnchor = _tItems.reduce((s, v) => s + v.days * v.rate, 0);
+    }
     // Props: realistické částky dle zkušenosti z reálných rozpočtů
     // Props kotvy — dle reálných rozpočtů (commercial/fashion s reálnou dekorací)
     // standard ~150k/set, premium ~220k/set, luxury ~350k/set (pronájem + nákup + výroba)

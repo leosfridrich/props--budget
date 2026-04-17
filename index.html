@@ -992,7 +992,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.3</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1926,7 +1926,7 @@
     // ── Buyer estimate ──
     let buyerEst = totalSets >= 6 || abroadSets >= 1 ? 2 : 1;
     if (_uiBlCfg.buyerMin === 0) buyerEst = 0; // low budget → PM dělá buyer sám
-    const manualBuyer  = parseInt(document.getElementById('buyerOverride').value);
+    const manualBuyer  = parseInt(document.getElementById('buyerOverride')?.value) || 0;
     const displayBuyer = manualBuyer > 0 ? manualBuyer : buyerEst;
 
     // ── Počet lokací — ovlivňuje potřebný počet lidí ──
@@ -1955,9 +1955,9 @@
     // ── Budget level scaling ──
     if (_uiBlCfg.shootCrewMult !== 1.0) shootCrew = Math.max(2, Math.round(shootCrew * _uiBlCfg.shootCrewMult));
     if (_uiBlCfg.crewCap < 99)          shootCrew = Math.min(shootCrew, _uiBlCfg.crewCap);
-    const manualShoot  = parseInt(document.getElementById('shootCrewOverride').value);
-    const manualOstatni = document.getElementById('fullJobCrew').value !== ''
-      ? parseInt(document.getElementById('fullJobCrew').value) : NaN;
+    const manualShoot  = parseInt(document.getElementById('shootCrewOverride')?.value) || 0;
+    const _fullJobVal = document.getElementById('fullJobCrew')?.value ?? '';
+    const manualOstatni = _fullJobVal !== '' ? parseInt(_fullJobVal) : NaN;
 
     // displayShoot: manualShoot > odvozeno z ručně zadaných lidí > auto odhad
     const displayShoot = manualShoot > 0 ? manualShoot
@@ -1986,11 +1986,11 @@
     const ostatniEl = document.getElementById('otherCrewEstimateValue');
     if (ostatniEl) {
       ostatniEl.textContent = displayOstatni;
-      ostatniEl.style.opacity = (document.getElementById('fullJobCrew').value !== '') ? '1' : '0.5';
+      ostatniEl.style.opacity = (_fullJobVal !== '') ? '1' : '0.5';
     }
     const ostatniLbl = document.getElementById('otherCrewEstimateLabel');
     if (ostatniLbl) ostatniLbl.textContent =
-      document.getElementById('fullJobCrew').value !== ''
+      _fullJobVal !== ''
         ? 'ručně zadáno'
         : `${displayShoot} celkem − PM − ${displayBuyer}× Buyer${setDresserCount ? ` − ${setDresserCount}× Set Dresser` : ''}${propsConstCount ? ` − ${propsConstCount}× Construction` : ''}`;
 
@@ -2055,8 +2055,11 @@
   });
 
   // Also wire to set changes (delegated — runs after any set-type change)
-  document.getElementById('setsContainer').addEventListener('change', updateCrewEstimate);
-  document.getElementById('setsContainer').addEventListener('input', updateCrewEstimate);
+  const _setsCont = document.getElementById('setsContainer');
+  if (_setsCont) {
+    _setsCont.addEventListener('change', updateCrewEstimate);
+    _setsCont.addEventListener('input', updateCrewEstimate);
+  }
 
   // Initial crew estimate with no sets
   updateCrewEstimate();
@@ -3344,13 +3347,25 @@
     const arr = getExtraRefs();
     const el = document.getElementById('extraRefList');
     if (!el) return;
-    if (arr.length === 0) { el.innerHTML = ''; return; }
-    el.innerHTML = arr.map(f =>
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-top:1px solid var(--border)">' +
-      '<span>' + f.name + ' <span style="opacity:0.5">(' + f.date + ')</span></span>' +
-      '<button onclick="removeExtraRef(' + JSON.stringify(f.name) + ')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;">✕</button>' +
-      '</div>'
-    ).join('');
+    el.textContent = '';
+    if (arr.length === 0) return;
+    arr.forEach(f => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-top:1px solid var(--border)';
+      const label = document.createElement('span');
+      label.textContent = f.name + ' ';
+      const date = document.createElement('span');
+      date.style.opacity = '0.5';
+      date.textContent = '(' + f.date + ')';
+      label.appendChild(date);
+      const btn = document.createElement('button');
+      btn.textContent = '✕';
+      btn.style.cssText = 'background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;';
+      btn.addEventListener('click', () => removeExtraRef(f.name));
+      row.appendChild(label);
+      row.appendChild(btn);
+      el.appendChild(row);
+    });
   }
 
   function initRefDocs() {
@@ -3871,9 +3886,13 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
     }
   }
 
+  let _wsSyncInFlight = false;
+  let _wsSyncPending = false;
   async function pushWorkspace(silent) {
     const code = _wsCode || getWorkspaceCode();
     if (!code) return;
+    if (_wsSyncInFlight) { _wsSyncPending = true; return; }
+    _wsSyncInFlight = true;
     if (!silent) setWsStatus('Ukládám…', 'var(--muted)');
     try {
       const payload = {
@@ -3894,6 +3913,12 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
       setWsStatus('✓ Synced @ ' + ts, 'var(--success)');
     } catch(e) {
       if (!silent) setWsStatus('⚠ ' + e.message, 'var(--danger)');
+    } finally {
+      _wsSyncInFlight = false;
+      if (_wsSyncPending) {
+        _wsSyncPending = false;
+        setTimeout(() => pushWorkspace(true), 100);
+      }
     }
   }
 
@@ -3980,7 +4005,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v13.3';
+    const _APP_VER = 'v13.4';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4254,20 +4279,25 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     }).filter(Boolean);
     const locationTypes = sets;
 
+    const _rateVal = (id, fallback) => {
+      const el = document.getElementById(id);
+      const n = parseInt(el?.value);
+      return Number.isFinite(n) && n > 0 ? n : fallback;
+    };
     const rates = {
-      propMasterPrep: parseInt(document.getElementById('rate_pm').value),
-      propMasterShoot: parseInt(document.getElementById('rate_pm_s').value),
-      leadingPropmanPrep: parseInt(document.getElementById('rate_lp').value),
-      leadingPropmanShoot: parseInt(document.getElementById('rate_lp_s').value),
-      propmanPrep: parseInt(document.getElementById('rate_p').value),
-      propmanShoot: parseInt(document.getElementById('rate_p_s').value),
-      setdresserPrep: parseInt(document.getElementById('rate_sd').value),
-      setdresserShoot: parseInt(document.getElementById('rate_sd_s').value),
-      propConstruction: parseInt(document.getElementById('rate_pc').value),
-      car: parseInt(document.getElementById('rate_car').value),
-      truck: parseInt(document.getElementById('rate_truck').value),
-      bigTruck: parseInt(document.getElementById('rate_bigtruck').value),
-      fee: parseInt(document.getElementById('rate_fee').value)
+      propMasterPrep: _rateVal('rate_pm', 12000),
+      propMasterShoot: _rateVal('rate_pm_s', 15000),
+      leadingPropmanPrep: _rateVal('rate_lp', 10000),
+      leadingPropmanShoot: _rateVal('rate_lp_s', 12000),
+      propmanPrep: _rateVal('rate_p', 8000),
+      propmanShoot: _rateVal('rate_p_s', 10000),
+      setdresserPrep: _rateVal('rate_sd', 9000),
+      setdresserShoot: _rateVal('rate_sd_s', 11000),
+      propConstruction: _rateVal('rate_pc', 9000),
+      car: _rateVal('rate_car', 1500),
+      truck: _rateVal('rate_truck', 3500),
+      bigTruck: _rateVal('rate_bigtruck', 6000),
+      fee: _rateVal('rate_fee', 15)
     };
 
     // Build messages

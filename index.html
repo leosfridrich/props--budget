@@ -992,7 +992,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.4</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v13.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1070,6 +1070,18 @@
              font-family:var(--font);font-size:13px;padding:5px 9px;cursor:pointer;transition:all 0.15s;border-radius:var(--radius-sm);"
       onmouseover="this.style.borderColor='var(--success)';this.style.color='var(--success)'"
       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↻</button>
+    <button onclick="exportWorkspace()" title="Stáhnout zálohu workspace (JSON)"
+      style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+             font-family:var(--font);font-size:13px;padding:5px 9px;cursor:pointer;transition:all 0.15s;border-radius:var(--radius-sm);"
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⤓</button>
+    <label title="Nahrát zálohu workspace (JSON)"
+      style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+             font-family:var(--font);font-size:13px;padding:5px 9px;cursor:pointer;transition:all 0.15s;border-radius:var(--radius-sm);display:inline-block;"
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⤒
+      <input type="file" accept="application/json,.json" style="display:none;" onchange="importWorkspace(this)"/>
+    </label>
     <div id="wsStatus" style="font-size:9px; color:var(--muted); letter-spacing:0.05em; white-space:nowrap;">Sdílej s týmem</div>
   </div>
 </div>
@@ -1428,6 +1440,7 @@
     </div>
     <div id="jobsCollapsible" style="display:none; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); margin-bottom:16px; padding:10px 14px;">
       <div id="jobsList" style="font-size:10px; color:var(--text);"></div>
+      <div id="calibrationBadge" style="display:none; margin-top:10px; padding:7px 10px; background:rgba(200,169,110,0.08); border:1px solid rgba(200,169,110,0.3); border-radius:var(--radius-sm); font-size:10px; color:var(--text); line-height:1.5;"></div>
       <div style="font-size:9px; color:var(--muted); margin-top:6px; opacity:0.7; line-height:1.5;">
         📄 script · 👥 crew tabulka · 💰 rozpočet — soubory se sdružují podle názvu do jednoho jobu.<br/>
         Agent dostává každý kompletní job jako propojený benchmark (ne samostatné kousky).
@@ -1882,6 +1895,20 @@
     throw new Error('Nelze parsovat JSON. Začátek: ' + raw.substring(0, 200));
   }
 
+  // ─── BUDGET LEVEL CONFIG — jeden zdroj pravdy pro updateCrewEstimate() i generateBudget() ───
+  //   low      = charita / velmi malý job (2–3 lidi, 1 auto + 1 dodávka, bez big trucků/workshopu)
+  //   standard = defaultní komerční produkce
+  //   premium  = high-end komerční (default UI hodnota)
+  //   luxury   = extended tým (+15 %) + rezervní vozidla
+  const BUDGET_LEVEL_CONFIG = {
+    low:      { crewCap: 3,  shootCrewMult: 0.45, buyerMin: 0, skipBigTrucks: true,  skipWorkshop: true,  carLimit: 1,  truckLimit: 1,  description: 'LOW BUDGET / CHARITA — minimální tým (2–3 lidi celkem), jen 1 auto + 1 dodávka, ŽÁDNÉ big trucky, ŽÁDNÝ workshop truck, základní minimální rekvizity. Propmaster + 1–2 assistenty dělají vše včetně nákupu a dopravy.' },
+    standard: { crewCap: 99, shootCrewMult: 1.0,  buyerMin: 1, skipBigTrucks: false, skipWorkshop: false, carLimit: 99, truckLimit: 99, description: 'STANDARD komerční produkce — běžný tým a vybavení.' },
+    premium:  { crewCap: 99, shootCrewMult: 1.0,  buyerMin: 1, skipBigTrucks: false, skipWorkshop: false, carLimit: 99, truckLimit: 99, description: 'PREMIUM high-end komerční — plný tým, všechna standardní vozidla.' },
+    luxury:   { crewCap: 99, shootCrewMult: 1.15, buyerMin: 1, skipBigTrucks: false, skipWorkshop: false, carLimit: 99, truckLimit: 99, description: 'LUXURY — nejvyšší standard, rozšířený tým (+15 %), rezervní vozidla a buffer v rekvizitách.' }
+  };
+  const BUDGET_LEVEL_DEFAULT = BUDGET_LEVEL_CONFIG.premium;
+  function getBudgetLevelCfg(level) { return BUDGET_LEVEL_CONFIG[level] || BUDGET_LEVEL_DEFAULT; }
+
   // ─── CREW ESTIMATOR ───
   // Based on real calibration data:
   // shoot days × sets → core crew needed
@@ -1914,14 +1941,9 @@
     const setDresserCount  = setDresserActive ? (parseInt(document.getElementById('setDresserCount')?.value) || 1) : 0;
     const propsConstCount  = propsConstActive ? (parseInt(document.getElementById('propsConstCount')?.value) || 1) : 0;
 
-    // ── Budget level config (musí odpovídat _budgetLevelCfg v generateBudget) ──
+    // ── Budget level config (viz BUDGET_LEVEL_CONFIG — sdílené s generateBudget) ──
     const _uiBudgetLevel = document.getElementById('budgetLevel')?.value || 'premium';
-    const _uiBlCfg = ({
-      low:      { crewCap: 3,  shootCrewMult: 0.45, buyerMin: 0 },
-      standard: { crewCap: 99, shootCrewMult: 1.0,  buyerMin: 1 },
-      premium:  { crewCap: 99, shootCrewMult: 1.0,  buyerMin: 1 },
-      luxury:   { crewCap: 99, shootCrewMult: 1.15, buyerMin: 1 }
-    })[_uiBudgetLevel] || { crewCap: 99, shootCrewMult: 1.0, buyerMin: 1 };
+    const _uiBlCfg = getBudgetLevelCfg(_uiBudgetLevel);
 
     // ── Buyer estimate ──
     let buyerEst = totalSets >= 6 || abroadSets >= 1 ? 2 : 1;
@@ -3271,6 +3293,31 @@
         <span style="color:var(--muted); font-size:9px;">${total} ${date}</span>
       </div>`;
     }).join('');
+    renderCalibrationBadge();
+  }
+
+  function renderCalibrationBadge() {
+    const el = document.getElementById('calibrationBadge');
+    if (!el) return;
+    const c = computeCalibrationFactors({
+      budgetLevel: document.getElementById('budgetLevel')?.value,
+      shootDays:   parseInt(document.getElementById('shootDays')?.value) || 0,
+      setCount:    document.querySelectorAll('.set-row').length
+    });
+    if (c.sampleSize < 2) {
+      el.style.display = 'none';
+      return;
+    }
+    const pct = v => (v >= 1 ? '+' : '') + Math.round((v - 1) * 100) + '%';
+    const color = v => Math.abs(v - 1) < 0.04 ? 'var(--muted)' : (v > 1 ? 'var(--danger)' : 'var(--success)');
+    el.style.display = '';
+    el.innerHTML =
+      `📊 <b>Auto-kalibrace</b> z ${c.sampleSize} ${c.similarMatch ? 'podobných' : 'dřívějších'} jobů — aplikuje se na kotvy při generování:<br>` +
+      `<span style="display:inline-flex; gap:14px; margin-top:4px;">` +
+      `<span>labour <b style="color:${color(c.labour)}">${pct(c.labour)}</b></span>` +
+      `<span>transport <b style="color:${color(c.transport)}">${pct(c.transport)}</b></span>` +
+      `<span>props <b style="color:${color(c.props)}">${pct(c.props)}</b></span>` +
+      `</span>`;
   }
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -3570,6 +3617,34 @@
           <span>props: <strong>${fmt(a.props_actual)}</strong>${pct(a.props_est, a.props_actual)}</span>
         </div>
       </div>`).join('');
+  }
+
+  // ─── AUTO-KALIBRACE: z historických actuals vs. odhadů ───
+  // Vrací multipliery pro labour/transport/props na základě podobných dokončených jobů.
+  // Podobnost = stejný budget level + shoot_days ±1 + setCount ±2.
+  // Min. 3 shody → jinak fallback na všechny actuals; pod 2 celkem → žádná kalibrace (1.0).
+  function computeCalibrationFactors(ctx) {
+    const all = getActuals().filter(a =>
+      a.labour_est && a.transport_est && a.props_est &&
+      a.labour_actual && a.transport_actual && a.props_actual
+    );
+    if (all.length < 2) return { labour: 1, transport: 1, props: 1, sampleSize: 0, matches: [] };
+    const similar = all.filter(a =>
+      (!ctx.budgetLevel || !a.budgetLevel || a.budgetLevel === ctx.budgetLevel) &&
+      (!ctx.shootDays   || Math.abs((a.shoot_days||0) - ctx.shootDays) <= 1) &&
+      (!ctx.setCount    || Math.abs((a.sets||0)       - ctx.setCount)  <= 2)
+    );
+    const sample = similar.length >= 3 ? similar : all;
+    const ratios = (field) => sample.map(a => a[field + '_actual'] / a[field + '_est']).filter(r => r > 0.3 && r < 3).sort((x, y) => x - y);
+    const median = (arr) => arr.length ? arr[Math.floor(arr.length / 2)] : 1;
+    const clamp  = (v) => Math.max(0.7, Math.min(1.4, v));
+    return {
+      labour:    clamp(median(ratios('labour'))),
+      transport: clamp(median(ratios('transport'))),
+      props:     clamp(median(ratios('props'))),
+      sampleSize: sample.length,
+      similarMatch: similar.length >= 3
+    };
   }
 
   // ─── SCRIPT MEMORY CARDS ───
@@ -3928,6 +4003,81 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
     _wsSyncTimer = setTimeout(() => pushWorkspace(true), 3000);
   }
 
+  // ─── EXPORT / IMPORT WORKSPACE (offline záloha) ───
+  const _WORKSPACE_EXPORT_KEYS = [
+    'propsBudget_scriptMemory',
+    'propsBudget_instructions',
+    'propsBudget_learned',
+    'propsBudget_actuals',
+    'propsBudget_projectsDB',
+    'propsBudget_jobsDB',
+    'propsBudget_refBudgetDB',
+    'propsBudget_refScriptDB',
+    'propsBudget_refCrewDB',
+    'propsBudget_extraRefs',
+    'propsBudget_history',
+    'propsBudget_formState',
+    'propsBudget_workspace'
+  ];
+  function exportWorkspace() {
+    const data = {};
+    _WORKSPACE_EXPORT_KEYS.forEach(k => {
+      const v = localStorage.getItem(k);
+      if (v != null) { try { data[k] = JSON.parse(v); } catch(e) { data[k] = v; } }
+    });
+    const payload = {
+      _exportedAt: new Date().toISOString(),
+      _appVersion: (typeof _APP_VER !== 'undefined' ? _APP_VER : 'unknown'),
+      _workspaceCode: _wsCode || '',
+      data
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'props-budget-workspace-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    setWsStatus('⤓ Záloha stažena', 'var(--success)');
+  }
+  async function importWorkspace(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const data = parsed.data || parsed;
+      const keys = Object.keys(data).filter(k => _WORKSPACE_EXPORT_KEYS.includes(k));
+      if (!keys.length) { setWsStatus('⚠ Soubor nemá žádná workspace data', 'var(--danger)'); input.value=''; return; }
+      const mode = confirm('Importovat ' + keys.length + ' sekcí?\n\nOK = přepsat stávající data\nCancel = sloučit (pole se spojí, duplicity dle slugu)');
+      keys.forEach(k => {
+        const val = data[k];
+        if (!mode && Array.isArray(val)) {
+          try {
+            const existing = JSON.parse(localStorage.getItem(k) || '[]');
+            if (Array.isArray(existing)) {
+              const keyField = k === 'propsBudget_jobsDB' ? 'slug' : k === 'propsBudget_scriptMemory' ? 'scriptFingerprint' : 'name';
+              const merged = [...existing];
+              val.forEach(item => {
+                const idx = merged.findIndex(e => e && item && e[keyField] && e[keyField] === item[keyField]);
+                if (idx >= 0) merged[idx] = item; else merged.push(item);
+              });
+              localStorage.setItem(k, JSON.stringify(merged));
+              return;
+            }
+          } catch(e) {}
+        }
+        localStorage.setItem(k, typeof val === 'string' ? val : JSON.stringify(val));
+      });
+      setWsStatus('⤒ Importováno ' + keys.length + ' sekcí — reload…', 'var(--success)');
+      setTimeout(() => location.reload(), 700);
+    } catch(e) {
+      setWsStatus('⚠ Chyba importu: ' + e.message, 'var(--danger)');
+    } finally {
+      input.value = '';
+    }
+  }
+
   function initWorkspace() {
     try {
       // Výchozí workspace je vždy "sunprops" — pokud není nic uloženo
@@ -4005,7 +4155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v13.4';
+    const _APP_VER = 'v13.5';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4215,18 +4365,8 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const _propsConstActiveEarly = document.getElementById('propsConstCard')?.dataset.active === 'true';
     const _setDresserCountEarly  = _setDresserActiveEarly ? (parseInt(document.getElementById('setDresserCount')?.value) || 1) : 0;
     const _propsConstCountEarly  = _propsConstActiveEarly ? (parseInt(document.getElementById('propsConstCount')?.value) || 1) : 0;
-    // ── Budget level konfigurace — řídí scaling crew/transport/props dle úrovně
-    //   low      = charita / velmi malý job, minimální tým (2–3 lidi), žádné big trucky
-    //   standard = defaultní komerční produkce
-    //   premium  = high-end komerční (default UI hodnota)
-    //   luxury   = extended tým + rezervní vozidla
-    const _budgetLevelCfg = {
-      low:      { crewCap: 3,  shootCrewMult: 0.45, buyerMin: 0, skipBigTrucks: true,  skipWorkshop: true,  carLimit: 1, truckLimit: 1, description: 'LOW BUDGET / CHARITA — minimální tým (2–3 lidi celkem), jen 1 auto + 1 dodávka, ŽÁDNÉ big trucky, ŽÁDNÝ workshop truck, základní minimální rekvizity. Propmaster + 1–2 assistenty dělají vše včetně nákupu a dopravy.' },
-      standard: { crewCap: 99, shootCrewMult: 1.0,  buyerMin: 1, skipBigTrucks: false, skipWorkshop: false, carLimit: 99, truckLimit: 99, description: 'STANDARD komerční produkce — běžný tým a vybavení.' },
-      premium:  { crewCap: 99, shootCrewMult: 1.0,  buyerMin: 1, skipBigTrucks: false, skipWorkshop: false, carLimit: 99, truckLimit: 99, description: 'PREMIUM high-end komerční — plný tým, všechna standardní vozidla.' },
-      luxury:   { crewCap: 99, shootCrewMult: 1.15, buyerMin: 1, skipBigTrucks: false, skipWorkshop: false, carLimit: 99, truckLimit: 99, description: 'LUXURY — nejvyšší standard, rozšířený tým (+15 %), rezervní vozidla a buffer v rekvizitách.' }
-    };
-    const _blCfg = _budgetLevelCfg[document.getElementById('budgetLevel').value] || _budgetLevelCfg.premium;
+    // ── Budget level konfigurace — viz BUDGET_LEVEL_CONFIG (sdílené s updateCrewEstimate)
+    const _blCfg = getBudgetLevelCfg(document.getElementById('budgetLevel')?.value);
 
     // ── Crew estimate — sjednoceno s updateCrewEstimate() ──
     const _isHeavyC = propsSource === 'mostly_custom' || propsSource === 'mostly_purchase';
@@ -4388,12 +4528,15 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const _propsConstActive = document.getElementById('propsConstCard')?.dataset.active === 'true';
     const _propsConstCount  = _propsConstActive ? (parseInt(document.getElementById('propsConstCount').value) || 1) : 0;
 
-    const _labourAnchor = Math.round(
+    const _labourAnchorRaw = Math.round(
       fullJobCrew * (prepDays * _avgPrepRate + shootDays * _avgShootRate) +
       Math.max(_shootCrew - fullJobCrew, 0) * shootDays * rates.propmanShoot +
       _setDresserCount * (shootDays + 7) * rates.setdresserShoot +
       _propsConstCount * shootDays * rates.propConstruction
     );
+    // ── AUTO-KALIBRACE z historie ── (viz computeCalibrationFactors)
+    const _calib = computeCalibrationFactors({ budgetLevel, shootDays, setCount: activeSets });
+    const _labourAnchor = Math.round(_labourAnchorRaw * _calib.labour);
     // ─── TRANSPORT — struktura podle reálných rozpočtů ───
     const _totalDays   = prepDays + shootDays + wrapDays;
     const _isBigJob    = activeSets >= 3 || fullJobCrew >= 4 || _shootCrew >= 8;
@@ -4478,12 +4621,14 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
       _tItems.push({ name: 'cesta zahraničí (km)', days: abroadSets, rate: Math.round(rates.truck * 1.05) });
     }
 
-    const _transportAnchor = _tItems.reduce((s, v) => s + v.days * v.rate, 0);
+    const _transportAnchorRaw = _tItems.reduce((s, v) => s + v.days * v.rate, 0);
+    const _transportAnchor = Math.round(_transportAnchorRaw * _calib.transport);
     // Props: realistické částky dle zkušenosti z reálných rozpočtů
     // Props kotvy — dle reálných rozpočtů (commercial/fashion s reálnou dekorací)
     // standard ~150k/set, premium ~220k/set, luxury ~350k/set (pronájem + nákup + výroba)
     const _propsPerSet = { luxury: 350000, premium: 220000, standard: 150000, low: 55000 };
-    const _propsAnchor = Math.round(Math.max(activeSets,1) * (_propsPerSet[budgetLevel] || 150000));
+    const _propsAnchorRaw = Math.round(Math.max(activeSets,1) * (_propsPerSet[budgetLevel] || 150000));
+    const _propsAnchor = Math.round(_propsAnchorRaw * _calib.props);
     const _fmt = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n));
 
     // Hero props — rozparsuji na jednotlivé položky pro prompt
@@ -4500,9 +4645,13 @@ Tato sekce musí být jako PRVNÍ v props.sections[]. ZAKÁZÁNO: hero props NES
     const _heroAnchorAdd = _heroItems.length * (_heroPricePerItem[budgetLevel] || 2500);
 
     const _scriptFP = [projectName, ...sets].join('|').substring(0, 80).replace(/\s+/g, '_');
+    const _calibLine = (_calib.sampleSize > 0 && (Math.abs(_calib.labour - 1) > 0.03 || Math.abs(_calib.transport - 1) > 0.03 || Math.abs(_calib.props - 1) > 0.03))
+      ? `AUTO-KALIBRACE z ${_calib.sampleSize} ${_calib.similarMatch ? 'podobných' : 'dřívějších'} reálných jobů: labour ×${_calib.labour.toFixed(2)}, transport ×${_calib.transport.toFixed(2)}, props ×${_calib.props.toFixed(2)} (odhad byl ${_calib.labour>1?'nižší':'vyšší'} než skutečnost — kotvy níže už tento posun obsahují, respektuj je).\n`
+      : '';
     const prompt = `Rekvizitní rozpočet CZK. Sunprops.
 SCRIPT_ID: ${_scriptFP}
 BUDGET ÚROVEŇ: ${budgetLevelLabels[budgetLevel] || budgetLevel} — ${_blCfg.description}
+${_calibLine}
 PM=${rates.propMasterPrep}/${rates.propMasterShoot} Propman=${rates.propmanPrep}/${rates.propmanShoot} Truck=${rates.truck} Fee=${rates.fee}%
 ${projectName}|shoot=${shootDays}d prep=${prepDays}d|core=${fullJobCrew}lidi prep|shoot=${_shootCrew}lidi
 ${sets.map((s,i)=>`${i+1}.${s}`).join('|')}
@@ -4935,6 +5084,8 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       date: new Date().toLocaleDateString('cs-CZ'),
       project: projectName,
       sets: sets.length, shoot_days: shootDays,
+      budgetLevel: document.getElementById('budgetLevel')?.value || '',
+      projectType: document.getElementById('projectType')?.value || '',
       labour_est: labEst, transport_est: trEst, props_est: prEst,
       labour_actual: labVal || labEst,
       transport_actual: trVal || trEst,

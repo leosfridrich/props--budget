@@ -1004,6 +1004,24 @@
 </head>
 <body>
 
+<div id="appGate" style="position:fixed; inset:0; z-index:10000; background:var(--bg,#0a0a0c);
+     display:none; align-items:center; justify-content:center; flex-direction:column; gap:18px;
+     font-family:var(--font); color:var(--text);">
+  <div style="font-size:22px; font-weight:800; color:var(--accent); letter-spacing:-0.3px;">Props Budget</div>
+  <div style="font-size:12px; color:var(--muted); text-align:center; max-width:320px;">
+    Zadej přístupové heslo pro vstup do aplikace.
+  </div>
+  <input id="appGatePw" type="password" autocomplete="current-password" placeholder="heslo"
+    style="width:260px; height:38px; padding:0 12px; background:var(--surface);
+           border:1px solid var(--border); color:var(--text); font-size:14px; outline:none;
+           text-align:center; letter-spacing:2px;"/>
+  <button id="appGateBtn" type="button"
+    style="width:260px; height:38px; background:var(--accent); color:#000; border:none;
+           font-family:var(--font); font-weight:700; font-size:13px; letter-spacing:0.1em;
+           text-transform:uppercase; cursor:pointer;">Vstoupit</button>
+  <div id="appGateStatus" style="font-size:12px; color:var(--danger); min-height:16px;"></div>
+</div>
+
 <header>
   <div class="logo">
     <div style="display:flex; flex-direction:column; gap:2px;">
@@ -1015,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.2</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -2437,9 +2455,10 @@
         _analysisAbort = { abort: function() { xhr.abort(); } };
         xhr.open('POST', '/api/chat', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('x-api-key', apiKey);
-        xhr.setRequestHeader('anthropic-version', '2023-06-01');
+        const _h = apiHeaders({ 'anthropic-version': '2023-06-01' });
+        Object.keys(_h).forEach(function(k) { xhr.setRequestHeader(k, _h[k]); });
         xhr.onload = function() {
+          if (xhr.status === 401) { clearGatePw(); showAppGate('Přístup vypršel — zadej heslo znovu'); reject(new Error('Unauthorized')); return; }
           try { resolve(JSON.parse(xhr.responseText)); }
           catch(e) { reject(new Error('HTTP ' + xhr.status + ': ' + xhr.responseText.substring(0, 300))); }
         };
@@ -3450,7 +3469,7 @@
         const mediaType = file.type || 'image/jpeg';
         const apiResp = await fetch('/api/chat', {
           method: 'POST',
-          headers: {'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+          headers: apiHeaders({'Content-Type':'application/json','anthropic-version':'2023-06-01'}),
           body: JSON.stringify({ model:'claude-sonnet-4-5', max_tokens:1500, messages:[{role:'user',content:[
             {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
             {type:'text',text:'Extrahuj veškerý text a data z tohoto obrázku. Tabulky vypiš strukturovaně. Bez markdown.'}
@@ -3564,7 +3583,7 @@
         const b64 = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result.split(',')[1]); r.readAsDataURL(blob); });
         const apiResp = await fetch('/api/chat', {
           method: 'POST',
-          headers: {'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+          headers: apiHeaders({'Content-Type':'application/json','anthropic-version':'2023-06-01'}),
           body: JSON.stringify({
             model:'claude-sonnet-4-5', max_tokens:1500,
             messages:[{role:'user',content:[
@@ -4004,7 +4023,7 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
     const code = _wsCode || getWorkspaceCode();
     if (!code) return;
     try {
-      const r = await fetch('/api/memory?workspace=' + encodeURIComponent(code));
+      const r = await fetch('/api/memory?workspace=' + encodeURIComponent(code), { headers: apiHeaders() });
       if (!r.ok) { setWsStatus('⚠ Chyba připojení', 'var(--danger)'); return false; }
       const remote = await r.json();
       if (!remote.exists) {
@@ -4092,7 +4111,7 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
       };
       const r = await fetch('/api/memory', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ workspace: code, data: payload }),
       });
       if (!r.ok) { if (!silent) setWsStatus('⚠ Chyba uložení', 'var(--danger)'); return; }
@@ -4236,10 +4255,8 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
   // ─── API KEY STATUS CHECK ───
   async function checkApiKeyStatus() {
     const statusEl = document.getElementById('apiKeyStatus');
-    const manualKey = document.getElementById('apiKey').value.trim();
     try {
-      const headers = manualKey ? { 'x-api-key': manualKey } : {};
-      const r = await fetch('/api/ping', { headers });
+      const r = await fetch('/api/ping', { headers: apiHeaders() });
       const json = await r.json();
       const lbl = document.getElementById('apiKeyLabel');
       if (json.ok) {
@@ -4252,6 +4269,94 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
       if (lbl) lbl.style.color = 'var(--muted)';
     }
   }
+
+  // ─── APP GATE (password-protected entry) ───
+  const LS_GATE_PW = 'propsBudget_gatePw';
+  function getGatePw() { try { return localStorage.getItem(LS_GATE_PW) || ''; } catch(e) { return ''; } }
+  function setGatePw(v) { try { localStorage.setItem(LS_GATE_PW, v); } catch(e) {} }
+  function clearGatePw() { try { localStorage.removeItem(LS_GATE_PW); } catch(e) {} }
+
+  // Jednotné hlavičky pro všechny /api/* volání — přidá heslo; x-api-key jen pokud uživatel zadal vlastní
+  function apiHeaders(extra) {
+    const h = { 'x-app-password': getGatePw() };
+    const userKey = (document.getElementById('apiKey')?.value || '').replace(/\s/g, '');
+    if (userKey) h['x-api-key'] = userKey;
+    return Object.assign(h, extra || {});
+  }
+
+  function showAppGate(errorMsg) {
+    const g = document.getElementById('appGate');
+    if (g) g.style.display = 'flex';
+    const s = document.getElementById('appGateStatus');
+    if (s) s.textContent = errorMsg || '';
+    const inp = document.getElementById('appGatePw');
+    if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 50); }
+  }
+  function hideAppGate() {
+    const g = document.getElementById('appGate');
+    if (g) g.style.display = 'none';
+  }
+
+  async function verifyGatePw(pw) {
+    try {
+      const r = await fetch('/api/ping', { headers: { 'x-app-password': pw } });
+      const j = await r.json();
+      return r.ok && j.authenticated === true;
+    } catch(e) { return false; }
+  }
+
+  async function submitAppGate() {
+    const inp = document.getElementById('appGatePw');
+    const pw = (inp?.value || '').trim();
+    if (!pw) { showAppGate('Zadej heslo'); return; }
+    const s = document.getElementById('appGateStatus');
+    if (s) { s.textContent = 'Ověřuji…'; s.style.color = 'var(--muted)'; }
+    const ok = await verifyGatePw(pw);
+    if (ok) {
+      setGatePw(pw);
+      hideAppGate();
+      // Po úspěšném vstupu spusť checkApiKeyStatus a workspace init znovu (kvůli autentizaci)
+      try { checkApiKeyStatus(); } catch(e) {}
+      try { initWorkspace(); } catch(e) {}
+    } else {
+      if (s) { s.textContent = 'Nesprávné heslo'; s.style.color = 'var(--danger)'; }
+    }
+  }
+
+  // Globální zachycení 401 — pokud kterékoli API vrátí 401, zobraz gate znovu
+  (function() {
+    const _origFetch = window.fetch.bind(window);
+    window.fetch = async function(input, init) {
+      const r = await _origFetch(input, init);
+      try {
+        const url = typeof input === 'string' ? input : (input?.url || '');
+        if (r.status === 401 && url.startsWith('/api/')) {
+          clearGatePw();
+          showAppGate('Přístup vypršel — zadej heslo znovu');
+        }
+      } catch(e) {}
+      return r;
+    };
+  })();
+
+  async function initAppGate() {
+    const existing = getGatePw();
+    if (existing) {
+      const ok = await verifyGatePw(existing);
+      if (ok) { hideAppGate(); return true; }
+      clearGatePw();
+    }
+    showAppGate();
+    return false;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('appGateBtn');
+    const inp = document.getElementById('appGatePw');
+    if (btn) btn.addEventListener('click', submitAppGate);
+    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') submitAppGate(); });
+    initAppGate();
+  });
 
   // Init on load
 document.addEventListener('DOMContentLoaded', () => {
@@ -4266,7 +4371,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v15.2';
+    const _APP_VER = 'v15.3';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5073,11 +5178,10 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       document.getElementById('progressEta').textContent = 'čekám na API…';
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
+        headers: apiHeaders({
           'Content-Type': 'application/json',
-          'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
-        },
+        }),
         body: _body,
         signal: _budgetCtrl.signal,
       });
@@ -5899,10 +6003,11 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/api/chat');
         xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('x-api-key', apiKey);
-        xhr.setRequestHeader('anthropic-version', '2023-06-01');
+        const _h = apiHeaders({ 'anthropic-version': '2023-06-01' });
+        Object.keys(_h).forEach(k => xhr.setRequestHeader(k, _h[k]));
         xhr.timeout = 120000;
         xhr.onload = () => {
+          if (xhr.status === 401) { clearGatePw(); showAppGate('Přístup vypršel — zadej heslo znovu'); reject(new Error('Unauthorized')); return; }
           try {
             const json = JSON.parse(xhr.responseText);
             xhr.status === 200 ? resolve(json) : reject(new Error(json.error?.message || `API chyba ${xhr.status}`));

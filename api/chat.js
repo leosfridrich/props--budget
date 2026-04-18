@@ -5,8 +5,16 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, anthropic-version, anthropic-beta');
 
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, x-app-password, anthropic-version, anthropic-beta');
+
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).end('POST only');
+
+  const expectedPw = process.env.APP_PASSWORD;
+  const gotPw = req.headers['x-app-password'];
+  if (!expectedPw || gotPw !== expectedPw) {
+    return res.status(401).json({ error: { message: 'Unauthorized — nesprávné přístupové heslo' } });
+  }
 
   const apiKey = req.headers['x-api-key'] || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(400).json({ error: { message: 'Missing API key' } });

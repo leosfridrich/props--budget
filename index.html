@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.10</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.11</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -4231,7 +4231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v14.10';
+    const _APP_VER = 'v14.11';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4384,7 +4384,8 @@ document.addEventListener('DOMContentLoaded', () => {
       furnish_from_empty_additions: [
         'kopírka / tiskárna',
         'kancelářská knihovna nebo regál',
-        'zasedací stůl + židle',
+        'meeting / zasedací stůl (NE jídelní stůl)',
+        'židle k meeting stolu (NE jídelní židle)',
         'kuchyňka / coffee corner',
         'věšák na kabáty',
         'koberec nebo podlahový styling',

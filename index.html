@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.5</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.6</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1178,7 +1178,12 @@
         oninput="updateCrewEstimate()" />
     </div>
 
-    <div class="section-label">Script / Storyboard</div>
+    <div class="section-label">Popis projektu / Analýza scriptu</div>
+
+    <div class="form-group">
+      <label>Popis projektu / poznámky k scriptu</label>
+      <textarea id="projectDesc" placeholder=""></textarea>
+    </div>
 
     <div class="form-group">
       <div class="dropzone" id="dropzone">
@@ -1193,11 +1198,6 @@
         </button>
       </div>
       <div class="file-list" id="fileList"></div>
-    </div>
-
-    <div class="form-group">
-      <label>Popis projektu / poznámky k scriptu</label>
-      <textarea id="projectDesc" placeholder=""></textarea>
     </div>
 
     <div class="section-label">SET — Dekorace</div>
@@ -2881,6 +2881,37 @@
     overlay.remove();
   }
 
+  // Banner po upgradu verze — pokud byl rozdělaný projekt, ať user ví že zůstal zachován
+  function showVersionBanner(oldVer, newVer) {
+    const existing = document.getElementById('versionBanner');
+    if (existing) existing.remove();
+    const hasForm = (() => {
+      try {
+        const s = JSON.parse(localStorage.getItem(_FORM_STATE_KEY) || '{}');
+        return s && (s.projectName || (s.sets?.length));
+      } catch(e) { return false; }
+    })();
+    if (!hasForm) return; // nic nebylo rozdělané → banner zbytečný
+    const banner = document.createElement('div');
+    banner.id = 'versionBanner';
+    banner.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:12px 16px;display:flex;align-items:center;gap:14px;z-index:9999;box-shadow:0 6px 20px rgba(0,0,0,0.4);font-size:12px;color:var(--text);';
+    banner.innerHTML = `
+      <span style="color:var(--accent);">✓ Upgrade ${oldVer} → ${newVer} —</span>
+      <span style="opacity:0.85;">rozpracovaný projekt zachován</span>
+      <button id="verBannerClear" style="background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-family:var(--font);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:5px 10px;cursor:pointer;">Vyčistit formulář</button>
+      <span id="verBannerClose" style="color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 4px;" title="Zavřít">×</span>
+    `;
+    document.body.appendChild(banner);
+    document.getElementById('verBannerClear').onclick = () => {
+      if (confirm('Opravdu vyčistit rozpracovaný projekt?')) {
+        generateNewBudget();
+        banner.remove();
+      }
+    };
+    document.getElementById('verBannerClose').onclick = () => banner.remove();
+    setTimeout(() => { if (document.getElementById('versionBanner')) banner.style.opacity = '0.5'; }, 12000);
+  }
+
   function enableGenerateManually() {
     const genBtn = document.getElementById('generateBtn');
     genBtn.disabled = false;
@@ -4190,15 +4221,21 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v14.5';
+    const _APP_VER = 'v14.6';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
       if (_storedVer && _storedVer !== _APP_VER) {
-        // Nová verze nasazena → vyčisti rozdělaný formulář (čistý start)
-        // Script Memory Cards, learned corrections, actuals i refDB zůstávají!
-        try { localStorage.removeItem(_FORM_STATE_KEY); } catch(e) {}
+        // Nová verze — ZACHOVEJ rozpracovaný projekt (umožní znovu vyzkoušet s opravenou app).
+        // Uložíme taky backup pro jistotu; user může smazat tlačítkem "Vyčistit formulář".
+        try {
+          const _curState = localStorage.getItem(_FORM_STATE_KEY);
+          if (_curState) localStorage.setItem(_FORM_STATE_KEY + '_backup', _curState);
+        } catch(e) {}
         localStorage.setItem(_VER_KEY, _APP_VER);
+        restoreFormState();
+        // Info banner o upgradu — user může vyčistit
+        setTimeout(() => showVersionBanner(_storedVer, _APP_VER), 400);
       } else {
         // Stejná verze (nebo první spuštění) → obnov formulář z poslední session
         if (!_storedVer) localStorage.setItem(_VER_KEY, _APP_VER);
@@ -4212,6 +4249,21 @@ document.addEventListener('DOMContentLoaded', () => {
       _panelLeft.addEventListener('input', saveFormState);
       _panelLeft.addEventListener('change', saveFormState);
     }
+
+    // Auto-enable generate button, pokud má projekt název nebo alespoň 1 vyplněný set
+    const _maybeEnableGenerate = () => {
+      const nm = document.getElementById('projectName')?.value?.trim() || '';
+      const hasSet = Array.from(document.querySelectorAll('.set-row .set-name'))
+        .some(el => (el.value || '').trim().length > 0);
+      const btn = document.getElementById('generateBtn');
+      if (!btn || !btn.disabled) return;
+      if (nm.length > 0 || hasSet) enableGenerateManually();
+    };
+    if (_panelLeft) {
+      _panelLeft.addEventListener('input', _maybeEnableGenerate);
+    }
+    // Při mountu zkontroluj (obnovený form z localStorage)
+    setTimeout(_maybeEnableGenerate, 300);
 
     // Při zadání názvu projektu — automaticky načti sety z memory karty
     const _pnInput = document.getElementById('projectName');

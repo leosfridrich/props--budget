@@ -1033,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.3</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -4371,7 +4371,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v15.3';
+    const _APP_VER = 'v15.4';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5931,13 +5931,15 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       setTimeout(() => { if (_rpWrap) _rpWrap.style.display = 'none'; }, 2000);
     };
 
-    // ── Detekce cílových částek v poznámce (props/labour/transport celkem X) ──
+    // ── Detekce cílových částek v poznámce (props/labour/transport/grand total X) ──
     // Detekce cílové částky — hledá klíčové slovo + číslo kdekoliv v textu
     const _parseTarget = (text, keywords) => {
+      // Odstraň měnu (Kč/CZK) aby se "K" z "Kč" mylně nezahrnulo do čísla jako multiplikátor × 1000
+      const cleaned = text.replace(/(\d)\s+(?:k[čc]|kc|czk)(?=[^a-zA-Zá-ž]|$)/gi, '$1');
       for (const kw of keywords) {
-        // Klíčové slovo + volitelné mezery/znaky + číslo (s k/M)
-        const re = new RegExp(kw + '[^\\d]{0,10}([\\d][\\d\\s\\.]*[kKmM]?)', 'i');
-        const m = text.match(re);
+        // Klíčové slovo + volitelné mezery/znaky (až 50 pro "konečnou částku udělej 350 000") + číslo (s k/M)
+        const re = new RegExp(kw + '[^\\d]{0,50}([\\d][\\d\\s\\.]*[kKmM]?)', 'i');
+        const m = cleaned.match(re);
         if (m) {
           const val = parseKAmount(m[1].replace(/\s/g, ''));
           if (val > 0) return val;
@@ -5956,11 +5958,29 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       'transport celkem','transport total','transport:','transport ',
       'doprava celkem','doprava:','doprava ']);
 
+    // ── Detekce cílového grand_total (konečná/finální částka celkem) ──
+    // Odstraníme z textu segmenty týkající se props/labour/transport, aby se "celkem" neshodilo s dílčí kategorií
+    const _noteForGrand = note.replace(
+      /(props|rekvizity|labour|lidi|lid[eéě]|team|pracovn[ií]ci|transport|doprava)[^,.;\n]*/gi,
+      ''
+    );
+    const _targetGrandTotal = _parseTarget(_noteForGrand, [
+      'grand total','grand-total',
+      'celková částka','celková cena','celková suma','celkový rozpočet',
+      'celkem za','celkem ','celkem:',
+      'konečn[a-záéíóúůěňčřšťďý]*',
+      'fináln[a-záéíóúůěňčřšťďý]*',
+      'finál[a-záéíóúůěňčřšťďý]*',
+      'final[^i]','final ',
+      'dohromady','celý rozpočet','cena celkem','suma celkem'
+    ]);
+
     const _fmtR = n => new Intl.NumberFormat('cs-CZ').format(Math.round(n));
     const _targetLines = [];
     if (_targetProps     > 0) _targetLines.push(`   • Props celkem = PŘESNĚ ${_fmtR(_targetProps)} Kč — rozlož tuto částku proporcionálně mezi sekce/položky`);
     if (_targetLabour    > 0) _targetLines.push(`   • Labour celkem = PŘESNĚ ${_fmtR(_targetLabour)} Kč — uprav POUZE prep_days (ne rate, ne shoot_days = vždy ${_rShoot}). Snižuj: odebírej prep_days odspoda týmu. Zvyšuj: přidej prep_days stávajícím, pak přidej nové lidi. Postupuj dokud součet nedosáhne PŘESNĚ této částky.`);
     if (_targetTransport > 0) _targetLines.push(`   • Transport celkem = PŘESNĚ ${_fmtR(_targetTransport)} Kč — uprav POUZE days u vozidel (ne rate). Zkracej/prodluž days dokud součet nedosáhne PŘESNĚ této částky.`);
+    if (_targetGrandTotal > 0) _targetLines.push(`   • GRAND TOTAL = PŘESNĚ ${_fmtR(_targetGrandTotal)} Kč (konečná částka včetně fee). Uprav props.amount tak, aby po připočtení fee ${b.fee_pct||7}% vyšel součet labour + transport + props + fee + overtime + overcosts přesně na tuto částku. Klient dopočítá přesnou částku po tvé úpravě.`);
 
     const prompt = [
       'Jsi expert na filmové rekvizitní rozpočty. Dostal jsi hotový rozpočet a požadavek na opravu.',
@@ -6080,11 +6100,19 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
         }
       }
 
+      // Grand Total — deterministické doladění konečné částky (props jako tlumič)
+      // Běží PŘED labour/props/transport targety, ale pouze pokud grand je zadaný a dílčí nejsou.
+      // Když uživatel zadal grand_total + nějaký dílčí, dílčí běží následně a pak znovu dolaďíme grand níž v kódu.
+      const _calcLab = team => (team || []).reduce((s, p) =>
+        s + ((p.shoot_days||0) + (p.prep_days||0)) * (p.rate||0), 0);
+      const _calcTr  = items => (items || []).reduce((s, i) => s + (i.days||0) * (i.rate||0), 0);
+      const _calcPr  = secs  => (secs  || []).reduce((s, sec) =>
+        s + (sec.items||[]).reduce((ss,i) => ss + (i.amount||0), 0), 0);
+      const _feePct  = (revised.fee_pct ?? b.fee_pct ?? 7);
+      const _overSum = (revised.overtime_estimate || 0) + (revised.overcosts_estimate || 0);
+
       // Labour — přesné dorovnání na cílovou částku
       if (_targetLabour > 0) {
-        const _calcLab = team => (team || []).reduce((s, p) =>
-          s + ((p.shoot_days||0) + (p.prep_days||0)) * (p.rate||0), 0);
-
         const _actualLab = _calcLab(revised.labour?.team);
         if (_actualLab > 0 && Math.abs(_actualLab - _targetLabour) > 200) {
           const _maxPrep  = _rPrep + _rWrap;
@@ -6116,6 +6144,64 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
             const adj = Math.round(_labDiff / r0);
             revised.labour.team[0].prep_days = Math.max(0,
               Math.min((revised.labour.team[0].prep_days || 0) + adj, _maxPrep));
+          }
+        }
+      }
+
+      // ── Grand Total — FINÁLNÍ deterministické dorovnání (běží po všech dílčích targetech) ──
+      // Princip: konečný grand_total = (L + T + P) + round((L+T+P)*fee/100) + overtime + overcosts.
+      // Cíl: upravit props tak, aby grand_total vyšel PŘESNĚ na zadanou částku.
+      if (_targetGrandTotal > 0) {
+        const _iterateGrandFit = () => {
+          const _L = _calcLab(revised.labour?.team);
+          const _T = _calcTr(revised.transport?.items);
+          const _P = _calcPr(revised.props?.sections);
+          const _base  = _L + _T + _P;
+          const _fee   = Math.round(_base * _feePct / 100);
+          const _grand = _base + _fee + _overSum;
+          return { _L, _T, _P, _base, _fee, _grand };
+        };
+        let { _L, _T, _P, _grand } = _iterateGrandFit();
+
+        if (Math.abs(_grand - _targetGrandTotal) > 100) {
+          // Potřebný base = (target - overtime/overcosts) / (1 + fee/100)
+          const _baseNeeded = Math.max(0, (_targetGrandTotal - _overSum) / (1 + _feePct / 100));
+          const _newPrNeeded = _baseNeeded - _L - _T;
+
+          if (_newPrNeeded < Math.max(_P * 0.2, 10000) && _P > 0) {
+            // Props by musely klesnout pod 20 % (nebo pod 10k) → škáluj proporcionálně VŠE (props + labour prep_days + transport days)
+            const _actualBase = _L + _T + _P;
+            const _sc = _baseNeeded / Math.max(_actualBase, 1);
+            (revised.props?.sections || []).forEach(sec => {
+              (sec.items || []).forEach(i => { i.amount = Math.max(0, Math.round((i.amount||0) * _sc)); });
+            });
+            const _maxPrepAll = _rPrep + _rWrap;
+            (revised.labour?.team || []).forEach(p => {
+              const _prepNew = Math.round((p.prep_days || 0) * _sc);
+              p.prep_days = Math.max(0, Math.min(_prepNew, _maxPrepAll));
+            });
+            (revised.transport?.items || []).forEach(i => {
+              i.days = Math.max(1, Math.round((i.days || 0) * _sc));
+            });
+          } else if (_P > 0) {
+            // Props scaling (nejjednodušší — zachová labour a transport)
+            const _prSc = _newPrNeeded / _P;
+            (revised.props?.sections || []).forEach(sec => {
+              (sec.items || []).forEach(i => { i.amount = Math.max(0, Math.round((i.amount||0) * _prSc)); });
+            });
+          }
+
+          // Finální zaokrouhlovací korekce na první props položce (i 2–3 iterace kvůli fee roundingu)
+          for (let _iter = 0; _iter < 3; _iter++) {
+            const r = _iterateGrandFit();
+            const _gDiff = _targetGrandTotal - r._grand;
+            if (Math.abs(_gDiff) < 1) break;
+            if (revised.props?.sections?.[0]?.items?.[0]) {
+              // Přidání dx do props zvedne grand o dx + round(dx*fee/100) ≈ dx*(1+fee/100)
+              const _dx = Math.round(_gDiff / (1 + _feePct/100));
+              revised.props.sections[0].items[0].amount =
+                Math.max(0, (revised.props.sections[0].items[0].amount || 0) + _dx);
+            } else { break; }
           }
         }
       }

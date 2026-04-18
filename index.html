@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.3</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -4183,17 +4183,18 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v14.3';
+    const _APP_VER = 'v14.4';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
-      if (_storedVer !== _APP_VER) {
-        // Nová verze → obnov formulář (zachovej projekt + sety + script memory)
-        // NEMAŽ form state — fingerprint by nefungoval a agent by nerozpoznal script
-        restoreFormState();
+      if (_storedVer && _storedVer !== _APP_VER) {
+        // Nová verze nasazena → vyčisti rozdělaný formulář (čistý start)
+        // Script Memory Cards, learned corrections, actuals i refDB zůstávají!
+        try { localStorage.removeItem(_FORM_STATE_KEY); } catch(e) {}
         localStorage.setItem(_VER_KEY, _APP_VER);
       } else {
-        // Stejná verze → obnov formulář z poslední session
+        // Stejná verze (nebo první spuštění) → obnov formulář z poslední session
+        if (!_storedVer) localStorage.setItem(_VER_KEY, _APP_VER);
         restoreFormState();
       }
     } catch(e) { restoreFormState(); }

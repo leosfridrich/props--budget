@@ -104,6 +104,24 @@
   }
   .ws-blink { animation: ws-connect-blink 1.3s ease-in-out infinite; }
 
+  /* Set "zařídit od nuly" checkbox — vizuální indikátor stavu na obalovém labelu */
+  .set-empty-box { position: relative; }
+  .set-empty-box .set-empty {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    margin: 0; padding: 0; opacity: 0; cursor: pointer; z-index: 2;
+  }
+  .set-empty-box .set-empty-mark {
+    font-size: 16px; line-height: 1; color: transparent;
+    font-weight: 700; pointer-events: none; user-select: none;
+  }
+  .set-empty-box:has(.set-empty:checked) {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+  }
+  .set-empty-box:has(.set-empty:checked) .set-empty-mark {
+    color: #000;
+  }
+
   .logo {
     display: flex;
     align-items: center;
@@ -997,7 +1015,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.12</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.13</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -2134,13 +2152,12 @@
         <option value="exteriér" ${type==='exteriér'?'selected':''}>Exteriér</option>
         <option value="zahraničí" ${type==='zahraničí'?'selected':''}>Zahraničí</option>
       </select>
-      <label title="Zařídit od nuly — prázdná místnost, vypiš vše"
+      <label class="set-empty-box" title="Zařídit od nuly — prázdná místnost, vypiš vše"
         style="display:flex; align-items:center; justify-content:center; cursor:pointer;
                background:var(--surface); border:1px solid var(--border); height:32px;
-               transition:border-color 0.2s, background 0.2s;"
-        onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-        <input type="checkbox" class="set-empty" ${empty?'checked':''}
-          style="width:16px; height:16px; padding:0; margin:0; background:transparent; border:1px solid var(--border); cursor:pointer; accent-color:var(--accent); flex:0 0 16px;"/>
+               transition:border-color 0.2s, background 0.2s;">
+        <input type="checkbox" class="set-empty" ${empty?'checked':''}/>
+        <span class="set-empty-mark">✓</span>
       </label>
       <span onclick="removeSet(${id})" style="color:var(--muted); cursor:pointer; font-size:18px;
              line-height:1; text-align:center; transition:color 0.15s; user-select:none;"
@@ -4249,7 +4266,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v14.12';
+    const _APP_VER = 'v14.13';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

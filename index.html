@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.6</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.7</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -4221,7 +4221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v14.6';
+    const _APP_VER = 'v14.7';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5807,6 +5807,19 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
       addLearnedCorrection(_noteWithDiff.substring(0, 500));
       // Uloží korekci + aktuální sety do Script Memory Card
       saveProjectToMemory(projectName, _noteWithDiff, window._currentScriptFP);
+
+      // Propoj korekci i do Job Record (aby byla viditelná v [UŽIVATELEM POTVRZENÉ OPRAVY] při dalších generováních)
+      try {
+        const _jSlug = slugifyJob(projectName);
+        if (_jSlug) {
+          const _j = findJob(_jSlug) || { slug: _jSlug, projectName };
+          _j.corrections = _j.corrections || [];
+          _j.corrections.push({ date: new Date().toLocaleDateString('cs-CZ'), note: _noteWithDiff.substring(0, 500) });
+          if (_j.corrections.length > 20) _j.corrections = _j.corrections.slice(-20);
+          upsertJob(_j);
+          renderJobsList();
+        }
+      } catch(e) {}
 
       _rpFinish(true);
       window._revisionDiff = computeRevisionDiff(window._lastBudget, revised);

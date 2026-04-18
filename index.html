@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.11</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.12</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -3947,6 +3947,32 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
     if (el) { el.textContent = msg; el.style.color = color || 'var(--muted)'; }
   }
 
+  function setWorkspaceConnectedUI(connected) {
+    const btn = document.getElementById('wsConnectBtn');
+    const syncBtn = document.getElementById('wsSyncBtn');
+    const lbl = document.getElementById('wsLabel');
+    const inp = document.getElementById('workspaceCode');
+    if (connected) {
+      if (btn) { btn.classList.remove('ws-blink'); btn.textContent = 'Odpojit'; btn.onclick = disconnectWorkspace; }
+      if (syncBtn) syncBtn.style.display = '';
+      if (lbl) lbl.style.color = 'var(--muted)';
+      if (inp) { inp.style.color = 'var(--success)'; inp.style.fontWeight = '600'; inp.readOnly = true; }
+    } else {
+      if (btn) { btn.classList.add('ws-blink'); btn.textContent = 'Připojit'; btn.onclick = connectWorkspace; }
+      if (syncBtn) syncBtn.style.display = 'none';
+      if (inp) { inp.style.color = ''; inp.style.fontWeight = ''; inp.readOnly = false; }
+    }
+  }
+
+  function disconnectWorkspace() {
+    _wsCode = '';
+    try { localStorage.removeItem(LS_WORKSPACE); } catch(e) {}
+    setWorkspaceConnectedUI(false);
+    setWsStatus('Odpojeno — zadej jiný kód a klikni Připojit', 'var(--muted)');
+    const inp = document.getElementById('workspaceCode');
+    if (inp) inp.focus();
+  }
+
   async function connectWorkspace() {
     const code = getWorkspaceCode();
     if (code.length < 2) { setWsStatus('⚠ Kód musí mít alespoň 2 znaky', 'var(--danger)'); return; }
@@ -3954,16 +3980,7 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
     try { localStorage.setItem(LS_WORKSPACE, code); } catch(e) {}
     setWsStatus('Připojuji…', 'var(--muted)');
     const ok = await pullWorkspace();
-    if (ok !== false) {
-      document.getElementById('wsSyncBtn').style.display = '';
-      setWsStatus('', 'var(--muted)');
-      const btn = document.getElementById('wsConnectBtn');
-      if (btn) btn.classList.remove('ws-blink');
-      const lbl = document.getElementById('wsLabel');
-      if (lbl) lbl.style.color = 'var(--muted)';
-      const inp = document.getElementById('workspaceCode');
-      if (inp) { inp.style.color = 'var(--success)'; inp.style.fontWeight = '600'; }
-    }
+    if (ok !== false) setWorkspaceConnectedUI(true);
   }
 
   async function pullWorkspace() {
@@ -4165,9 +4182,10 @@ HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výš
       if (el) el.value = saved;
       _wsCode = saved;
       try { localStorage.setItem(LS_WORKSPACE, saved); } catch(e) {}
-      document.getElementById('wsSyncBtn').style.display = '';
       setWsStatus('Připojuji…', 'var(--muted)');
-      pullWorkspace();
+      Promise.resolve(pullWorkspace()).then(ok => {
+        if (ok !== false) setWorkspaceConnectedUI(true);
+      }).catch(() => {});
     } catch(e) {}
   }
 
@@ -4231,7 +4249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v14.11';
+    const _APP_VER = 'v14.12';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.7</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -2111,14 +2111,14 @@
 
   let setCounter = 0;
 
-  function addSet(name = '', type = 'ateliér') {
+  function addSet(name = '', type = 'ateliér', empty = false) {
     setCounter++;
     const id = setCounter;
     const container = document.getElementById('setsContainer');
     const div = document.createElement('div');
     div.className = 'set-row';
     div.dataset.id = id;
-    div.style.cssText = 'display:grid; grid-template-columns:1fr 130px 28px; gap:6px; align-items:center;';
+    div.style.cssText = 'display:grid; grid-template-columns:1fr 130px 34px 28px; gap:6px; align-items:center;';
     div.innerHTML = `
       <input type="text" class="set-name" placeholder="" value="${name}"
         style="background:var(--surface); border:1px solid var(--border); color:var(--text);
@@ -2134,6 +2134,14 @@
         <option value="exteriér" ${type==='exteriér'?'selected':''}>Exteriér</option>
         <option value="zahraničí" ${type==='zahraničí'?'selected':''}>Zahraničí</option>
       </select>
+      <label title="Zařídit od nuly — prázdná místnost, vypiš vše"
+        style="display:flex; align-items:center; justify-content:center; cursor:pointer;
+               background:var(--surface); border:1px solid var(--border); height:32px;
+               transition:border-color 0.2s, background 0.2s;"
+        onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <input type="checkbox" class="set-empty" ${empty?'checked':''}
+          style="margin:0; cursor:pointer; accent-color:var(--accent);"/>
+      </label>
       <span onclick="removeSet(${id})" style="color:var(--muted); cursor:pointer; font-size:18px;
              line-height:1; text-align:center; transition:color 0.15s; user-select:none;"
             onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</span>
@@ -2739,7 +2747,8 @@
           propsSource:  g('propsSource'),
           sets: Array.from(document.querySelectorAll('.set-row')).map(r => ({
             name: r.querySelector('.set-name')?.value || '',
-            type: r.querySelector('.set-type')?.value || 'reálná lokace'
+            type: r.querySelector('.set-type')?.value || 'reálná lokace',
+            empty: !!r.querySelector('.set-empty')?.checked
           }))
         };
         localStorage.setItem(_FORM_STATE_KEY, JSON.stringify(state));
@@ -2766,7 +2775,7 @@
       if (s.sets?.length) {
         document.getElementById('setsContainer').innerHTML = '';
         setCounter = 0;
-        s.sets.forEach(set => set.name && addSet(set.name, set.type));
+        s.sets.forEach(set => set.name && addSet(set.name, set.type, !!set.empty));
         updateCrewEstimate();
       }
       return true;
@@ -3813,8 +3822,9 @@
   function getCurrentSets() {
     return Array.from(document.querySelectorAll('.set-row'))
       .map(r => ({
-        name: (r.querySelector('.set-name')?.value || '').trim(),
-        type: (r.querySelector('.set-type')?.value || 'reálná lokace')
+        name:  (r.querySelector('.set-name')?.value || '').trim(),
+        type:  (r.querySelector('.set-type')?.value || 'reálná lokace'),
+        empty: !!r.querySelector('.set-empty')?.checked
       })).filter(s => s.name);
   }
 
@@ -4221,7 +4231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v14.7';
+    const _APP_VER = 'v14.8';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4353,6 +4363,191 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   })();
+
+  // ─── KATALOG PROSTŘEDÍ ───
+  // Statický katalog typických kategorií vybavení pro jednotlivá prostředí.
+  // Ceny zde NEJSOU — dopočítá je model podle budget levelu a props anchor.
+  // Další prostředí přidávej postupně ručně.
+  const ENVIRONMENT_CATALOG = {
+    office: {
+      displayName: 'Kancelář',
+      keywords: ['kancelar','kancl','office','pracovna','open space','openspace','openoffice','open-office','firma'],
+      core_items: [
+        'pracovní stoly',
+        'ergonomické kancelářské židle',
+        'notebooky / počítače s monitory',
+        'stolní lampy',
+        'kabeláž a organizéry kabelů',
+        'odpadkové koše',
+        'pokojové rostliny v květináčích',
+        'šanony / desky / papíry',
+        'psací potřeby',
+        'hrnky na kávu',
+        'osobní drobnosti (fotorámečky, kytičky v květináčcích, drobné dekorace)'
+      ],
+      furnish_from_empty_additions: [
+        'kopírka / tiskárna',
+        'kancelářská knihovna nebo regál',
+        'zasedací stůl + židle',
+        'kuchyňka / coffee corner',
+        'věšák na kabáty',
+        'koberec nebo podlahový styling',
+        'závěsy / rolety + garnýže',
+        'velké rostliny v květináčích',
+        'umělecké obrazy / diplomy / certifikáty na zdi',
+        'nástěnky',
+        'hodiny',
+        'dekorativní doplňky (vázy, svícny, figurky)'
+      ]
+    },
+    living_room: {
+      displayName: 'Obývací pokoj',
+      keywords: ['obyvak','obyvaci pokoj','obývák','living room','living','ls'],
+      core_items: [
+        'sofa (1 ks výběr)',
+        '2–3× křeslo na výběr',
+        '2–3× konferenční / coffee stolek',
+        '1–2× koberec na výběr',
+        'záclony + závěsy (šití + uchycení zvlášť)',
+        '3–5× polštářky + přehozy + plédy',
+        '3–5× obraz / dekorace na stěnu',
+        '1–2× komoda / sideboard',
+        '1× knihovna / police',
+        '2–3× lampa stojací',
+        '3–5× lampička / stolní lampa',
+        '1–2× velké zrcadlo',
+        '3–5× velké kytky + květináče',
+        '3–5× menší kytky',
+        'svíčky + svícny, vázy, hodiny',
+        'drobné zařizovací předměty (tácy, knihy, drobnosti)'
+      ],
+      furnish_from_empty_additions: [
+        'jídelní stůl + 4–6× židle (pokud je jídelní zóna)',
+        'konzole / credenza',
+        'vypínače + zásuvky (kryty) — pokud jiný styl',
+        'TV + mediální nábytek',
+        'pokročilé dekorativní doplňky'
+      ]
+    }
+    // DALŠÍ PROSTŘEDÍ přidej sem (kitchen, bedroom, kids_room, bathroom, cafe, ...).
+  };
+
+  // Normalizace řetězce — lowercase + odstranění diakritiky (Unicode NFD + odstranění combining marks).
+  function normalizeSetName(s) {
+    if (!s) return '';
+    try {
+      return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    } catch(e) {
+      return String(s).toLowerCase().trim();
+    }
+  }
+
+  // Vrátí klíč statického katalogu, nebo 'learned:<key>' z historie, nebo null.
+  function detectEnvironment(setName, learnedCatalog) {
+    const n = normalizeSetName(setName);
+    if (!n) return null;
+    for (const key in ENVIRONMENT_CATALOG) {
+      const kws = ENVIRONMENT_CATALOG[key].keywords || [];
+      for (const kw of kws) {
+        if (n.includes(normalizeSetName(kw))) return key;
+      }
+    }
+    if (learnedCatalog) {
+      for (const learnedKey in learnedCatalog) {
+        if (n.includes(learnedKey) || learnedKey.includes(n)) return 'learned:' + learnedKey;
+      }
+    }
+    return null;
+  }
+
+  // Projde uložené rozpočty a vytáhne agregované kategorie položek podle názvu sekce.
+  // Výstup: { 'normalizovany nazev sekce': [polozky osvedcene 2+ vyskytem] }
+  function buildLearnedCatalog() {
+    try {
+      const history = getBudgetHistory();
+      if (!history || !history.length) return {};
+      // { normName: { itemNormName: { display: string, count: number } } }
+      const bySection = {};
+      history.forEach(entry => {
+        const sections = entry?.budget?.props?.sections || [];
+        sections.forEach(sec => {
+          const secKey = normalizeSetName(sec.name || '');
+          if (!secKey || secKey === 'hero props') return;
+          if (!bySection[secKey]) bySection[secKey] = {};
+          (sec.items || []).forEach(it => {
+            const itName = (it.name || '').trim();
+            if (!itName) return;
+            const itKey = normalizeSetName(itName);
+            if (!bySection[secKey][itKey]) bySection[secKey][itKey] = { display: itName, count: 0 };
+            bySection[secKey][itKey].count++;
+          });
+        });
+      });
+      const out = {};
+      for (const secKey in bySection) {
+        const items = Object.values(bySection[secKey])
+          .filter(x => x.count >= 2)
+          .sort((a,b) => b.count - a.count)
+          .map(x => x.display)
+          .slice(0, 20);
+        if (items.length) out[secKey] = items;
+      }
+      return out;
+    } catch(e) { return {}; }
+  }
+
+  // Sestaví per-set blok pro system prompt. `sets` = [{name, type, empty}].
+  function buildEnvironmentTemplatesBlock(sets) {
+    if (!sets || !sets.length) return '';
+    const learned = buildLearnedCatalog();
+    const lines = [];
+    sets.forEach(set => {
+      if (!set.name) return;
+      const envKey = detectEnvironment(set.name, learned);
+      if (!envKey) return;
+      const isEmpty = !!set.empty;
+      let displayName = '';
+      let items = [];
+      let learnedItems = [];
+      if (envKey.startsWith('learned:')) {
+        const lk = envKey.slice('learned:'.length);
+        displayName = lk;
+        learnedItems = learned[lk] || [];
+        items = learnedItems.slice();
+      } else {
+        const env = ENVIRONMENT_CATALOG[envKey];
+        displayName = env.displayName;
+        items = (env.core_items || []).slice();
+        if (isEmpty) items = items.concat(env.furnish_from_empty_additions || []);
+        // Doplň položky z historie, které statický katalog nepokrývá
+        for (const lk in learned) {
+          if ((env.keywords || []).some(kw => lk.includes(normalizeSetName(kw)))) {
+            learned[lk].forEach(li => {
+              const liNorm = normalizeSetName(li);
+              if (!items.some(x => normalizeSetName(x).includes(liNorm) || liNorm.includes(normalizeSetName(x)))) {
+                learnedItems.push(li);
+              }
+            });
+          }
+        }
+      }
+      const tag = isEmpty ? `${displayName.toUpperCase()}, ZAŘÍDIT OD NULY` : displayName.toUpperCase();
+      lines.push(`● Set "${set.name}" [${tag}]:`);
+      if (isEmpty) {
+        lines.push(`  POVINNĚ rozepiš každou kategorii jako samostatné položky v props.sections (zákaz paušálu typu "dekorace paušál" — každá kategorie = samostatný řádek s konkrétní částkou):`);
+      } else {
+        lines.push(`  Doporučené kategorie typického vybavení — použij ty, které odpovídají scéně (počet kusů dle kontextu):`);
+      }
+      items.forEach(it => lines.push(`    - ${it}`));
+      if (learnedItems.length) {
+        lines.push(`  Osvědčené položky z tvých předchozích rozpočtů (přidej pokud relevantní):`);
+        learnedItems.slice(0, 10).forEach(it => lines.push(`    - ${it}`));
+      }
+      lines.push(`  Ceny přiřaď podle budget levelu tak, aby celkový součet setu odpovídal per-set anchor částce uvedené výše.`);
+    });
+    if (!lines.length) return '';
+    return 'SET ŠABLONY PER-SET — použij přesně pro odpovídající sety:\n' + lines.join('\n');
+  }
 
   // ─── AGENT SYSTEM PROMPT ───
   const _AGENT_SYSTEM = `Jsi specializovaný AI agent pro tvorbu odhadních rozpočtů filmových, reklamních a produkčních projektů na základě scénáře, storyboardu, briefu, rozpočtových podkladů a historických odhadů.
@@ -4513,11 +4708,13 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const desc = document.getElementById('projectDesc').value;
 
     // Collect sets
-    const sets = Array.from(document.querySelectorAll('.set-row')).map(row => {
+    const _setsDetailed = Array.from(document.querySelectorAll('.set-row')).map(row => {
       const name = row.querySelector('.set-name').value.trim();
       const type = row.querySelector('.set-type').value;
-      return name ? `${name} (${type})` : null;
+      const empty = !!row.querySelector('.set-empty')?.checked;
+      return name ? { name, type, empty } : null;
     }).filter(Boolean);
+    const sets = _setsDetailed.map(s => `${s.name} (${s.type})`);
     const locationTypes = sets;
 
     const _rateVal = (id, fallback) => {
@@ -4802,15 +4999,7 @@ ZAKÁZÁNO: přidat nebo vynechat kohokoliv. Celkem v labour.team = přesně ${_
   Průměr na set: ${_fmt(Math.round(_propsAnchor/Math.max(activeSets,1)))} Kč (bez hero props). Každý set musí mít realisticky rozepsané položky které dohromady tuto částku naplní.
   NIKDY negeneruj props pod ${_fmt(Math.round(_propsAnchor * 0.95))} Kč. Pokud nevíš čím doplnit, přidej: pronájem dekorací a doplňků, nákup dekorativních předmětů, styling a výběr materiálů.
   ZAKÁZÁNO v props: doprava, odvoz, montáž, asistence, pronájem vozidel — toto patří do Labour/Transport.
-SET ŠABLONY — pokud set odpovídá typu, použij tyto položky (přizpůsob dle budget levelu, u každé kategorie počítej s více kusy na výběr kromě sofa):
-OBÝVACÍ POKOJ / LIVING ROOM (každá položka = pronájem/nákup více kusů na výběr):
-  sofa (1 ks výběr) | 2–3× křeslo na výběr | 2–3× konferenční/coffee stolek | 1–2× koberec na výběr
-  záclony + závěsy (šití + uchycení zvlášť) | 3–5× polštářky + přehozy + plédy | 3–5× obraz/dekorace na stěnu
-  1–2× komoda/sideboard | 1× knihovna/police | 1× konzole/credenza | 2–3× lampa stojací
-  3–5× lampička/stolní lampa | 1–2× zrcadlo velké | 3–5× velké kytky + květináče | 3–5× menší kytky
-  svíčky + svícny | vázy | hodiny | drobné zařizovací předměty (tácy, dekorace, knihy, drobnosti)
-  vypínače + zásuvky (kryty) — pokud jiný styl než místní | jídelní stůl + 4–6× židle (pokud je jídelní zóna)
-  Ceny dle budget levelu (standard): sofa 12–18k, křesla 4–6k/ks, konf.stolky 4–8k, koberec 8–12k, závěsy 15–22k+šití 4–8k, polštáře+přehozy 3–5k, obrazy 3–6k, komoda 6–10k, lampy 3–5k/ks, lampičky 1.5–3k/ks, kytky velké 4–6k, drobné 7–12k
+${(function(){ const _envBlock = buildEnvironmentTemplatesBlock(_setsDetailed); return _envBlock || 'SET ŠABLONY — pokud set odpovídá typu, použij kurátorované položky dle kontextu.'; })()}
 TRANSPORT — POUŽIJ PŘESNĚ TATO VOZIDLA V TOMTO POŘADÍ (neměň name, days ani rate):
 ${_tItems.map(v => `  { "name":"${v.name}", "days":${v.days}, "rate":${v.rate}, "total":${v.days*v.rate} }`).join('\n')}
 Transport celkem: ${_fmt(_transportAnchor)} Kč. Kapacita dodávky a trucku = 2 lidi.

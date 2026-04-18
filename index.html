@@ -997,7 +997,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.4</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v14.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1864,12 +1864,14 @@
   function parseJsonFromLLM(raw) {
     if (!raw) throw new Error('Prázdná odpověď');
 
-    // Pomocná funkce — zkus opravit useknutý JSON doplněním závorek
+    // Pomocná funkce — zkus opravit useknutý JSON:
+    //   1) trailing čárka
+    //   2) neuzavřený string (truncation uprostřed textu)
+    //   3) neúplná poslední property (např. "key": bez hodnoty)
+    //   4) doplnění závorek
     const tryRepair = (s) => {
       let t = s.trim();
-      // Odstraň trailing čárku před EOF
       t = t.replace(/,\s*$/, '');
-      // Spočítej nevyvážené závorky a doplň je
       let opens = 0, arrOpens = 0;
       let inStr = false, escape = false;
       for (const c of t) {
@@ -1882,6 +1884,11 @@
         else if (c === '[') arrOpens++;
         else if (c === ']') arrOpens--;
       }
+      // Uzavři otevřený string, pokud byl uprostřed seknutý
+      if (inStr) t += '"';
+      // Smaž neúplnou trailing property (např. ,"name": nebo ,"name":"abc)
+      t = t.replace(/,\s*"[^"]*"\s*:\s*("[^"]*"?|[^,}\]]*)?\s*$/, '');
+      t = t.replace(/,\s*$/, '');
       while (arrOpens-- > 0) t += ']';
       while (opens-- > 0) t += '}';
       return JSON.parse(t);
@@ -4183,7 +4190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v14.4';
+    const _APP_VER = 'v14.5';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4765,7 +4772,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     let _timedOut = false;
 
     try {
-      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 8000, temperature: 0, system: _AGENT_SYSTEM, messages });
+      const _body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 12000, temperature: 0, system: _AGENT_SYSTEM, messages });
       const _kb = Math.round(_body.length / 1024);
       document.getElementById('progressEta').textContent = `${_kb}KB — odesílám…`;
 
@@ -5609,7 +5616,7 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
     try {
       const _revBody = JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 8000,
+        max_tokens: 12000,
         temperature: 0,
         system: _AGENT_SYSTEM,
         messages: [{ role: 'user', content: prompt }]

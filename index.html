@@ -1033,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.5</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.6</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1134,6 +1134,30 @@
       <span style="font-size:7px;letter-spacing:0.06em;text-transform:uppercase;opacity:0.85;">import</span>
       <input type="file" accept="application/json,.json" style="display:none;" onchange="importWorkspace(this)"/>
     </label>
+
+    <button onclick="openMemoryManager()" title="Správa paměti projektů (smazat kontaminované karty)"
+      style="background:var(--surface2);border:1px solid rgba(180,180,180,0.3);color:rgba(180,180,180,0.7);
+             font-family:var(--font);font-size:11px;padding:4px 8px;cursor:pointer;transition:all 0.15s;
+             border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1;"
+      onmouseover="this.style.borderColor='rgba(180,180,180,0.8)';this.style.color='rgba(180,180,180,1)'"
+      onmouseout="this.style.borderColor='rgba(180,180,180,0.3)';this.style.color='rgba(180,180,180,0.7)'">
+      <span>⎘</span>
+      <span style="font-size:7px;letter-spacing:0.06em;text-transform:uppercase;opacity:0.85;">paměť</span>
+    </button>
+  </div>
+</div>
+
+<!-- Memory Manager Modal -->
+<div id="memoryModal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.72);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding:60px 20px;overflow-y:auto;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);max-width:720px;width:100%;padding:20px 22px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div>
+        <div style="font-size:14px;color:var(--text);font-weight:600;">Paměť projektů</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Karty uložené v prohlížeči — smaž ty kontaminované</div>
+      </div>
+      <button onclick="closeMemoryManager()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font);font-size:14px;width:28px;height:28px;border-radius:var(--radius-sm);cursor:pointer;">×</button>
+    </div>
+    <div id="memoryList" style="max-height:60vh;overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -4180,6 +4204,53 @@ Používej jen pokud sedí k aktuálnímu scriptu — jinak ignoruj.`);
     } catch(e) {}
   }
 
+  // ─── Memory Manager — správa paměti projektů ───
+  function openMemoryManager() {
+    renderMemoryList();
+    const m = document.getElementById('memoryModal');
+    if (m) m.style.display = 'flex';
+  }
+  function closeMemoryManager() {
+    const m = document.getElementById('memoryModal');
+    if (m) m.style.display = 'none';
+  }
+  function renderMemoryList() {
+    const list = document.getElementById('memoryList');
+    if (!list) return;
+    const mem = getScriptMemory();
+    if (!mem.length) {
+      list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px;">Žádné uložené karty.</div>';
+      return;
+    }
+    list.innerHTML = mem.map((c, i) => {
+      const fp = c.scriptFingerprint ? c.scriptFingerprint.substring(0, 10) + '…' : '<span style="color:var(--danger);">chybí</span>';
+      const setsList = (c.sets || []).join(', ') || '(žádné sety)';
+      const name = c.projectName || '<em style="color:var(--muted);">bez názvu</em>';
+      return `<div style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:flex-start;">
+        <div style="min-width:0;">
+          <div style="font-size:12px;color:var(--text);font-weight:500;margin-bottom:3px;">${name} <span style="color:var(--muted);font-weight:400;">· ${c.setCount || 0} setů</span></div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;word-wrap:break-word;">${setsList}</div>
+          <div style="font-size:9px;color:var(--muted);letter-spacing:0.04em;">fingerprint: ${fp} · ${c.lastUpdate || '—'}</div>
+        </div>
+        <button onclick="deleteMemoryCard(${i})" style="background:var(--surface2);border:1px solid rgba(220,80,80,0.35);color:rgba(220,80,80,0.85);font-family:var(--font);font-size:10px;padding:5px 10px;cursor:pointer;border-radius:var(--radius-sm);white-space:nowrap;letter-spacing:0.05em;">× smazat</button>
+      </div>`;
+    }).join('');
+  }
+  function deleteMemoryCard(idx) {
+    const mem = getScriptMemory();
+    const card = mem[idx];
+    if (!card) return;
+    const name = card.projectName || '(bez názvu)';
+    if (!confirm(`Smazat kartu "${name}" (${card.setCount || 0} setů)?`)) return;
+    mem.splice(idx, 1);
+    try { localStorage.setItem(_SMEM_KEY, JSON.stringify(mem)); } catch(e) {}
+    try { autoSyncPush(); } catch(e) {}
+    renderMemoryList();
+  }
+  window.openMemoryManager = openMemoryManager;
+  window.closeMemoryManager = closeMemoryManager;
+  window.deleteMemoryCard = deleteMemoryCard;
+
   // ─── ROZŠÍŘENÍ getLearningContext o projekt databázi ───
   const _origGetLearningContext = getLearningContext;
   getLearningContext = function() {
@@ -4326,7 +4397,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v15.5';
+    const _APP_VER = 'v15.6';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

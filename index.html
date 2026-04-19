@@ -1033,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.4</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -2312,17 +2312,19 @@
     const descLine    = desc ? 'Popis / script / treatment:\n' + desc : '';
     const jsonExample = '{"sets":[{"name":"Obývací pokoj","type":"reálná lokace","note":"moderní interiér, velká okna"},{"name":"Kuchyně","type":"reálná lokace","note":"vaření na plynu"}],"hero_props":["čisticí sprej","varná deska"],"notes":"žádné speciální požadavky"}';
 
-    // ── Paměť projektu — hledej PRIMÁRNĚ dle fingerprintu obsahu, sekundárně dle názvu ──
+    // ── Paměť projektu — STRICT: auto-apply setů pouze při přesné shodě obsahu (fingerprint) ──
+    // Shoda podle jména je nespolehlivá a způsobovala kontaminaci napříč projekty.
     const _memCard = findMemoryCard(projectName, _scriptFP);
-    if (_memCard?.setsRaw?.length) {
-      // Předvyplníme sety z paměti do formuláře — analýza pak může přidat nové, ne mazat staré
+    const _memIsStrict = !!(_memCard && _scriptFP && _memCard.scriptFingerprint === _scriptFP);
+    if (_memIsStrict && _memCard?.setsRaw?.length) {
+      // Totožný script → předvyplníme sety z paměti (analýza pak může přidat další, ne mazat)
       applyMemoryCardSets(_memCard);
     }
-    const _memSetsLine = _memCard?.setsRaw?.length
-      ? '\n⚑ UŽIVATELEM POTVRZENÉ SETY Z PŘEDEŠLÉ PRÁCE — POVINNĚ je zahrň do výstupu (i kdyby nebyly vidět ve scriptu):\n' +
+    const _memSetsLine = (_memIsStrict && _memCard?.setsRaw?.length)
+      ? '\nSETY POTVRZENÉ UŽIVATELEM PŘI DŘÍVĚJŠÍ ANALÝZE TÉHOŽ SCRIPTU (zahrň je):\n' +
         _memCard.setsRaw.map((s, i) => `${i+1}. ${s.name} (${s.type})`).join('\n')
       : '';
-    const _memCorrectionsLine = _memCard?.corrections?.length
+    const _memCorrectionsLine = (_memIsStrict && _memCard?.corrections?.length)
       ? '\nUŽIVATELSKÉ KOREKCE Z MINULA:\n' + _memCard.corrections.slice(-3).map(c => `- [${c.date}] ${c.note}`).join('\n')
       : '';
 
@@ -2505,52 +2507,18 @@
         type: typeMap[s.type?.toLowerCase()] || s.type || 'reálná lokace'
       }));
 
-      // ── Záchranný set-based matching — pokud karta nebyla nalezena před analýzou ──
-      // Porovná sety vrácené analýzou s kartami v paměti (35% překryv stačí)
-      // Funguje i pro staré karty bez fingerprintu nebo s jiným názvem projektu
-      let _activeMemCard = _memCard;
-      if (!_activeMemCard && parsed.sets?.length) {
-        const _bySetMatch = findMemoryCardBySets(parsed.sets.map(s => s.name));
-        if (_bySetMatch) {
-          _activeMemCard = _bySetMatch;
-          // Přiřaď fingerprint k nalezené kartě → příště najde přímo
-          if (_scriptFP && !_bySetMatch.scriptFingerprint) {
-            _bySetMatch.scriptFingerprint = _scriptFP;
-            try { saveScriptMemory(_bySetMatch); } catch(e) {}
-          }
-        }
-      }
-
-      // ── Fill sets on left panel — MERGE (model + paměť) ──
+      // ── Fill sets on left panel — z analýzy scriptu ──
+      // Memory sety se už doplňují JEN při fingerprint shodě (viz applyMemoryCardSets nahoře).
+      // Fuzzy matching podle jmen setů byl odstraněn — způsoboval kontaminaci napříč projekty.
       const _existingSetNames = Array.from(document.querySelectorAll('.set-row'))
         .map(r => (r.querySelector('.set-name')?.value || '').trim().toLowerCase())
         .filter(Boolean);
 
-      // 1. Přidej sety z analýzy scriptu
       const _newFromAnalysis = (parsed.sets || []).filter(s => {
         const n = (s.name || '').trim().toLowerCase();
         return n && !_existingSetNames.includes(n);
       });
       _newFromAnalysis.forEach(s => addSet(s.name || 'Set', s.type));
-
-      // 2. Přidej sety z paměti které analýza vynechala (uživatelem potvrzená prostředí)
-      if (_activeMemCard?.setsRaw?.length) {
-        const _afterAnalysisNames = Array.from(document.querySelectorAll('.set-row'))
-          .map(r => (r.querySelector('.set-name')?.value || '').trim().toLowerCase())
-          .filter(Boolean);
-        const _memMissing = _activeMemCard.setsRaw.filter(s => {
-          const n = (s.name || '').trim().toLowerCase();
-          return n && !_afterAnalysisNames.includes(n);
-        });
-        if (_memMissing.length) {
-          _memMissing.forEach(s => addSet(s.name, s.type));
-          // Zobraz info uživateli
-          if (textEl) {
-            textEl.textContent = `✓ Analýza hotova · +${_memMissing.length} set${_memMissing.length > 1 ? 'y' : ''} z paměti`;
-            textEl.style.color = 'var(--accent)';
-          }
-        }
-      }
 
       updateCrewEstimate();
 
@@ -3833,27 +3801,6 @@
     return null;
   }
 
-  // Záchranný matching dle překryvu názvů setů — funguje i pro staré karty bez fingerprintu
-  // Volá se PO analýze, pokud findMemoryCard nic nenašel
-  function findMemoryCardBySets(analyzedSetNames) {
-    const mem = getScriptMemory();
-    if (!mem.length || !analyzedSetNames?.length) return null;
-    const norm = s => (s || '').toLowerCase().replace(/[^\wáčďéěíňóřšťúůýž]/g, ' ').replace(/\s+/g, ' ').trim();
-    const analyzed = analyzedSetNames.map(norm).filter(Boolean);
-    let bestCard = null, bestScore = 0;
-    mem.forEach(card => {
-      const cardNames = (card.setsRaw || []).map(s => norm(s.name)).filter(Boolean);
-      if (!cardNames.length) return;
-      let overlap = 0;
-      analyzed.forEach(an => {
-        if (cardNames.some(cn => cn === an || cn.includes(an) || an.includes(cn))) overlap++;
-      });
-      const score = overlap / Math.max(analyzed.length, cardNames.length);
-      if (score > bestScore && score >= 0.35) { bestScore = score; bestCard = card; }
-    });
-    return bestCard;
-  }
-
   // Získá sety z formuláře
   function getCurrentSets() {
     return Array.from(document.querySelectorAll('.set-row'))
@@ -3912,7 +3859,9 @@
 
     // Najdi kartu aktuálního projektu — fingerprint má přednost před názvem
     const currentCard = findMemoryCard(projectName, window._currentScriptFP);
-    if (currentCard) {
+    const _cardIsStrict = !!(currentCard && window._currentScriptFP && currentCard.scriptFingerprint === window._currentScriptFP);
+    if (currentCard && _cardIsStrict) {
+      // Přesná shoda obsahu scriptu → HARD RULE (stejný script = stejná prostředí)
       const corr = (currentCard.corrections || []).map(x => `  ⚠ [${x.date}] ${x.note}`).join('\n');
       parts.push(`⚑ ROZPOZNANÝ PROJEKT — POUŽIJ TATO DATA ZÁVAZNĚ:
 Projekt: "${currentCard.projectName}" — byl již dříve zpracován a upraven uživatelem.
@@ -3922,6 +3871,12 @@ Dny: shoot=${currentCard.shootDays} prep=${currentCard.prepDays}
 UŽIVATELEM POTVRZENÉ OPRAVY — ZÁVAZNÉ (nesmíš je ignorovat ani opakovat chyby):
 ${corr || '  (projekt byl uložen bez specifických oprav)'}
 HARD RULE: Tato prostředí MUSÍŠ použít. Nesmíš vynechat žádné z výše uvedených ${currentCard.setCount} prostředí.`);
+    } else if (currentCard) {
+      // Shoda jen podle názvu — NENÍ spolehlivá, jen hint (nenutit použít sety!)
+      const corr = (currentCard.corrections || []).slice(-3).map(x => `  [${x.date}] ${x.note}`).join('\n');
+      parts.push(`DŘÍVE JSI PRACOVAL NA PROJEKTU PODOBNÉHO NÁZVU (jen kontext, nemusí jít o tentýž projekt):
+Projekt: "${currentCard.projectName}" | sety: ${(currentCard.sets || []).join(', ')}${corr ? '\nPoznámky z úprav:\n' + corr : ''}
+Používej jen pokud sedí k aktuálnímu scriptu — jinak ignoruj.`);
     }
 
     // Ostatní memory cards jako kontext
@@ -4371,7 +4326,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v15.4';
+    const _APP_VER = 'v15.5';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

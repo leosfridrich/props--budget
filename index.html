@@ -1033,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.7</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.8</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1158,7 +1158,7 @@
       <button onclick="closeMemoryManager()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font);font-size:14px;width:28px;height:28px;border-radius:var(--radius-sm);cursor:pointer;">×</button>
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
-      <input id="memoryFilter" type="text" oninput="renderMemoryList()" placeholder="Filtr podle názvu nebo setu…"
+      <input id="memoryFilter" type="text" oninput="renderMemoryList()" placeholder="Filtr (víc termů odděl čárkou: telecom, test, 2025)"
              style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;padding:6px 9px;border-radius:var(--radius-sm);" />
       <button onclick="bulkDeleteFingerprintless()" title="Smaže všechny karty bez fingerprintu (staré z testování)"
               style="background:var(--surface2);border:1px solid rgba(220,80,80,0.35);color:rgba(220,80,80,0.85);font-family:var(--font);font-size:10px;padding:6px 10px;cursor:pointer;border-radius:var(--radius-sm);white-space:nowrap;letter-spacing:0.04em;">× bez FP</button>
@@ -4223,25 +4223,29 @@ Používej jen pokud sedí k aktuálnímu scriptu — jinak ignoruj.`);
     const m = document.getElementById('memoryModal');
     if (m) m.style.display = 'none';
   }
-  function _memFilterMatches(card, q) {
-    if (!q) return true;
+  function _memFilterTerms(q) {
+    return (q || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+  }
+  function _memFilterMatches(card, qOrTerms) {
+    const terms = Array.isArray(qOrTerms) ? qOrTerms : _memFilterTerms(qOrTerms);
+    if (!terms.length) return true;
     const hay = (
       (card.projectName || '') + ' ' +
       (card.sets || []).join(' ') + ' ' +
       (card.setsRaw || []).map(s => s.name || '').join(' ')
     ).toLowerCase();
-    return hay.includes(q);
+    return terms.some(t => hay.includes(t));
   }
   function renderMemoryList() {
     const list = document.getElementById('memoryList');
     const meta = document.getElementById('memoryListMeta');
     if (!list) return;
     const mem = getScriptMemory();
-    const q = (document.getElementById('memoryFilter')?.value || '').trim().toLowerCase();
-    const visible = mem.map((c, i) => ({ c, i })).filter(x => _memFilterMatches(x.c, q));
+    const terms = _memFilterTerms(document.getElementById('memoryFilter')?.value || '');
+    const visible = mem.map((c, i) => ({ c, i })).filter(x => _memFilterMatches(x.c, terms));
     if (meta) {
       const noFp = mem.filter(c => !c.scriptFingerprint).length;
-      meta.textContent = `${mem.length} karet celkem · ${noFp} bez fingerprintu${q ? ` · filtr vidí ${visible.length}` : ''}`;
+      meta.textContent = `${mem.length} karet celkem · ${noFp} bez fingerprintu${terms.length ? ` · filtr vidí ${visible.length}` : ''}`;
     }
     if (!mem.length) {
       list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px;">Žádné uložené karty.</div>';
@@ -4288,12 +4292,12 @@ Používej jen pokud sedí k aktuálnímu scriptu — jinak ignoruj.`);
   }
   function bulkDeleteFiltered() {
     const mem = getScriptMemory();
-    const q = (document.getElementById('memoryFilter')?.value || '').trim().toLowerCase();
-    if (!q) { alert('Napiš do filtru co chceš smazat (název projektu nebo set).'); return; }
-    const toDelete = mem.filter(c => _memFilterMatches(c, q));
+    const terms = _memFilterTerms(document.getElementById('memoryFilter')?.value || '');
+    if (!terms.length) { alert('Napiš do filtru co chceš smazat (název projektu nebo set).'); return; }
+    const toDelete = mem.filter(c => _memFilterMatches(c, terms));
     if (!toDelete.length) { alert('Filtru neodpovídá žádná karta.'); return; }
-    if (!confirm(`Smazat ${toDelete.length} karet odpovídajících filtru "${q}"?`)) return;
-    const kept = mem.filter(c => !_memFilterMatches(c, q));
+    if (!confirm(`Smazat ${toDelete.length} karet odpovídajících filtru "${terms.join(', ')}"?`)) return;
+    const kept = mem.filter(c => !_memFilterMatches(c, terms));
     try { localStorage.setItem(_SMEM_KEY, JSON.stringify(kept)); } catch(e) {}
     try { autoSyncPush(); } catch(e) {}
     renderMemoryList();
@@ -4450,7 +4454,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v15.7';
+    const _APP_VER = 'v15.8';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

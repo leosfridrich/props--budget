@@ -1033,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.8</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v15.9</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -4360,9 +4360,13 @@ Používej jen pokud sedí k aktuálnímu scriptu — jinak ignoruj.`);
   function clearGatePw() { try { localStorage.removeItem(LS_GATE_PW); } catch(e) {} }
 
   // Jednotné hlavičky pro všechny /api/* volání — přidá heslo; x-api-key jen pokud uživatel zadal vlastní
+  // Input je z bezpečnostních důvodů prázdný (klíč nezobrazujeme), fallback čte uložený klíč z localStorage.
   function apiHeaders(extra) {
     const h = { 'x-app-password': getGatePw() };
-    const userKey = (document.getElementById('apiKey')?.value || '').replace(/\s/g, '');
+    const typed = (document.getElementById('apiKey')?.value || '').replace(/\s/g, '');
+    let stored = '';
+    try { stored = (localStorage.getItem('propsBudget_apiKey') || '').replace(/\s/g, ''); } catch(e) {}
+    const userKey = typed || stored;
     if (userKey) h['x-api-key'] = userKey;
     return Object.assign(h, extra || {});
   }
@@ -4454,7 +4458,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v15.8';
+    const _APP_VER = 'v15.9';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -4567,22 +4571,33 @@ document.addEventListener('DOMContentLoaded', () => {
   renderExtraRefList();
   renderHistoryBar();
 
-  // API klíč — načti z localStorage a ukládej při změně
+  // API klíč — ukládej do localStorage, ale do inputu NIKDY nevyplňuj hodnotu (bezpečnost).
+  // apiHeaders() čte uložený klíč z localStorage jako fallback, takže funguje i s prázdným polem.
   (function() {
     var keyEl = document.getElementById('apiKey');
     var statusEl = document.getElementById('apiKeyStatus');
-    try {
-      var saved = localStorage.getItem('propsBudget_apiKey') || '';
-      if (saved && keyEl) {
-        keyEl.value = saved;
-        if (statusEl) statusEl.textContent = 'Klíč načten z prohlížeče ✓';
-      }
-    } catch(e) {}
+    var lblEl = document.getElementById('apiKeyLabel');
+    function refreshStatus() {
+      var saved = '';
+      try { saved = localStorage.getItem('propsBudget_apiKey') || ''; } catch(e) {}
+      if (keyEl) keyEl.placeholder = saved ? 'klíč uložen · přepiš pro změnu' : 'sk-ant-…';
+      if (lblEl) lblEl.style.color = saved ? 'var(--success)' : 'var(--muted)';
+      if (statusEl) statusEl.textContent = saved ? 'Klíč uložen v prohlížeči ✓' : 'Klíč se ukládá do prohlížeče.';
+    }
+    refreshStatus();
     if (keyEl) {
       keyEl.addEventListener('input', function() {
         var val = keyEl.value.trim();
-        try { localStorage.setItem('propsBudget_apiKey', val); } catch(e) {}
+        if (val) {
+          try { localStorage.setItem('propsBudget_apiKey', val); } catch(e) {}
+        }
         if (statusEl) statusEl.textContent = val ? 'Klíč uložen ✓' : 'Klíč se ukládá do prohlížeče.';
+        if (lblEl) lblEl.style.color = val ? 'var(--success)' : 'var(--muted)';
+      });
+      keyEl.addEventListener('blur', function() {
+        // Po opuštění pole klíč zase skryj — zůstane uložen v localStorage
+        if (keyEl.value) keyEl.value = '';
+        refreshStatus();
       });
     }
   })();

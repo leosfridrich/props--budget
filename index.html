@@ -1033,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v16.3</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v16.4</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -3824,12 +3824,11 @@
     if (key) {
       let card = mem.find(c => buildProjectKey(c.projectName) === key);
       if (card) return card;
-      // 3. Částečný název
-      card = mem.find(c => {
-        const ck = buildProjectKey(c.projectName);
-        return ck && (key.includes(ck) || ck.includes(key));
-      });
-      if (card) return card;
+      // ZÁMĚRNĚ ŽÁDNÝ substring fallback — dříve zde "Innogy" matchovalo "Innogy Energy"
+      // a aplikovalo cizí data jako "podobný název" hint do promptu. Bezpečnější je
+      // vrátit null (žádný match) a nechat agenta vyrobit fresh odhad bez kontaminace.
+      // Pokud user chce načíst stejnou kartu pro variantu názvu → nahraje stejný script
+      // a fingerprint match (priorita 1) ji najde i bez ohledu na rename.
     }
     return null;
   }
@@ -4464,7 +4463,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v16.3';
+    const _APP_VER = 'v16.4';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);

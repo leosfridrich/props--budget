@@ -1033,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v16.1</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v16.2</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -4464,7 +4464,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v16.1';
+    const _APP_VER = 'v16.2';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5072,7 +5072,7 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     _anchorSum += shootDays * rates.propMasterShoot + (prepDays + wrapDays) * rates.propMasterPrep;
     // Buyer
     if (_displayBuyer > 0) {
-      const _anchBuyerPrep = Math.max(Math.round(prepDays * 0.6), 3);
+      const _anchBuyerPrep = Math.max(prepDays - 1 + wrapDays, 3);
       _anchorSum += _displayBuyer * (shootDays * rates.propMasterShoot + _anchBuyerPrep * rates.propMasterPrep);
     }
     // Leading Propman + další propmani
@@ -5080,7 +5080,7 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
       const _anchLpPrep = Math.max(0, prepDays + wrapDays - 1);
       _anchorSum += shootDays * rates.leadingPropmanShoot + _anchLpPrep * rates.leadingPropmanPrep;
       for (let _pi = 1; _pi < _displayOstatni; _pi++) {
-        const _anchPPrep = Math.max(1, Math.round(prepDays * Math.pow(0.6, _pi)));
+        const _anchPPrep = Math.max(1, Math.min(Math.round(prepDays * Math.pow(0.6, _pi)), shootDays + 5));
         _anchorSum += shootDays * rates.propmanShoot + _anchPPrep * rates.propmanPrep;
       }
     }
@@ -5089,7 +5089,7 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     // Set Dresser (7 prep fixed)
     _anchorSum += _setDresserCount * (shootDays + 7) * rates.setdresserShoot;
     // Props Construction
-    _anchorSum += _propsConstCount * shootDays * rates.propConstruction;
+    _anchorSum += _propsConstCount * (shootDays + 1) * rates.propConstruction;
     const _labourAnchorRaw = Math.round(_anchorSum);
     // ── AUTO-KALIBRACE z historie ── (viz computeCalibrationFactors)
     const _calib = computeCalibrationFactors({ budgetLevel, shootDays, setCount: activeSets });
@@ -5110,7 +5110,7 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     const _labourTeamLines = [];
     _labourTeamLines.push(`  Prop Master: celkem ${_pmDays} dní (shoot_days=${shootDays}, prep_days=${_pmDays - shootDays}, rate=${rates.propMasterShoot})`);
     if (_displayBuyer > 0) {
-      const _buyerPrep = Math.max(Math.round(prepDays * 0.6), 3);
+      const _buyerPrep = Math.max(prepDays - 1 + wrapDays, 3);
       _labourTeamLines.push(`  Buyer: celkem ${shootDays + _buyerPrep} dní (shoot_days=${shootDays}, prep_days=${_buyerPrep}, rate=${rates.propMasterShoot})`);
     }
     if (_displayOstatni >= 2) {
@@ -5118,7 +5118,7 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
       // Geometrický pokles prep dní podle reálných jobů (LEGO, ČS, ETSY):
       // Propman 1 ≈ 60% prepDays, každý další ×0.6 (tail propmani jen 1–3 dny kolem natáčení).
       for (let _pi = 1; _pi < _displayOstatni; _pi++) {
-        const _pPrep = Math.max(1, Math.round(prepDays * Math.pow(0.6, _pi)));
+        const _pPrep = Math.max(1, Math.min(Math.round(prepDays * Math.pow(0.6, _pi)), shootDays + 5));
         const _pDays = shootDays + _pPrep;
         _labourTeamLines.push(`  Propman ${_pi}: celkem ${_pDays} dní (shoot_days=${shootDays}, prep_days=${_pPrep})`);
       }
@@ -5129,7 +5129,7 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
       _labourTeamLines.push(`  Set Dresser: ${_setDresserCount}× osoba, shoot_days PŘESNĚ=${shootDays}, prep_days PŘESNĚ=7, rate=${rates.setdresserShoot} Kč/den — POVINNĚ vlož do labour.team`);
     }
     if (_propsConstActive && _propsConstCount > 0) {
-      _labourTeamLines.push(`  Props Construction: ${_propsConstCount}× osoba, shoot_days PŘESNĚ=${shootDays}, prep_days=0, rate=${rates.propConstruction} Kč/den — POVINNĚ vlož do labour.team`);
+      _labourTeamLines.push(`  Props Construction: ${_propsConstCount}× osoba, shoot_days PŘESNĚ=${shootDays}, prep_days PŘESNĚ=1, rate=${rates.propConstruction} Kč/den — POVINNĚ vlož do labour.team`);
     }
     const _totalLabourPeople = fullJobCrew + (_setDresserActive ? _setDresserCount : 0) + (_propsConstActive ? _propsConstCount : 0);
 

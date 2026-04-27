@@ -1033,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v16.0</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v16.1</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -4464,7 +4464,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v16.0';
+    const _APP_VER = 'v16.1';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -6222,22 +6222,17 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
           const _maxPrep  = _rPrep + _rWrap;
           const _maxShoot = _rShoot;
 
-          // Strategie: škáluj CELKOVÉ dny každého člověka (prep+shoot proporcionálně)
-          // Zachovej poměr prep:shoot u každého člověka
+          // PRAVIDLO: shoot_days = autoritativní vstup uživatele (ručně z kalendáře klienta),
+          // NIKDY neměnit kvůli targetu. Škáluj POUZE prep_days proporcionálně.
+          // Pokud prep narazí na 0/maxima a target nesedí → labour zůstane mimo target,
+          // uživatel pak buď akceptuje, nebo manuálně přidá/odebere crew člena.
           const _scLab = _targetLabour / _actualLab;
           (revised.labour?.team || []).forEach(p => {
-            const origShoot = Math.min(p.shoot_days || 0, _maxShoot);
-            const origPrep  = Math.min(p.prep_days  || 0, _maxPrep);
-            const origTotal = origShoot + origPrep;
-            if (origTotal === 0) return;
-            // Nový celkový počet dní po škálování
-            const newTotal  = Math.max(1, Math.round(origTotal * _scLab));
-            // Zachovej poměr shoot:prep, clampuj na maxima
-            const shootFrac = origShoot / origTotal;
-            const newShoot  = Math.min(Math.max(1, Math.round(newTotal * shootFrac)), _maxShoot);
-            const newPrep   = Math.min(Math.max(0, newTotal - newShoot), _maxPrep);
-            p.shoot_days = newShoot;
-            p.prep_days  = newPrep;
+            // shoot_days = autorita uživatele, jen clampovat na maximum (NIKDY škálovat dolů)
+            p.shoot_days = Math.min(p.shoot_days || 0, _maxShoot);
+            // prep_days škálovat proporcionálně
+            const newPrep = Math.max(0, Math.round((p.prep_days || 0) * _scLab));
+            p.prep_days   = Math.min(newPrep, _maxPrep);
           });
 
           // Dorovnej zaokrouhlovací rozdíl na prep_days prvního člena

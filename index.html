@@ -1033,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v16.2</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v16.3</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -4464,7 +4464,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v16.2';
+    const _APP_VER = 'v16.3';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5111,7 +5111,13 @@ Vždy odpovídej přesně dle zadaných parametrů a cílových částek. Zachov
     _labourTeamLines.push(`  Prop Master: celkem ${_pmDays} dní (shoot_days=${shootDays}, prep_days=${_pmDays - shootDays}, rate=${rates.propMasterShoot})`);
     if (_displayBuyer > 0) {
       const _buyerPrep = Math.max(prepDays - 1 + wrapDays, 3);
-      _labourTeamLines.push(`  Buyer: celkem ${shootDays + _buyerPrep} dní (shoot_days=${shootDays}, prep_days=${_buyerPrep}, rate=${rates.propMasterShoot})`);
+      // Multi-buyer: pokud user manuálně zadá _displayBuyer >= 2, instrukce do promptu
+      // musí obsahovat tolik řádků kolik buyerů — jinak model přidá jen 1 a labour
+      // anchor (který násobí _displayBuyer) nesedí s vygenerovaným výstupem.
+      for (let _bi = 1; _bi <= _displayBuyer; _bi++) {
+        const _label = _displayBuyer === 1 ? 'Buyer' : `Buyer ${_bi}`;
+        _labourTeamLines.push(`  ${_label}: celkem ${shootDays + _buyerPrep} dní (shoot_days=${shootDays}, prep_days=${_buyerPrep}, rate=${rates.propMasterShoot})`);
+      }
     }
     if (_displayOstatni >= 2) {
       _labourTeamLines.push(`  Leading Propman: celkem ${_lpDays} dní (shoot_days=${shootDays}, prep_days=${_lpDays - shootDays})`);

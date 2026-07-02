@@ -11,15 +11,6 @@
     },
     "api/memory.js": {
       "maxDuration": 15
-    },
-    "api/upload.js": {
-      "maxDuration": 120
-    },
-    "api/analyze.js": {
-      "maxDuration": 120
-    },
-    "api/stream.js": {
-      "maxDuration": 120
     }
   }
 }

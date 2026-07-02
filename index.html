@@ -1033,7 +1033,7 @@
     </div>
     <span style="font-family:var(--font);font-size:9px;letter-spacing:0.12em;opacity:1;
                  color:var(--success);background:rgba(110,200,145,0.12);border:1px solid rgba(110,200,145,0.3);
-                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v16.4</span>
+                 padding:2px 7px;display:inline-block;align-self:center;margin-left:4px;">v16.5</span>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <!-- API Usage indicator -->
@@ -1667,7 +1667,7 @@
     cz: {
       logoSub: 'Rekvizitní Výprava — AI Odhad',
       apiLabel: 'Anthropic API Klíč',
-      apiNote: 'Klíč se nikde neukládá — pouze v paměti stránky. Proxy: localhost:3131',
+      apiNote: 'Klíč se nikde neukládá — pouze v paměti stránky.',
       secProject: 'Projekt',
       labelProjectName: 'Název projektu / Klient',
       placeholderProjectName: 'napr. Samsung Q7, Miu Miu SS25…',
@@ -2526,6 +2526,7 @@
       try { parsed = parseJsonFromLLM(raw); } catch(e) {
         throw new Error('Odpověď neobsahuje JSON. ' + raw.substring(0, 200));
       }
+      parsed = sanDeep(parsed); // XSS — set names/notes z LLM jdou do innerHTML
       if (!Array.isArray(parsed.sets)) throw new Error('JSON neobsahuje pole "sets".');
 
       // Normalize type values (model sometimes uses different values)
@@ -2583,7 +2584,7 @@
                  onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
                  onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✎ Upravit</button>
              </div>
-             <div id="heroPropsList">${(parsed.hero_props).map(p => `<div style="font-size:11px;color:var(--text);padding:2px 0;opacity:0.85;">· ${p}</div>`).join('')}</div>
+             <div id="heroPropsList">${(parsed.hero_props).map(p => `<div style="font-size:11px;color:var(--text);padding:2px 0;opacity:0.85;">· ${sanText(p)}</div>`).join('')}</div>
            </div>` : '';
 
       const notesRow = parsed.notes && parsed.notes !== 'null'
@@ -2597,7 +2598,7 @@
                        background:rgba(255,159,10,0.08);border:1px solid rgba(255,159,10,0.25);border-radius:6px;">
              <span style="font-size:13px;">💾</span>
              <span style="font-size:10px;color:var(--accent);letter-spacing:0.05em;">
-               Rozpoznán z paměti — <strong>${_memCard.projectName}</strong>
+               Rozpoznán z paměti — <strong>${sanText(_memCard.projectName)}</strong>
                (${_memCard.setCount} setů${_memCard.corrections?.length ? `, ${_memCard.corrections.length} korekc${_memCard.corrections.length === 1 ? 'e' : 'í'}` : ''}, ${_memCard.lastUpdate})
              </span>
            </div>` : '';
@@ -2649,7 +2650,7 @@
         <div style="border-left:3px solid var(--danger);padding:10px 14px;
                     background:rgba(200,110,110,0.06);font-size:11px;
                     color:var(--danger);line-height:1.7;margin-bottom:12px;">
-          <strong>Analýza selhala:</strong> ${msg}<br>
+          <strong>Analýza selhala:</strong> ${sanText(msg)}<br>
           <span style="opacity:0.7;font-size:10px;">Přidej sety ručně vlevo nebo
             <a href="#" onclick="parseSetsFromScript();return false;"
                style="color:var(--accent);text-decoration:none;">zkus znovu</a>.
@@ -2744,7 +2745,7 @@
     list.innerHTML = history.map((e,i) => `
       <div class="history-item${e.id===currentId?' active':''}" onclick="restoreFromHistory(${i})">
         <div style="flex:1; min-width:0;">
-          <div class="history-item-name">${e.name}${_labels[i] ? ' <span style="opacity:0.5;font-size:10px;">'+_labels[i]+'</span>' : ''}</div>
+          <div class="history-item-name">${sanText(e.name)}${_labels[i] ? ' <span style="opacity:0.5;font-size:10px;">'+_labels[i]+'</span>' : ''}</div>
           <div class="history-item-meta">${e.ts}</div>
         </div>
         <div class="history-item-total">${fmt(e.total)} Kč</div>
@@ -2903,7 +2904,7 @@
         <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;">Upravit Hero Props</div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Každá položka na nový řádek</div>
         <textarea id="heroPropsEditorTA" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font);font-size:12px;padding:10px;outline:none;resize:vertical;min-height:140px;line-height:1.8;box-sizing:border-box;"
-          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">${current.join('\n')}</textarea>
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">${current.map(sanText).join('\n')}</textarea>
         <div style="display:flex;gap:10px;margin-top:12px;">
           <button onclick="saveHeroPropsEditor(this.closest('div[style*=fixed]'))" style="flex:1;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#1C1C1E;font-family:var(--font);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;padding:10px;cursor:pointer;font-weight:600;">✓ Uložit</button>
           <button onclick="this.closest('div[style*=fixed]').remove()" style="background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-family:var(--font);font-size:11px;padding:10px 16px;cursor:pointer;">Zrušit</button>
@@ -2920,7 +2921,7 @@
     window._lastHeroProps = items;
     // Aktualizuj zobrazení v analýze
     const listEl = document.getElementById('heroPropsList');
-    if (listEl) listEl.innerHTML = items.map(p => `<div style="font-size:11px;color:var(--text);padding:2px 0;opacity:0.85;">· ${p}</div>`).join('');
+    if (listEl) listEl.innerHTML = items.map(p => `<div style="font-size:11px;color:var(--text);padding:2px 0;opacity:0.85;">· ${sanText(p)}</div>`).join('');
     // Aktualizuj input pole heroProducts
     const heroInput = document.getElementById('heroProducts');
     if (heroInput) heroInput.value = items.join(', ');
@@ -3004,7 +3005,7 @@
       uploadedFiles.push(f);
       const item = document.createElement('div');
       item.className = 'file-item';
-      item.innerHTML = `<span class="name">📄 ${f.name}</span><span class="remove" onclick="removeFile(${uploadedFiles.length-1}, this.parentElement)">×</span>`;
+      item.innerHTML = `<span class="name">📄 ${sanText(f.name)}</span><span class="remove" onclick="removeFile(${uploadedFiles.length-1}, this.parentElement)">×</span>`;
       fileList.appendChild(item);
     });
   }
@@ -3149,6 +3150,14 @@
   function formatCZK(n) {
     return new Intl.NumberFormat('cs-CZ').format(Math.round(n)) + ' Kč';
   }
+
+  // ─── XSS SANITIZACE — texty z LLM/uživatele/workspace jdoucí do innerHTML ───
+  // Odstraňuje < a > (HTML značky). Nepoužíváme entity, aby Excel/PDF exporty
+  // nezobrazovaly &amp;lt; — prop názvy úhlové závorky legitimně nepotřebují.
+  function sanText(s) { return String(s ?? '').replace(/[<>]/g, ''); }
+  // Hluboká sanitizace objektu (rozpočet z LLM) — <> se v JSON stringu vyskytují
+  // pouze uvnitř string hodnot, globální replace je proto bezpečný.
+  function sanDeep(obj) { try { return JSON.parse(JSON.stringify(obj).replace(/[<>]/g, '')); } catch(e) { return obj; } }
 
   // ─── THEME TOGGLE ───
   function toggleTheme() {
@@ -3398,7 +3407,7 @@
       const total = j.lastGenerated?.total ? Math.round(j.lastGenerated.total / 1000) + 'k' : '';
       const date = j.lastUpdate ? new Date(j.lastUpdate).toLocaleDateString('cs') : '';
       return `<div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-top:1px solid var(--border); font-size:10px;">
-        <span><b>${j.projectName}</b> <span style="opacity:0.6; letter-spacing:2px;">${S}${C}${B}</span></span>
+        <span><b>${sanText(j.projectName)}</b> <span style="opacity:0.6; letter-spacing:2px;">${S}${C}${B}</span></span>
         <span style="color:var(--muted); font-size:9px;">${total} ${date}</span>
       </div>`;
     }).join('');
@@ -3661,7 +3670,7 @@
     el.innerHTML = learned.map((l, i) => `
       <div style="display:flex; align-items:start; gap:6px; padding:3px 0; border-bottom:1px solid rgba(42,42,42,0.5);">
         <span style="color:var(--accent); flex-shrink:0;">·</span>
-        <span style="flex:1; font-size:10px; color:var(--text); opacity:0.75;">${l}</span>
+        <span style="flex:1; font-size:10px; color:var(--text); opacity:0.75;">${sanText(l)}</span>
         <span onclick="removeLearned(${i})" style="color:var(--muted); cursor:pointer; font-size:14px; line-height:1; flex-shrink:0;"
           onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</span>
       </div>`).join('');
@@ -3715,11 +3724,11 @@
     el.innerHTML = actuals.map((a, i) => `
       <div style="padding:6px 0; border-bottom:1px solid var(--border); font-size:10px;">
         <div style="display:flex; justify-content:space-between; align-items:start;">
-          <span style="color:var(--text); font-weight:600;">${a.project || 'Projekt'}</span>
+          <span style="color:var(--text); font-weight:600;">${sanText(a.project) || 'Projekt'}</span>
           <span onclick="removeActual(${i})" style="color:var(--muted); cursor:pointer; font-size:13px; line-height:1;"
             onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</span>
         </div>
-        <div style="color:var(--muted); margin-top:2px;">${a.sets||'?'} setů · ${a.shoot_days||'?'}d shoot · ${a.date||''}</div>
+        <div style="color:var(--muted); margin-top:2px;">${sanText(a.sets)||'?'} setů · ${sanText(a.shoot_days)||'?'}d shoot · ${sanText(a.date)}</div>
         <div style="margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;">
           <span>labour: <strong>${fmt(a.labour_actual)}</strong>${pct(a.labour_est, a.labour_actual)}</span>
           <span>transport: <strong>${fmt(a.transport_actual)}</strong>${pct(a.transport_est, a.transport_actual)}</span>
@@ -4256,8 +4265,8 @@ Používej jen pokud sedí k aktuálnímu scriptu — jinak ignoruj.`);
     }
     list.innerHTML = visible.map(({ c, i }) => {
       const fp = c.scriptFingerprint ? c.scriptFingerprint.substring(0, 10) + '…' : '<span style="color:var(--danger);">chybí</span>';
-      const setsList = (c.sets || []).join(', ') || '(žádné sety)';
-      const name = c.projectName || '<em style="color:var(--muted);">bez názvu</em>';
+      const setsList = sanText((c.sets || []).join(', ')) || '(žádné sety)';
+      const name = c.projectName ? sanText(c.projectName) : '<em style="color:var(--muted);">bez názvu</em>';
       return `<div style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:flex-start;">
         <div style="min-width:0;">
           <div style="font-size:12px;color:var(--text);font-weight:500;margin-bottom:3px;">${name} <span style="color:var(--muted);font-weight:400;">· ${c.setCount || 0} setů</span></div>
@@ -4463,7 +4472,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistoryBar();
     initWorkspace();
     // ── Detekce nové verze — při nasazení vyčisti formulář ──
-    const _APP_VER = 'v16.4';
+    const _APP_VER = 'v16.5';
     const _VER_KEY = 'propsBudget_appVersion';
     try {
       const _storedVer = localStorage.getItem(_VER_KEY);
@@ -5360,6 +5369,10 @@ Schéma labour.team: každý člen = {role, name, shoot_days, prep_days, rate} �
   }
 
   function renderBudget(b, projectName) {
+    // Sanitizace na jediném vstupním bodě — pokryje detailed/approx render,
+    // print i Excel (LLM výstup může nést HTML z prompt injection ve scriptu)
+    b = sanDeep(b);
+    projectName = sanText(projectName);
     window._lastBudget = b;
     window._lastBudgetName = projectName;
     // Ulož do historie pouze při nové generaci (ne při obnově z historie a ne při revizi)

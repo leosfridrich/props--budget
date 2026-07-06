@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rekvizitní výprava — AI Odhad · Pro Dark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #1C1C1E;
+    --surface: #2C2C2E;
+    --surface-2: #3A3A3C;
+    --surface-3: #48484A;
+    --border: rgba(255,255,255,0.07);
+    --border-mid: rgba(255,255,255,0.11);
+    --border-hi: rgba(255,255,255,0.16);
+    --accent: #C8A96E;
+    --accent-dark: #E8C98E;
+    --accent-dim: rgba(200,169,110,0.12);
+    --accent-glow: rgba(200,169,110,0.18);
+    --accent-glow-strong: rgba(200,169,110,0.28);
+    --yellow: #FFD60A;
+    --green: #30D158;
+    --blue: #0A84FF;
+    --orange: #FF9F0A;
+    --red: #FF453A;
+    --purple: #BF5AF2;
+    --text-primary: #F5F5F7;
+    --text-secondary: #98989D;
+    --text-tertiary: #636366;
+    --font: -apple-system, 'SF Pro Display', 'Inter', sans-serif;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+    --shadow-md: 0 2px 12px rgba(0,0,0,0.5);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+    --shadow-accent: 0 4px 20px rgba(200,169,110,0.20);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --sidebar-width: 380px;
+    --header-height: 56px;
+    --history-height: 52px;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ─────────────────────────────────── */
+  .header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--header-height);
+    background: rgba(28,28,30,0.82);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    z-index: 100;
+  }
+
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+
+  .header-icon {
+    width: 30px; height: 30px;
+    background: linear-gradient(145deg, #C8A96E 0%, #8A6840 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 2px 8px rgba(200,169,110,0.30), 0 0 0 1px rgba(200,169,110,0.15);
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.25px;
+    color: var(--text-primary);
+  }
+
+  .version-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(200,169,110,0.20);
+    padding: 2px 7px;
+    border-radius: 20px;
+    letter-spacing: 0.1px;
+  }
+
+  .workspace-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(48,209,88,0.08);
+    border: 1px solid rgba(48,209,88,0.18);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--green);
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .workspace-badge:hover {
+    background: rgba(48,209,88,0.13);
+    border-color: rgba(48,209,88,0.28);
+  }
+
+  .ws-dot {
+    width: 7px; height: 7px;
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(48,209,88,0.20);
+    animation: pulse-green 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse-green {
+    0%,100% { box-shadow: 0 0 0 2px rgba(48,209,88,0.20); }
+    50% { box-shadow: 0 0 0 5px rgba(48,209,88,0.08); }
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-ghost {
+    height: 30px;
+    padding: 0 12px;
+    background: var(--surface);
+    border: 1px solid var(--border-mid);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.18s;
+    white-space: nowrap;
+    font-family: var(--font);
+  }
+  .btn-ghost:hover {
+    background: var(--surface-2);
+    border-color: var(--border-hi);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.04) inset;
+  }
+  .btn-ghost.active-btn {
+    background: var(--accent-dim);
+    border-color: rgba(200,169,110,0.25);
+    color: var(--accent-dark);
+  }
+
+  /* ── HISTORY BAR ─────────────────────────────── */
+  .history-bar {
+    position: fixed;
+    top: var(--header-height);
+    left: 0; right: 0;
+    height: var(--history-height);
+    background: rgba(28,28,30,0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 8px;
+    z-index: 90;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .history-bar::-webkit-scrollbar { display: none; }
+
+  .history-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-right: 6px;
+  }
+
+  .history-chip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px 5px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border-mid);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.18s;
+    flex-shrink: 0;
+  }
+  .history-chip:hover {
+    background: var(--surface-2);
+    border-color: var(--accent);
+    color: var(--accent-dark);
+    box-shadow: 0 0 12px rgba(200,169,110,0.10);
+  }
+  .history-chip.active {
+    background: var(--accent-dim);
+    border-color: rgba(200,169,110,0.30);
+    color: var(--accent-dark);
+  }
+  .history-chip-num {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    background: var(--surface-2);
+    border-radius: 10px;
+    padding: 1px 5px;
+    min-width: 18px;
+    text-align: center;
+  }
+  .history-chip.active .history-chip-num {
+    background: rgba(200,169,110,0.18);
+    color: var(--accent-dark);
+  }
+
+  /* ── LAYOUT ──────────────────────────────────── */
+  .app-layout {
+    display: flex;
+    height: 100vh;
+    padding-top: calc(var(--header-height) + var(--history-height));
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ─────────────────────────────────── */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 20px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+  }
+  .sidebar-scroll::-webkit-scrollbar { width: 3px; }
+  .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+  .section-heading {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 12px;
+    margin-top: 28px;
+    padding-left: 2px;
+  }
+  .section-heading:first-child { margin-top: 0; }
+
+  .form-group { margin-bottom: 14px; }
+
+  .form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    padding-left: 1px;
+  }
+
+  .form-input {
+    width: 100%;
+    height: 36px;
+    padding: 0 12px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-mid);
+    border-radius: var(--radius-sm);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    outline: none;
+    transition: all 0.18s;
+    -webkit-appearance: none;
+    caret-color: var(--accent);
+  }
+  .form-input::placeholder { color: var(--text-tertiary); }
+  .form-input:hover {
+    border-color: var(--border-hi);
+    background: rgba(255,255,255,0.07);
+  }
+  .form-input:focus {
+    border-color: var(--accent);
+    background: rgba(200,169,110,0.06);
+    box-shadow: 0 0 0 3px var(--accent-glow), 0 0 12px rgba(200,169,110,0.10);
+  }
+
+  select.form-input {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23636366' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+    cursor: pointer;
+    color-scheme: dark;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .input-with-unit { position: relative; }
+  .input-unit {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    pointer-events: none;
+  }
+  .input-with-unit .form-input { padding-right: 36px; }
+
+  textarea.form-input {
+    height: 80px;
+    padding: 10px 12px;
+    resize: none;
+    line-height: 1.5;
+  }
+
+  /* Rate card */
+  .rate-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+  }
+  .rate-card:hover {
+    border-color: var(--border-mid);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .rate-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .rate-card-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .role-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Segmented */
+  .segmented {
+    display: flex;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-mid);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    gap: 2px;
+  }
+  .seg-btn {
+    flex: 1;
+    height: 28px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .seg-btn.active {
+    background: var(--surface-2);
+    color: var(--text-primary);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .seg-btn:hover:not(.active) { color: var(--text-primary); }
+
+  .hint {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 5px;
+    padding-left: 2px;
+  }
+
+  /* Token bar */
+  .token-counter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    padding-top: 8px;
+  }
+  .token-bar {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .token-fill {
+    height: 100%;
+    width: 34%;
+    background: linear-gradient(90deg, var(--accent), #E8C98E);
+    border-radius: 2px;
+  }
+
+  /* Sidebar footer */
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn-generate {
+    width: 100%;
+    height: 44px;
+    background: linear-gradient(145deg, #C8A96E 0%, #A8895E 100%);
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    color: #1C1C1E;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(200,169,110,0.30), 0 1px 4px rgba(200,169,110,0.20), 0 0 0 1px rgba(200,169,110,0.15) inset;
+    letter-spacing: 0.1px;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-generate::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(145deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .btn-generate:hover::before { opacity: 1; }
+  .btn-generate:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 28px rgba(200,169,110,0.40), 0 2px 8px rgba(200,169,110,0.25);
+  }
+  .btn-generate:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(200,169,110,0.25);
+  }
+
+  /* ── MAIN ────────────────────────────────────── */
+  .main-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+  }
+  .main-content::-webkit-scrollbar { width: 4px; }
+  .main-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+  /* ── BUDGET META CARD ────────────────────────── */
+  .budget-meta-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-mid);
+    padding: 22px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .budget-meta-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,169,110,0.40), transparent);
+  }
+  .budget-meta-card:hover { border-color: rgba(200,169,110,0.18); }
+
+  .budget-meta-left { flex: 1; }
+
+  .budget-project-name {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+
+  .budget-meta-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border-mid);
+    color: var(--text-secondary);
+  }
+  .tag-blue { background: rgba(10,132,255,0.10); border-color: rgba(10,132,255,0.18); color: #64B5FF; }
+  .tag-gold { background: var(--accent-dim); border-color: rgba(200,169,110,0.22); color: var(--accent-dark); }
+  .tag-green { background: rgba(48,209,88,0.08); border-color: rgba(48,209,88,0.18); color: #4CD96A; }
+
+  .budget-total-block { text-align: right; flex-shrink: 0; }
+  .budget-total-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+  }
+  .budget-total-value {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1.2px;
+    background: linear-gradient(135deg, #E8C98E 0%, #C8A96E 50%, #A8895E 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+  .budget-total-sub {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+  }
+
+  .ai-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(200,169,110,0.15);
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-top: 8px;
+  }
+
+  /* ── TABLE CARD ──────────────────────────────── */
+  .table-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  .table-card:hover {
+    border-color: var(--border-mid);
+    box-shadow: var(--shadow-md);
+  }
+
+  .table-card-header {
+    padding: 16px 24px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .table-card-title {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+
+  .table-icon {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    border: 1px solid transparent;
+  }
+  .ti-labour { background: rgba(10,132,255,0.12); border-color: rgba(10,132,255,0.15); }
+  .ti-transport { background: rgba(255,159,10,0.12); border-color: rgba(255,159,10,0.15); }
+  .ti-props { background: rgba(200,169,110,0.12); border-color: rgba(200,169,110,0.15); }
+
+  .table-title-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .table-subtitle {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 1px;
+  }
+
+  .table-card-total {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.4px;
+  }
+
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    padding: 9px 14px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-tertiary);
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  thead th:last-child { text-align: right; padding-right: 24px; }
+  thead th:first-child { padding-left: 24px; }
+
+  tbody tr { transition: background 0.12s; }
+  tbody tr:hover { background: rgba(255,255,255,0.025); }
+
+  tbody td {
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td:first-child { padding-left: 24px; }
+  tbody td:last-child { text-align: right; padding-right: 24px; font-weight: 600; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .td-role-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px 3px 7px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .chip-blue { background: rgba(10,132,255,0.12); color: #64B5FF; border: 1px solid rgba(10,132,255,0.15); }
+  .chip-orange { background: rgba(255,159,10,0.12); color: #FFB340; border: 1px solid rgba(255,159,10,0.15); }
+  .chip-gold { background: var(--accent-dim); color: var(--accent-dark); border: 1px solid rgba(200,169,110,0.15); }
+  .chip-purple { background: rgba(191,90,242,0.12); color: #CF9FFF; border: 1px solid rgba(191,90,242,0.15); }
+
+  .amount-cell {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 13px;
+  }
+
+  .table-footer-row td {
+    background: rgba(255,255,255,0.025);
+    border-top: 1px solid var(--border-mid) !important;
+    border-bottom: none !important;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .td-secondary { color: var(--text-secondary); font-size: 12px; }
+
+  /* ── SUMMARY CARD ────────────────────────────── */
+  .summary-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .summary-card::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; right: -40px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(200,169,110,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .summary-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--text-tertiary);
+    margin-bottom: 18px;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .summary-item {
+    padding: 16px;
+    background: rgba(255,255,255,0.03);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+    cursor: default;
+  }
+  .summary-item:hover {
+    border-color: var(--border-mid);
+    background: rgba(255,255,255,0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.30);
+  }
+
+  .summary-item-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary);
+    margin-bottom: 7px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .summary-item-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .summary-item-value {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+  }
+  .summary-item-pct {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+
+  /* Progress */
+  .progress-track {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .progress-row-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    width: 80px;
+    flex-shrink: 0;
+  }
+  .progress-bar-bg {
+    flex: 1;
+    height: 5px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+  .progress-row-val {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    width: 64px;
+    text-align: right;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .summary-divider {
+    height: 1px;
+    background: var(--border);
+    margin-bottom: 20px;
+  }
+
+  .summary-total-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px;
+    background: linear-gradient(135deg, rgba(200,169,110,0.10) 0%, rgba(200,169,110,0.04) 100%);
+    border: 1px solid rgba(200,169,110,0.18);
+    border-radius: var(--radius-md);
+    position: relative;
+    overflow: hidden;
+  }
+  .summary-total-row::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,169,110,0.50), transparent);
+  }
+
+  .summary-total-left { display: flex; flex-direction: column; gap: 3px; }
+  .summary-total-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .summary-total-note { font-size: 11px; color: var(--text-tertiary); }
+
+  .summary-grand-total {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -1.2px;
+    background: linear-gradient(135deg, #F0D898 0%, #C8A96E 60%, #A8895E 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 12px rgba(200,169,110,0.30));
+  }
+
+  /* ── FAB ─────────────────────────────────────── */
+  .fab-export {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    height: 44px;
+    padding: 0 22px;
+    background: rgba(44,44,46,0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-hi);
+    border-radius: 22px;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.50), 0 2px 6px rgba(0,0,0,0.30), 0 0 0 1px rgba(255,255,255,0.06) inset;
+    transition: all 0.2s;
+    z-index: 50;
+  }
+  .fab-export:hover {
+    background: rgba(58,58,60,0.98);
+    border-color: rgba(200,169,110,0.30);
+    color: var(--accent-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.55), 0 4px 10px rgba(0,0,0,0.30), 0 0 16px rgba(200,169,110,0.10);
+  }
+
+  /* Glow accent */
+  .glow-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(200,169,110,0.30) 30%, rgba(200,169,110,0.15) 70%, transparent 100%);
+    margin: 4px 0;
+  }
+
+  /* Number badge on table */
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px; height: 18px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+
+  /* Subtle animation on load */
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .table-card { animation: fade-up 0.4s ease both; }
+  .table-card:nth-child(2) { animation-delay: 0.05s; }
+  .table-card:nth-child(3) { animation-delay: 0.10s; }
+  .table-card:nth-child(4) { animation-delay: 0.15s; }
+  .summary-card { animation: fade-up 0.4s ease 0.18s both; }
+  .budget-meta-card { animation: fade-up 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<header class="header">
+  <div class="header-brand">
+    <div class="header-icon">🎬</div>
+    <span class="header-title">Rekvizitní výprava — AI Odhad</span>
+    <span class="version-badge">v9.9</span>
+    <div class="workspace-badge">
+      <div class="ws-dot"></div>
+      sunprops
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn-ghost">📋 Šablony</button>
+    <button class="btn-ghost">💾 Uložit</button>
+    <button class="btn-ghost active-btn">🌍 CS</button>
+    <button class="btn-ghost active-btn">🌙 Pro Dark</button>
+  </div>
+</header>
+
+<!-- ═══════════════════ HISTORY BAR ═══════════════════ -->
+<div class="history-bar">
+  <span class="history-label">Historie</span>
+  <div class="history-chip active">
+    <span class="history-chip-num">v4</span>
+    Černý Kříž — feature
+  </div>
+  <div class="history-chip">
+    <span class="history-chip-num">v3</span>
+    Severní Vítr — reklama
+  </div>
+  <div class="history-chip">
+    <span class="history-chip-num">v2</span>
+    Pod Povrchem — seriál
+  </div>
+  <div class="history-chip">
+    <span class="history-chip-num">v1</span>
+    Vánoční Hvězda — TVC
+  </div>
+</div>
+
+<!-- ═══════════════════ APP LAYOUT ═══════════════════ -->
+<div class="app-layout">
+
+  <!-- ─────────── SIDEBAR ─────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-scroll">
+
+      <div class="section-heading">Projekt</div>
+
+      <div class="form-group">
+        <label class="form-label">Název projektu</label>
+        <input class="form-input" type="text" value="Černý Kříž">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Typ produkce</label>
+          <select class="form-input">
+            <option selected>Feature film</option>
+            <option>Reklama (TVC)</option>
+            <option>TV seriál</option>
+            <option>Krátký film</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Budget level</label>
+          <select class="form-input">
+            <option>Nízký (indie)</option>
+            <option selected>Střední</option>
+            <option>Vysoký</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" style="margin-bottom:8px">Formát výstupu</label>
+        <div class="segmented">
+          <button class="seg-btn active">Detailní</button>
+          <button class="seg-btn">Přehledný</button>
+          <button class="seg-btn">Export PDF</button>
+        </div>
+      </div>
+
+      <div class="section-heading">Plán natáčení</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Shoot dny</label>
+          <div class="input-with-unit">
+            <input class="form-input" type="number" value="28">
+            <span class="input-unit">dní</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prep dny</label>
+          <div class="input-with-unit">
+            <input class="form-input" type="number" value="14">
+            <span class="input-unit">dní</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Počet setů</label>
+          <div class="input-with-unit">
+            <input class="form-input" type="number" value="3">
+            <span class="input-unit">sety</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prostředí</label>
+          <select class="form-input">
+            <option>Interiér</option>
+            <option selected>Mix</option>
+            <option>Exteriér</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Scénář / poznámky pro AI</label>
+        <textarea class="form-input">Dobový thriller, 30. léta. Tři hlavní sety: kancelář detektiva, noční bar, soud. Potřeba prop guns, period furniture, period newspapers.</textarea>
+      </div>
+
+      <div class="section-heading">Sazby a obsazení</div>
+
+      <div class="rate-card">
+        <div class="rate-card-header">
+          <div class="rate-card-title">
+            <div class="role-dot" style="background:var(--blue)"></div>
+            Vedoucí rekvizitář
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Denní sazba</label>
+            <div class="input-with-unit">
+              <input class="form-input" type="number" value="4500">
+              <span class="input-unit">Kč</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Počet</label>
+            <input class="form-input" type="number" value="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="rate-card">
+        <div class="rate-card-header">
+          <div class="rate-card-title">
+            <div class="role-dot" style="background:var(--orange)"></div>
+            Asistent rekvizitář
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Denní sazba</label>
+            <div class="input-with-unit">
+              <input class="form-input" type="number" value="2800">
+              <span class="input-unit">Kč</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Počet</label>
+            <input class="form-input" type="number" value="2">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" style="margin-bottom:8px">Sazba přesčas</label>
+        <div class="segmented">
+          <button class="seg-btn">1.25×</button>
+          <button class="seg-btn active">1.5×</button>
+          <button class="seg-btn">2.0×</button>
+        </div>
+        <div class="hint">Aplikuje se nad 10 hodin/den</div>
+      </div>
+
+      <div class="section-heading">Vozový park</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Pickup trucky</label>
+          <input class="form-input" type="number" value="2">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dodávky</label>
+          <input class="form-input" type="number" value="2">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Speciální vozidla</label>
+          <input class="form-input" type="number" value="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fuel paušál / den</label>
+          <div class="input-with-unit">
+            <input class="form-input" type="number" value="1200">
+            <span class="input-unit">Kč</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="token-counter">
+        <span>Kontext AI:</span>
+        <div class="token-bar"><div class="token-fill"></div></div>
+        <span>34%</span>
+      </div>
+
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn-generate">
+        <span style="font-size:15px">✦</span>
+        Generovat rozpočet
+      </button>
+    </div>
+  </aside>
+
+  <!-- ─────────── MAIN CONTENT ─────────── -->
+  <main class="main-content">
+
+    <!-- Budget meta -->
+    <div class="budget-meta-card">
+      <div class="budget-meta-left">
+        <div class="budget-project-name">Černý Kříž</div>
+        <div class="budget-meta-tags" style="margin-top:6px">
+          <span class="tag tag-blue">Feature film</span>
+          <span class="tag tag-gold">Střední budget</span>
+          <span class="tag tag-green">28 shoot dní</span>
+          <span class="tag">3 sety</span>
+          <span class="tag">Mix prostředí</span>
+        </div>
+        <div class="ai-badge">✦ AI generováno · v4 · 11.04.2026</div>
+      </div>
+      <div class="budget-total-block">
+        <div class="budget-total-label">Celkový odhad</div>
+        <div class="budget-total-value">1 234 560 Kč</div>
+        <div class="budget-total-sub">bez DPH · ±12% margin</div>
+      </div>
+    </div>
+
+    <!-- Labour -->
+    <div class="table-card">
+      <div class="table-card-header">
+        <div class="table-card-title">
+          <div class="table-icon ti-labour">👥</div>
+          <div>
+            <div class="table-title-text">Labour — Personál</div>
+            <div class="table-subtitle">3 osoby · 28+14 dní · koeficient 1.5×</div>
+          </div>
+        </div>
+        <div class="table-card-total">432 600 Kč</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Osoba</th>
+              <th>Shoot dny</th>
+              <th>Prep dny</th>
+              <th>Sazba / den</th>
+              <th>Přesčas</th>
+              <th>Celkem</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="td-role-chip chip-blue">🎨 Vedoucí rekvizitář</div></td>
+              <td style="font-weight:500">M. Horáček</td>
+              <td>28</td>
+              <td>14</td>
+              <td class="amount-cell">4 500 Kč</td>
+              <td><span style="font-size:11px;color:var(--text-tertiary)">+8 dní</span></td>
+              <td class="amount-cell">189 000 Kč</td>
+            </tr>
+            <tr>
+              <td><div class="td-role-chip chip-orange">🔧 Asistent rekvizitář</div></td>
+              <td style="font-weight:500">J. Novotná</td>
+              <td>28</td>
+              <td>10</td>
+              <td class="amount-cell">2 800 Kč</td>
+              <td><span style="font-size:11px;color:var(--text-tertiary)">+5 dní</span></td>
+              <td class="amount-cell">113 400 Kč</td>
+            </tr>
+            <tr>
+              <td><div class="td-role-chip chip-orange">🔧 Asistent rekvizitář</div></td>
+              <td style="font-weight:500">T. Beneš</td>
+              <td>28</td>
+              <td>10</td>
+              <td class="amount-cell">2 800 Kč</td>
+              <td><span style="font-size:11px;color:var(--text-tertiary)">+5 dní</span></td>
+              <td class="amount-cell">113 400 Kč</td>
+            </tr>
+            <tr class="table-footer-row">
+              <td colspan="6" style="font-weight:700;color:var(--text-secondary);font-size:12px">Subtotál Labour</td>
+              <td class="amount-cell" style="font-size:14px">432 600 Kč</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Transport -->
+    <div class="table-card">
+      <div class="table-card-header">
+        <div class="table-card-title">
+          <div class="table-icon ti-transport">🚐</div>
+          <div>
+            <div class="table-title-text">Transport — Vozový park</div>
+            <div class="table-subtitle">5 vozidel · 28 shoot dní · pojištění zahrnuto</div>
+          </div>
+        </div>
+        <div class="table-card-total">268 800 Kč</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Vozidlo</th>
+              <th>Typ</th>
+              <th>Počet dní</th>
+              <th>Sazba / den</th>
+              <th>Paušál / den</th>
+              <th>Celkem</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight:500">Ford Transit L3</td>
+              <td><div class="td-role-chip chip-orange">Dodávka</div></td>
+              <td>32</td>
+              <td class="amount-cell">2 200 Kč</td>
+              <td class="amount-cell">1 200 Kč</td>
+              <td class="amount-cell">54 400 Kč</td>
+            </tr>
+            <tr>
+              <td style="font-weight:500">VW Transporter</td>
+              <td><div class="td-role-chip chip-orange">Dodávka</div></td>
+              <td>32</td>
+              <td class="amount-cell">1 900 Kč</td>
+              <td class="amount-cell">1 200 Kč</td>
+              <td class="amount-cell">49 600 Kč</td>
+            </tr>
+            <tr>
+              <td style="font-weight:500">Toyota Hilux</td>
+              <td><div class="td-role-chip chip-gold">Pickup</div></td>
+              <td>28</td>
+              <td class="amount-cell">2 400 Kč</td>
+              <td class="amount-cell">—</td>
+              <td class="amount-cell">67 200 Kč</td>
+            </tr>
+            <tr>
+              <td style="font-weight:500">Mitsubishi L200</td>
+              <td><div class="td-role-chip chip-gold">Pickup</div></td>
+              <td>28</td>
+              <td class="amount-cell">2 100 Kč</td>
+              <td class="amount-cell">—</td>
+              <td class="amount-cell">58 800 Kč</td>
+            </tr>
+            <tr>
+              <td style="font-weight:500">Hydraulická plošina</td>
+              <td><div class="td-role-chip chip-purple">Speciální</div></td>
+              <td>8</td>
+              <td class="amount-cell">4 850 Kč</td>
+              <td class="amount-cell">—</td>
+              <td class="amount-cell">38 800 Kč</td>
+            </tr>
+            <tr class="table-footer-row">
+              <td colspan="5" style="font-weight:700;color:var(--text-secondary);font-size:12px">Subtotál Transport</td>
+              <td class="amount-cell" style="font-size:14px">268 800 Kč</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Props -->
+    <div class="table-card">
+      <div class="table-card-header">
+        <div class="table-card-title">
+          <div class="table-icon ti-props">🎭</div>
+          <div>
+            <div class="table-title-text">Props — Rekvizity</div>
+            <div class="table-subtitle">3 sety · dobový thriller · pronájem + nákup</div>
+          </div>
+        </div>
+        <div class="table-card-total">533 160 Kč</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Set / kategorie</th>
+              <th>Popis</th>
+              <th>Zdroj</th>
+              <th>Qty</th>
+              <th>Cena / ks</th>
+              <th>Celkem</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Set A — Kancelář</strong></td>
+              <td class="td-secondary">Dobový nábytek, archivní dokumenty, lampy, psací stroje</td>
+              <td><span class="td-role-chip chip-blue">Pronájem</span></td>
+              <td>—</td>
+              <td>—</td>
+              <td class="amount-cell">156 000 Kč</td>
+            </tr>
+            <tr>
+              <td><strong style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Set B — Noční bar</strong></td>
+              <td class="td-secondary">Barové vybavení, lahve, neonové reklamy, gramofon</td>
+              <td><span class="td-role-chip chip-orange">Mix</span></td>
+              <td>—</td>
+              <td>—</td>
+              <td class="amount-cell">189 000 Kč</td>
+            </tr>
+            <tr>
+              <td><strong style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Set C — Soudní síň</strong></td>
+              <td class="td-secondary">Soudnické vybavení, lavice, vlajky, zápisníky</td>
+              <td><span class="td-role-chip chip-blue">Pronájem</span></td>
+              <td>—</td>
+              <td>—</td>
+              <td class="amount-cell">98 000 Kč</td>
+            </tr>
+            <tr>
+              <td><strong style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Prop weapons</strong></td>
+              <td class="td-secondary">2× period revolver, 1× automatická pistole (repliky)</td>
+              <td><span class="td-role-chip chip-purple">Speciální</span></td>
+              <td>3</td>
+              <td class="amount-cell">15 000 Kč</td>
+              <td class="amount-cell">45 000 Kč</td>
+            </tr>
+            <tr>
+              <td><strong style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Consumables</strong></td>
+              <td class="td-secondary">Noviny, dopisy, peníze (repliky), drobné rekvizity</td>
+              <td><span class="td-role-chip chip-gold">Nákup</span></td>
+              <td>—</td>
+              <td>—</td>
+              <td class="amount-cell">45 160 Kč</td>
+            </tr>
+            <tr class="table-footer-row">
+              <td colspan="5" style="font-weight:700;color:var(--text-secondary);font-size:12px">Subtotál Props</td>
+              <td class="amount-cell" style="font-size:14px">533 160 Kč</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-card">
+      <div class="summary-title">Souhrn rozpočtu</div>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <div class="summary-item-label"><div class="summary-item-dot" style="background:var(--blue)"></div>Labour</div>
+          <div class="summary-item-value">432 600 Kč</div>
+          <div class="summary-item-pct">35.1% z celku</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-item-label"><div class="summary-item-dot" style="background:var(--orange)"></div>Transport</div>
+          <div class="summary-item-value">268 800 Kč</div>
+          <div class="summary-item-pct">21.8% z celku</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-item-label"><div class="summary-item-dot" style="background:var(--accent)"></div>Props</div>
+          <div class="summary-item-value">533 160 Kč</div>
+          <div class="summary-item-pct">43.2% z celku</div>
+        </div>
+      </div>
+      <div class="progress-track">
+        <div class="progress-row">
+          <span class="progress-row-label">Labour</span>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:35%;background:linear-gradient(90deg,#0A84FF,#5AC8FA)"></div></div>
+          <span class="progress-row-val">432 600</span>
+        </div>
+        <div class="progress-row">
+          <span class="progress-row-label">Transport</span>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:22%;background:linear-gradient(90deg,#FF9F0A,#FFD60A)"></div></div>
+          <span class="progress-row-val">268 800</span>
+        </div>
+        <div class="progress-row">
+          <span class="progress-row-label">Props</span>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:43%;background:linear-gradient(90deg,#C8A96E,#E8C98E)"></div></div>
+          <span class="progress-row-val">533 160</span>
+        </div>
+      </div>
+      <div class="summary-divider"></div>
+      <div class="summary-total-row">
+        <div class="summary-total-left">
+          <div class="summary-total-title">Celkový odhad výpravy</div>
+          <div class="summary-total-note">bez DPH · AI odhad ±12% · generováno 11.04.2026</div>
+        </div>
+        <div class="summary-grand-total">1 234 560 Kč</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- FAB -->
+<button class="fab-export">↓ Exportovat PDF</button>
+
+<script>
+  document.querySelectorAll('.seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const parent = btn.closest('.segmented');
+      parent.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+  document.querySelectorAll('.history-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.history-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
